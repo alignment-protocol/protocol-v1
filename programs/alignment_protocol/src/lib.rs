@@ -1,80 +1,259 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::Token;
+use anchor_spl::{
+    associated_token::{self, create, AssociatedToken, Create},
+    token::{self, Mint, MintTo, Token, TokenAccount},
+};
 
 declare_id!("FtHfXYCwuVEb8LVkNwNMmqMVooyg2fxkoT8i9bkEcvKW");
 
-// Define the data structure for the state account.
-#[account] // This attribute makes Anchor treat this struct as an account, and auto-implements serialization.
+// ------------------------------
+//          Data Structs
+// ------------------------------
+
+/// Global state account for this protocol
+#[account]
 pub struct State {
-    pub mint: Pubkey,      // Pubkey of the token mint created in initialize.
-    pub authority: Pubkey, // Pubkey of the authority (e.g., the user who initializes, could be admin).
-    pub bump: u8,          // Bump seed for the PDA (so we can sign with it in future if needed).
-                           // (You can add more fields here as needed, e.g., config flags, counters, etc.)
+    /// The SPL token mint created at initialization
+    pub mint: Pubkey,
+
+    /// The protocol authority (admin, DAO, etc.)
+    pub authority: Pubkey,
+
+    /// Bump seed for the state PDA
+    pub bump: u8,
+
+    /// Counts how many submissions have been made
+    pub submission_count: u64,
 }
 
-// Define the Accounts context for the initialize instruction
+/// Each submission entry
+#[account]
+pub struct Submission {
+    /// The user who submitted the data
+    pub contributor: Pubkey,
+
+    /// Unix timestamp of when they submitted
+    pub timestamp: u64,
+
+    /// Arbitrary string to store data or a code-in TX reference
+    pub data: String,
+}
+
+// ------------------------------
+//          Error Codes
+// ------------------------------
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Invalid authority for this state")]
+    InvalidAuthority,
+
+    #[msg("Arithmetic overflow occurred")]
+    Overflow,
+}
+
+// ------------------------------
+//          Instructions
+// ------------------------------
+
+/// Instruction: Initialize the protocol state + create a token mint
+///
+/// 1) Creates the `State` account (PDA with seeds=["state"]).
+/// 2) Creates the `Mint` account (PDA with seeds=["mint"]).
+/// 3) Sets `submission_count = 0`.
 #[derive(Accounts)]
-#[instruction()] // no instruction args in this example, so this can be empty
 pub struct Initialize<'info> {
-    // The state account (PDA) to be initialized.
     #[account(
-        init,                         // Anchor will create this account
-        seeds = [b"state"],           // Seed for PDA (globally unique to this program)
-        bump,                         // Store the bump on the account (we have a bump field in State to record it)
-        payer = authority,            // The account that will pay the rent (and must sign) is `authority`
-        space = 8 + 32 + 32 + 1       // Space for State: discriminator + 32 (mint) + 32 (authority) + 1 (bump)
+        init,
+        seeds = [b"state"],
+        bump,
+        payer = authority,
+        space = 8 + 32 + 32 + 1 + 8 // Discriminator + mint + authority + bump + submission_count
     )]
-    pub state: Account<'info, State>, // State account, will be created and owned by our program.
+    pub state: Account<'info, State>,
 
-    // The token mint account to be created. We will create an SPL token mint for the protocol.
     #[account(
-        init,                         // Create the mint account
-        seeds = [b"mint"],            // Seed for PDA for the mint (so program has a dedicated mint address)
-        bump,                         // Bump for the mint PDA (we might or might not store it; can derive on the fly later)
-        payer = authority,            // The same authority pays for this account as well
-        mint::decimals = 0,           // Example: 0 decimals (like an integer token). Adjust as needed (e.g., 6 for USDC-like).
-        mint::authority = state.key(),// Set the minting authority to the state PDA (our program will control minting)
-        mint::freeze_authority = state.key() // (Optional) We also set the freeze authority to the state PDA
-        // Note: Using `mint::freeze_authority` is optional. If you don't need freeze capabilities, you can omit it.
+        init,
+        seeds = [b"mint"],
+        bump,
+        payer = authority,
+        mint::decimals = 0,            // Adjust decimals as needed
+        mint::authority = state.key(), // The state PDA is the mint authority
+        mint::freeze_authority = state.key()
     )]
-    pub mint: Account<'info, anchor_spl::token::Mint>,
-    // ^ We're using Anchor's SPL helper to treat this as a Mint account.
-    // This account will be owned by the Token Program after creation.
+    pub mint: Account<'info, Mint>,
+
     #[account(mut)]
-    pub authority: Signer<'info>, // The user calling initialize (and paying for the creation). Must be a signer.
+    pub authority: Signer<'info>,
 
-    /// CHECK: Anchor will ensure the token program is the correct one (by checking against the declared ID).
-    pub token_program: Program<'info, Token>, // The SPL Token program (needed for CPI to initialize the mint)
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
 
-    pub system_program: Program<'info, System>, // System program (to create accounts)
-    pub rent: Sysvar<'info, Rent>,              // Rent sysvar, for rent-exemption calculations
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
-// The program module where we implement our instructions
+#[derive(Accounts)]
+pub struct CreateUserAta<'info> {
+    /// The person paying for creating the ATA
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    /// The user for whom we want to create an ATA
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    /// The mint for which we want the user's ATA
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+
+    /// The Associated Token Account (will be created if it doesn't exist)
+    /// We do not use `init_if_needed`; we do a CPI call to the ATA program explicitly below.
+    /// CHECK: We do not check the ATA account here because it's created by the ATA program.
+    #[account(mut)]
+    pub user_ata: UncheckedAccount<'info>,
+
+    /// Programs
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Instruction: Store data directly in your program's Submission account.
+#[derive(Accounts)]
+pub struct SubmitData<'info> {
+    #[account(mut)]
+    pub state: Account<'info, State>,
+
+    /// The mint for temp tokens, must be mutable if we plan to mint more
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+
+    /// The user's ATA to receive minted tokens
+    /// We only mark it mut. We assume it's already created via `create_user_ata`.
+    #[account(mut)]
+    pub contributor_ata: Account<'info, TokenAccount>,
+
+    /// The new Submission account
+    #[account(
+        init,
+        payer = contributor,
+        // Use seeds to ensure uniqueness
+        seeds = [
+            b"submission",
+            state.submission_count.to_le_bytes().as_ref(),
+        ],
+        bump,
+        // Discriminator + contributor pubkey + timestamp + data field (4 + your chosen max length)
+        space = 8 + 32 + 8 + (4 + 256)
+    )]
+    pub submission: Account<'info, Submission>,
+
+    /// The user making the submission
+    #[account(mut)]
+    pub contributor: Signer<'info>,
+
+    /// We do NOT require the authority to sign, we only check `state.authority` to match
+    /// so we pass it as a normal AccountInfo if needed or omit it if not used
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+// ------------------------------
+//          Program Logic
+// ------------------------------
 #[program]
-mod alignment_protocol {
+pub mod alignment_protocol {
     use super::*;
 
+    /// Instruction handler: initialize the protocol
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        // Get references to the accounts from the context for convenience
-        let state_account = &mut ctx.accounts.state;
-        let mint_account = &ctx.accounts.mint;
-        let authority_account = &ctx.accounts.authority;
+        let state_acc = &mut ctx.accounts.state;
+        state_acc.mint = ctx.accounts.mint.key();
+        state_acc.authority = ctx.accounts.authority.key();
+        state_acc.bump = ctx.bumps.state;
+        state_acc.submission_count = 0;
 
-        // Set the state account data
-        state_account.mint = mint_account.key(); // record the mint's public key in our state
-        state_account.authority = authority_account.key(); // record who initialized (could be used as admin)
-        state_account.bump = ctx.bumps.state;
+        msg!("Initialized protocol. Mint = {}", state_acc.mint);
+        Ok(())
+    }
 
-        // Optionally, we can log or emit an event for debugging/audit
-        msg!(
-            "Initialized Alignment Protocol state. Mint: {}, Authority: {}",
-            mint_account.key(),
-            authority_account.key()
+    /// Instruction handler: explicitly create user's ATA
+    ///
+    /// This does NOT use `init_if_needed`. Instead, it does a CPI to the associated_token::create method.
+    /// If the ATA already exists, this transaction will fail (unless you do extra checks).
+    pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
+        // Build a CPI context for the associated token program
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.associated_token_program.to_account_info(),
+            Create {
+                payer: ctx.accounts.payer.to_account_info(),
+                associated_token: ctx.accounts.user_ata.to_account_info(),
+                authority: ctx.accounts.user.to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                token_program: ctx.accounts.token_program.to_account_info(),
+            },
         );
 
-        // If we had defined an event, we could emit it here (e.g., emit!(Initialized {...})).
+        // If the ATA already exists, create(...) will throw an error
+        create(cpi_ctx)?;
 
+        msg!("Created ATA for user {}", ctx.accounts.user.key());
+        Ok(())
+    }
+
+    /// Instruction handler: Submit data directly on-chain
+    /// 1) Creates new `Submission` account with the given data.
+    /// 2) Mints `tokens_to_mint` from the State's mint to the user's ATA.
+    /// 3) Increments the state's submission_count.
+    pub fn submit_data(
+        ctx: Context<SubmitData>,
+        data_str: String,
+        tokens_to_mint: u64,
+    ) -> Result<()> {
+        // 1) Fill out the Submission account
+        let submission = &mut ctx.accounts.submission;
+        submission.contributor = ctx.accounts.contributor.key();
+        submission.timestamp = Clock::get()?.unix_timestamp as u64;
+        submission.data = data_str.clone(); // store the text or JSON
+
+        // 2) Mint tokens to the contributor
+        if tokens_to_mint > 0 {
+            let bump_seed = ctx.bumps.submission;
+            let seeds = &[b"state".as_ref(), &[bump_seed]];
+            let signer = &[&seeds[..]];
+
+            // CPI to the Token Program's 'mint_to'
+            let cpi_ctx = CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.contributor_ata.to_account_info(),
+                    authority: ctx.accounts.state.to_account_info(),
+                },
+            )
+            .with_signer(signer);
+
+            token::mint_to(cpi_ctx, tokens_to_mint)?;
+            msg!(
+                "Minted {} tokens to {}",
+                tokens_to_mint,
+                ctx.accounts.contributor_ata.key()
+            );
+        }
+
+        // 3) Increment submission_count
+        let state_acc = &mut ctx.accounts.state;
+        state_acc.submission_count = state_acc
+            .submission_count
+            .checked_add(1)
+            .ok_or(ErrorCode::Overflow)?;
+
+        msg!("New submission on-chain: {}", data_str);
         Ok(())
     }
 }
