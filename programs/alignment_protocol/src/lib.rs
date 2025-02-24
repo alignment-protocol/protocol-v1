@@ -1,10 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::{self, create, AssociatedToken, Create},
+    associated_token::{create, AssociatedToken, Create},
     token::{self, Mint, MintTo, Token, TokenAccount},
 };
 
-declare_id!("FtHfXYCwuVEb8LVkNwNMmqMVooyg2fxkoT8i9bkEcvKW");
+declare_id!("BMYn8rtstaZhzFZtgMVMY9io1zhnqacr3yANZrgkv7DF");
 
 // ------------------------------
 //          Data Structs
@@ -24,6 +24,9 @@ pub struct State {
 
     /// Counts how many submissions have been made
     pub submission_count: u64,
+
+    /// The number of tokens to mint for each submission
+    pub tokens_to_mint: u64,
 }
 
 /// Each submission entry
@@ -67,7 +70,7 @@ pub struct Initialize<'info> {
         seeds = [b"state"],
         bump,
         payer = authority,
-        space = 8 + 32 + 32 + 1 + 8 // Discriminator + mint + authority + bump + submission_count
+        space = 8 + 32 + 32 + 1 + 8 + 8 // Discriminator + mint + authority + bump + submission_count + tokens_to_mint
     )]
     pub state: Account<'info, State>,
 
@@ -90,6 +93,19 @@ pub struct Initialize<'info> {
 
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
+}
+
+/// Instruction: Update the number of tokens to mint for each submission
+///
+/// 1) Updates the `tokens_to_mint` field in the `State` account.
+/// 2) Requires the authority to sign.
+#[derive(Accounts)]
+pub struct UpdateTokensToMint<'info> {
+    #[account(mut, has_one = authority)]
+    pub state: Account<'info, State>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -176,8 +192,24 @@ pub mod alignment_protocol {
         state_acc.authority = ctx.accounts.authority.key();
         state_acc.bump = ctx.bumps.state;
         state_acc.submission_count = 0;
-
+        state_acc.tokens_to_mint = 0;
         msg!("Initialized protocol. Mint = {}", state_acc.mint);
+        Ok(())
+    }
+
+    /// Instruction handler: update the number of tokens to mint for each submission
+    pub fn update_tokens_to_mint(
+        ctx: Context<UpdateTokensToMint>,
+        new_tokens_to_mint: u64,
+    ) -> Result<()> {
+        let state_acc = &mut ctx.accounts.state;
+        let previous_tokens_to_mint = state_acc.tokens_to_mint;
+        state_acc.tokens_to_mint = new_tokens_to_mint;
+        msg!(
+            "Updated tokens_to_mint from {} to {}",
+            previous_tokens_to_mint,
+            new_tokens_to_mint
+        );
         Ok(())
     }
 
@@ -208,13 +240,9 @@ pub mod alignment_protocol {
 
     /// Instruction handler: Submit data directly on-chain
     /// 1) Creates new `Submission` account with the given data.
-    /// 2) Mints `tokens_to_mint` from the State's mint to the user's ATA.
+    /// 2) Mints a fixed number of tokens from the State's mint to the user's ATA.
     /// 3) Increments the state's submission_count.
-    pub fn submit_data(
-        ctx: Context<SubmitData>,
-        data_str: String,
-        tokens_to_mint: u64,
-    ) -> Result<()> {
+    pub fn submit_data(ctx: Context<SubmitData>, data_str: String) -> Result<()> {
         // 1) Fill out the Submission account
         let submission = &mut ctx.accounts.submission;
         submission.contributor = ctx.accounts.contributor.key();
@@ -222,9 +250,9 @@ pub mod alignment_protocol {
         submission.data = data_str.clone(); // store the text or JSON
 
         // 2) Mint tokens to the contributor
-        if tokens_to_mint > 0 {
-            let bump_seed = ctx.bumps.submission;
-            let seeds = &[b"state".as_ref(), &[bump_seed]];
+        if ctx.accounts.state.tokens_to_mint > 0 {
+            let state_bump = ctx.accounts.state.bump;
+            let seeds = &[b"state".as_ref(), &[state_bump]];
             let signer = &[&seeds[..]];
 
             // CPI to the Token Program's 'mint_to'
@@ -238,10 +266,10 @@ pub mod alignment_protocol {
             )
             .with_signer(signer);
 
-            token::mint_to(cpi_ctx, tokens_to_mint)?;
+            token::mint_to(cpi_ctx, ctx.accounts.state.tokens_to_mint)?;
             msg!(
                 "Minted {} tokens to {}",
-                tokens_to_mint,
+                ctx.accounts.state.tokens_to_mint,
                 ctx.accounts.contributor_ata.key()
             );
         }
