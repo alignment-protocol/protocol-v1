@@ -102,6 +102,7 @@ version = "0.1.0"
 dependencies = [
  "alignment_protocol",
  "anchor-client",
+ "anchor-lang",
  "anchor-spl",
  "anyhow",
  "clap 4.5.31",

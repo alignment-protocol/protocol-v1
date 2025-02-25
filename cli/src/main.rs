@@ -2,9 +2,9 @@ use anchor_client::{
     solana_sdk::{
         commitment_config::CommitmentConfig,
         pubkey::Pubkey,
-        signature::{read_keypair_file, EncodableKey},
-        signer::keypair::Keypair,
+        signature::{read_keypair_file, Keypair},
         system_program,
+        sysvar::rent::ID as RENT_ID,
     },
     Client, Cluster, Program,
 };
@@ -13,6 +13,13 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::rc::Rc;
 use std::str::FromStr;
+
+use alignment_protocol::accounts::CreateUserAta as CreateUserAtaAccounts;
+use alignment_protocol::accounts::SubmitData as SubmitDataAccounts;
+use alignment_protocol::instruction::CreateUserAta as CreateUserAtaIx;
+use alignment_protocol::instruction::SubmitData as SubmitDataIx;
+use alignment_protocol::State as StateAccount;
+use alignment_protocol::Submission as SubmissionAccount;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -46,19 +53,19 @@ enum Commands {
     },
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+// Changed to a regular function, no more tokio::main attribute
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     // 1) Load the keypair
     let keypair_path = shellexpand::tilde(&cli.keypair).to_string();
-    let payer = read_keypair_file(&keypair_path).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    let payer = read_keypair_file(&keypair_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read keypair file: {}", e))?;
 
     // 2) Connect to cluster using anchor-client
     let cluster = match cli.cluster.as_str() {
         "devnet" => Cluster::Devnet,
         "mainnet" => Cluster::Mainnet,
-        // Could also parse "localnet" or a custom URL
         url => Cluster::Custom(url.to_string(), url.to_string()),
     };
     let client = Client::new_with_options(cluster, Rc::new(payer), CommitmentConfig::confirmed());
@@ -66,14 +73,15 @@ async fn main() -> Result<()> {
     // 3) The program ID of your alignment_protocol
     //    Replace with your actual ID (the one you used in declare_id!)
     let program_id = Pubkey::from_str("BMYn8rtstaZhzFZtgMVMY9io1zhnqacr3yANZrgkv7DF")?;
-    let program = client.program(program_id).expect("Failed to get program");
+    let program = client.program(program_id).expect("Failed to load program");
 
+    // Execute the appropriate command based on user input
     match cli.command {
         Commands::Submit { data } => {
-            cmd_submit(&program, data).await?;
+            cmd_submit(&program, data)?;
         }
         Commands::GetSubmission { submission_index } => {
-            cmd_get_submission(&program, submission_index).await?;
+            cmd_get_submission(&program, submission_index)?;
         }
     }
 
@@ -84,55 +92,93 @@ async fn main() -> Result<()> {
 // Command Handlers
 // ---------------------------------------------------
 
-async fn cmd_submit(program: &Program<Rc<Keypair>>, data: String) -> Result<()> {
-    // We fetch state to get the current submission_count or just do ephemeral
-    let (state_pda, _) = Pubkey::find_program_address(&[b"state"], &program.id());
-    let (mint_pda, _) = Pubkey::find_program_address(&[b"mint"], &program.id());
+/// Submits data on-chain by calling `submit_data`.
+fn cmd_submit(program: &Program<Rc<Keypair>>, data: String) -> Result<()> {
+    // Derive the PDAs from seeds
+    let (state_pda, _state_bump) = Pubkey::find_program_address(&[b"state"], &program.id());
+    let (mint_pda, _mint_bump) = Pubkey::find_program_address(&[b"mint"], &program.id());
 
-    // If we want to use the CLI payer as the "contributor" too:
-    let contributor_pubkey = program.payer();
-    // Derive contributor's ATA
+    // If we want the contributor to be the CLI payer:
+    let contributor_pubkey = program.payer(); // Public key from the wallet loaded above
     let ata_pubkey = get_associated_token_address(&contributor_pubkey, &mint_pda);
 
-    // We want the next submission PDA. We can do that by fetching the state account from chain or
-    // letting the on-chain code do the seeds. But let's assume we want a read to get submission_count:
-    // If your IDL is known, you can do:
-    // let state: State = program.account(state_pda)?;
-    // let next_count = state.submission_count;
-    // etc. Then derive submission. Or let the program do it automatically if it seeds with that count.
+    // Check if the ATA exists first using get_account_info
+    // (This is optional, you could try to create it directly and handle the error)
+    println!("Ensuring ATA exists at {}...", ata_pubkey);
+    
+    // Try to create the ATA (will fail if it already exists)
+    let create_ata_result = program
+        .request()
+        .accounts(CreateUserAtaAccounts {
+            payer: contributor_pubkey,
+            user: contributor_pubkey,
+            mint: mint_pda,
+            user_ata: ata_pubkey,
+            system_program: system_program::ID,
+            token_program: anchor_spl::token::ID,
+            associated_token_program: anchor_spl::associated_token::ID,
+            rent: RENT_ID,
+        })
+        .args(CreateUserAtaIx {})
+        .send();
+        
+    match create_ata_result {
+        Ok(sig) => println!("Created new ATA (txSig: {})", sig),
+        Err(e) => {
+            // If error contains something about account existing, that's fine
+            println!("Note: ATA creation failed (likely already exists): {}", e);
+        }
+    }
 
-    // We'll just build the instruction to call 'submitData'
-    // We'll pass data + tokens_to_mint
+    // If we need the next submission index, we can fetch the current State from chain
+    let state_data: StateAccount = program.account(state_pda)?;
+    let next_index = state_data.submission_count;
+
+    // Derive the next submission PDA (the program seeds with [b"submission", submission_count])
+    let (submission_pda, _sub_bump) =
+        Pubkey::find_program_address(&[b"submission", &next_index.to_le_bytes()], &program.id());
+
+    // Now build the typed `SubmitData` accounts struct (as declared in your Anchor program)
+    let accounts = SubmitDataAccounts {
+        state: state_pda,
+        mint: mint_pda,
+        contributor_ata: ata_pubkey,
+        submission: submission_pda,
+        contributor: contributor_pubkey,
+        token_program: anchor_spl::token::ID,
+        system_program: system_program::ID,
+        rent: RENT_ID,
+    };
+
+    // Build the instruction data struct
+    let ix_data = SubmitDataIx { data_str: data };
+
+    // Send the transaction
     let tx_sig = program
         .request()
-        .accounts([
-            ("state", state_pda),
-            ("mint", mint_pda),
-            ("contributorAta", ata_pubkey),
-            ("contributor", contributor_pubkey),
-            ("tokenProgram", anchor_client::solana_sdk::system_program::id()),
-            ("systemProgram", system_program::id()),
-            ("rent", anchor_client::solana_sdk::sysvar::rent::id()),
-        ])
-        .args((data, tokens_to_mint))
-        .signer(&*program.payer())
+        .accounts(accounts)
+        .args(ix_data) // Anchor automatically serializes the instruction data
         .send()?;
 
     println!("submitData txSig: {}", tx_sig);
     Ok(())
 }
 
-async fn cmd_get_submission(program: &Program<Rc<Keypair>>, submission_index: u64) -> Result<()> {
-    // We'll derive submission PDA from [b"submission", submission_index],
-    // or fetch them all from the program. For a single example:
+/// Fetch a given submission by its index.
+fn cmd_get_submission(program: &Program<Rc<Keypair>>, submission_index: u64) -> Result<()> {
+    // Derive the same PDA the program uses for that submission index
     let (submission_pda, _) = Pubkey::find_program_address(
         &[b"submission", &submission_index.to_le_bytes()],
         &program.id(),
     );
-    let submission_data: serde_json::Value = program.account(submission_pda)?;
-    // If you have your IDL typed, you can do let submission: Submission = program.account(submission_pda)?;
+
+    // If we want the typed submission data:
+    let submission_data: SubmissionAccount = program.account(submission_pda)?;
 
     println!("Submission PDA = {}", submission_pda);
-    println!("Submission data: {:#}", submission_data);
+    println!("Contributor = {}", submission_data.contributor);
+    println!("Timestamp = {}", submission_data.timestamp);
+    println!("Data = {}", submission_data.data);
+
     Ok(())
 }
