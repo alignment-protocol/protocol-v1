@@ -39,34 +39,61 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Submit data to the protocol
+    /// Submit data to the protocol (alias: s)
+    #[command(alias = "s")]
     Submit {
         /// The data string (could be JSON or text)
-        #[arg(long)]
+        #[arg(index = 1)]
         data: String,
     },
-    /// Fetch and display a submission account
-    GetSubmission {
+
+    /// Get submissions (alias: g)
+    #[command(alias = "g")]
+    Get {
+        #[command(subcommand)]
+        subcommand: GetCommands,
+    },
+
+    /// Debug operations (alias: d)
+    #[command(alias = "d")]
+    Debug {
+        #[command(subcommand)]
+        subcommand: DebugCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum GetCommands {
+    /// Get a specific submission by index
+    #[command(alias = "one")]
+    Submission {
         /// The submission index (like 0,1,2,...)
-        #[arg(long)]
-        submission_index: u64,
+        #[arg(index = 1)]
+        index: u64,
     },
-    /// Fetch and display all submission accounts
-    GetAllSubmissions {
-        /// Optional contributor public key to filter by
-        #[arg(long)]
-        contributor: Option<String>,
+
+    /// Get all submissions (alias: a)
+    #[command(alias = "a")]
+    All {
+        /// Filter by contributor public key
+        #[arg(long, short)]
+        by: Option<String>,
     },
-    /// Debug ATA status for a user
-    DebugAta {
-        /// Optional user public key (defaults to the CLI payer if not provided)
-        #[arg(long)]
+}
+
+#[derive(Subcommand)]
+enum DebugCommands {
+    /// Debug Associated Token Account status
+    Ata {
+        /// User public key (defaults to the CLI payer if not provided)
+        #[arg(index = 1)]
         user: Option<String>,
     },
+
     /// Get detailed transaction logs for debugging
-    GetTxLogs {
+    Tx {
         /// The transaction signature to fetch logs for
-        #[arg(long)]
+        #[arg(index = 1)]
         signature: String,
     },
 }
@@ -98,18 +125,22 @@ fn main() -> Result<()> {
         Commands::Submit { data } => {
             cmd_submit(&program, data)?;
         }
-        Commands::GetSubmission { submission_index } => {
-            cmd_get_submission(&program, submission_index)?;
-        }
-        Commands::GetAllSubmissions { contributor } => {
-            cmd_get_all_submissions(&program, contributor)?;
-        }
-        Commands::DebugAta { user } => {
-            cmd_debug_ata(&program, user)?;
-        }
-        Commands::GetTxLogs { signature } => {
-            cmd_get_tx_logs(&program, signature)?;
-        }
+        Commands::Get { subcommand } => match subcommand {
+            GetCommands::Submission { index } => {
+                cmd_get_submission(&program, index)?;
+            }
+            GetCommands::All { by } => {
+                cmd_get_all_submissions(&program, by)?;
+            }
+        },
+        Commands::Debug { subcommand } => match subcommand {
+            DebugCommands::Ata { user } => {
+                cmd_debug_ata(&program, user)?;
+            }
+            DebugCommands::Tx { signature } => {
+                cmd_get_tx_logs(&program, signature)?;
+            }
+        },
     }
 
     Ok(())
@@ -231,10 +262,7 @@ fn cmd_get_submission(program: &Program<Rc<Keypair>>, submission_index: u64) -> 
 }
 
 /// Fetch and display all submission accounts
-fn cmd_get_all_submissions(
-    program: &Program<Rc<Keypair>>,
-    contributor: Option<String>,
-) -> Result<()> {
+fn cmd_get_all_submissions(program: &Program<Rc<Keypair>>, by: Option<String>) -> Result<()> {
     // Derive the PDAs from seeds
     let (state_pda, _state_bump) = Pubkey::find_program_address(&[b"state"], &program.id());
 
@@ -250,7 +278,7 @@ fn cmd_get_all_submissions(
     println!("Total submissions in protocol: {}", submission_count);
 
     // Parse contributor pubkey if provided
-    let contributor_pubkey = match contributor {
+    let contributor_pubkey = match by {
         Some(pubkey_str) => match Pubkey::from_str(&pubkey_str) {
             Ok(pubkey) => Some(pubkey),
             Err(e) => {
