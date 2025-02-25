@@ -57,6 +57,18 @@ enum Commands {
         #[arg(long)]
         contributor: Option<String>,
     },
+    /// Debug ATA status for a user
+    DebugAta {
+        /// Optional user public key (defaults to the CLI payer if not provided)
+        #[arg(long)]
+        user: Option<String>,
+    },
+    /// Get detailed transaction logs for debugging
+    GetTxLogs {
+        /// The transaction signature to fetch logs for
+        #[arg(long)]
+        signature: String,
+    },
 }
 
 // Changed to a regular function, no more tokio::main attribute
@@ -92,6 +104,12 @@ fn main() -> Result<()> {
         Commands::GetAllSubmissions { contributor } => {
             cmd_get_all_submissions(&program, contributor)?;
         }
+        Commands::DebugAta { user } => {
+            cmd_debug_ata(&program, user)?;
+        }
+        Commands::GetTxLogs { signature } => {
+            cmd_get_tx_logs(&program, signature)?;
+        }
     }
 
     Ok(())
@@ -112,30 +130,50 @@ fn cmd_submit(program: &Program<Rc<Keypair>>, data: String) -> Result<()> {
     let ata_pubkey = get_associated_token_address(&contributor_pubkey, &mint_pda);
 
     // Check if the ATA exists first using get_account_info
-    // (This is optional, you could try to create it directly and handle the error)
-    println!("Ensuring ATA exists at {}...", ata_pubkey);
+    println!("Checking if ATA exists at {}...", ata_pubkey);
 
-    // Try to create the ATA (will fail if it already exists)
-    let create_ata_result = program
-        .request()
-        .accounts(CreateUserAtaAccounts {
-            payer: contributor_pubkey,
-            user: contributor_pubkey,
-            mint: mint_pda,
-            user_ata: ata_pubkey,
-            system_program: system_program::ID,
-            token_program: anchor_spl::token::ID,
-            associated_token_program: anchor_spl::associated_token::ID,
-            rent: RENT_ID,
-        })
-        .args(CreateUserAtaIx {})
-        .send();
+    // Check if the ATA already exists by attempting to get its account info
+    let ata_exists = match program.rpc().get_account(&ata_pubkey) {
+        Ok(_) => {
+            println!("ATA already exists, skipping creation step");
+            true
+        }
+        Err(_) => {
+            println!("ATA does not exist, will create it");
+            false
+        }
+    };
 
-    match create_ata_result {
-        Ok(sig) => println!("Created new ATA (txSig: {})", sig),
-        Err(e) => {
-            // If error contains something about account existing, that's fine
-            println!("Note: ATA creation failed (likely already exists): {}", e);
+    // Only try to create the ATA if it doesn't exist
+    if !ata_exists {
+        println!("Creating ATA at {}...", ata_pubkey);
+
+        // Try to create the ATA
+        let create_ata_result = program
+            .request()
+            .accounts(CreateUserAtaAccounts {
+                payer: contributor_pubkey,
+                user: contributor_pubkey,
+                mint: mint_pda,
+                user_ata: ata_pubkey,
+                system_program: system_program::ID,
+                token_program: anchor_spl::token::ID,
+                associated_token_program: anchor_spl::associated_token::ID,
+                rent: RENT_ID,
+            })
+            .args(CreateUserAtaIx {})
+            .send();
+
+        match create_ata_result {
+            Ok(sig) => println!("Successfully created new ATA (txSig: {})", sig),
+            Err(e) => {
+                // Print detailed error information
+                println!("ATA creation failed with error: {}", e);
+                println!("Error type: {:?}", e.to_string());
+
+                // Continue anyway since the submission might still work
+                println!("Continuing with submission despite ATA creation failure...");
+            }
         }
     }
 
@@ -264,6 +302,158 @@ fn cmd_get_all_submissions(
         "\nDisplayed {} submissions matching the criteria",
         matched_count
     );
+
+    Ok(())
+}
+
+/// Debug ATA status for a user
+fn cmd_debug_ata(program: &Program<Rc<Keypair>>, user: Option<String>) -> Result<()> {
+    // Derive the PDAs from seeds
+    let (state_pda, _state_bump) = Pubkey::find_program_address(&[b"state"], &program.id());
+    let (mint_pda, _mint_bump) = Pubkey::find_program_address(&[b"mint"], &program.id());
+
+    // If no user is provided, use the CLI payer
+    let user_pubkey = match user {
+        Some(pubkey_str) => Pubkey::from_str(&pubkey_str)?,
+        None => program.payer(),
+    };
+
+    let ata_pubkey = get_associated_token_address(&user_pubkey, &mint_pda);
+
+    println!("==== ATA Debug Information ====");
+    println!("User pubkey: {}", user_pubkey);
+    println!("Mint pubkey: {}", mint_pda);
+    println!("ATA pubkey: {}", ata_pubkey);
+
+    // Check if the ATA exists by attempting to get its account info
+    println!("\nChecking if ATA exists...");
+
+    match program.rpc().get_account(&ata_pubkey) {
+        Ok(account) => {
+            println!("✅ ATA exists with the following details:");
+            println!("   - Owner: {}", account.owner);
+            println!("   - Lamports: {}", account.lamports);
+            println!("   - Data length: {} bytes", account.data.len());
+
+            // Try to deserialize as a token account
+            match program.account::<anchor_spl::token::TokenAccount>(ata_pubkey) {
+                Ok(token_account) => {
+                    println!("   - Token account data:");
+                    println!("     * Mint: {}", token_account.mint);
+                    println!("     * Owner: {}", token_account.owner);
+                    println!("     * Amount: {}", token_account.amount);
+
+                    // Check if the mint matches the expected mint
+                    if token_account.mint == mint_pda {
+                        println!("✅ ATA mint matches the protocol mint");
+                    } else {
+                        println!("❌ ATA mint does NOT match the protocol mint!");
+                    }
+
+                    // Check if the owner matches the user
+                    if token_account.owner == user_pubkey {
+                        println!("✅ ATA owner matches the user");
+                    } else {
+                        println!("❌ ATA owner does NOT match the user!");
+                    }
+                }
+                Err(e) => {
+                    println!("❌ Could not deserialize as token account: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ ATA does not exist: {}", e);
+
+            println!("\nAttempting to create ATA...");
+            // Try to create the ATA
+            let create_ata_result = program
+                .request()
+                .accounts(CreateUserAtaAccounts {
+                    payer: program.payer(),
+                    user: user_pubkey,
+                    mint: mint_pda,
+                    user_ata: ata_pubkey,
+                    system_program: system_program::ID,
+                    token_program: anchor_spl::token::ID,
+                    associated_token_program: anchor_spl::associated_token::ID,
+                    rent: RENT_ID,
+                })
+                .args(CreateUserAtaIx {})
+                .send();
+
+            match create_ata_result {
+                Ok(sig) => println!("✅ Successfully created new ATA (txSig: {})", sig),
+                Err(e) => {
+                    println!("❌ ATA creation failed with error: {}", e);
+                    println!("   Error details: {:?}", e.to_string());
+                }
+            }
+        }
+    }
+
+    // Get state data to check tokens_to_mint
+    match program.account::<StateAccount>(state_pda) {
+        Ok(state_data) => {
+            println!("\nState account information:");
+            println!(
+                "   - Tokens to mint per submission: {}",
+                state_data.tokens_to_mint
+            );
+            println!("   - Total submissions: {}", state_data.submission_count);
+        }
+        Err(e) => {
+            println!("\n❌ Could not fetch state account: {}", e);
+        }
+    }
+
+    println!("\n==== End of ATA Debug Information ====");
+    Ok(())
+}
+
+/// Get detailed transaction logs for debugging
+fn cmd_get_tx_logs(_program: &Program<Rc<Keypair>>, signature: String) -> Result<()> {
+    println!("Fetching logs for transaction: {}", signature);
+
+    // Use std::process::Command to call the Solana CLI instead
+    use std::process::Command;
+
+    // Build the solana CLI command
+    let cmd_str = format!("solana confirm -v {}", signature);
+    println!("Running: {}", cmd_str);
+
+    // Execute the command
+    let output = Command::new("sh").arg("-c").arg(cmd_str).output();
+
+    match output {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            println!("\n=== Transaction Status ===");
+            if output.status.success() {
+                println!("Command executed successfully");
+            } else {
+                println!("Command failed with exit code: {:?}", output.status.code());
+            }
+
+            if !stdout.is_empty() {
+                println!("\n=== Standard Output ===");
+                println!("{}", stdout);
+            }
+
+            if !stderr.is_empty() {
+                println!("\n=== Standard Error ===");
+                println!("{}", stderr);
+            }
+        }
+        Err(e) => {
+            return Err(anyhow::anyhow!(
+                "Failed to execute solana CLI command: {}",
+                e
+            ));
+        }
+    }
 
     Ok(())
 }
