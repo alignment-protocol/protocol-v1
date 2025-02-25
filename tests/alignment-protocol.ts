@@ -108,7 +108,7 @@ describe("alignment-protocol-devnet", () => {
   });
 
   // -----------------------------------------------------------
-  // 3) Test: Update tokensToMint if it’s 0
+  // 3) Test: Update tokensToMint if it's 0
   // -----------------------------------------------------------
   it("Updates tokens_to_mint to 1 (if zero)", async () => {
     const stateAccount = await program.account.state.fetch(statePda);
@@ -134,7 +134,7 @@ describe("alignment-protocol-devnet", () => {
   });
 
   // -----------------------------------------------------------
-  // 4) Test: Create the user’s ATA
+  // 4) Test: Create the user's ATA
   // -----------------------------------------------------------
   it("Explicitly creates user ATA, then checks second creation fails", async () => {
     // Derive user ATA
@@ -196,7 +196,7 @@ describe("alignment-protocol-devnet", () => {
   // 5) Test: Submit data
   // -----------------------------------------------------------
   it("Submits data from user, awarding tokens", async () => {
-    // Before: get the user’s ATA balance
+    // Before: get the user's ATA balance
     const stateAccount = await program.account.state.fetch(statePda);
     const currCount = stateAccount.submissionCount.toNumber();
 

@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-alignment_protocol = "FtHfXYCwuVEb8LVkNwNMmqMVooyg2fxkoT8i9bkEcvKW"
+alignment-protocol = "FtHfXYCwuVEb8LVkNwNMmqMVooyg2fxkoT8i9bkEcvKW"
 
 [registry]
 url = "https://api.apr.dev"

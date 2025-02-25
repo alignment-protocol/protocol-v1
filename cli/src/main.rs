@@ -115,7 +115,7 @@ fn main() -> Result<()> {
     };
     let client = Client::new_with_options(cluster, Rc::new(payer), CommitmentConfig::confirmed());
 
-    // 3) The program ID of your alignment_protocol
+    // 3) The program ID of your alignment-protocol
     //    Replace with your actual ID (the one you used in declare_id!)
     let program_id = Pubkey::from_str("BMYn8rtstaZhzFZtgMVMY9io1zhnqacr3yANZrgkv7DF")?;
     let program = client.program(program_id).expect("Failed to load program");
