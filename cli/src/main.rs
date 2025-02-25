@@ -51,6 +51,12 @@ enum Commands {
         #[arg(long)]
         submission_index: u64,
     },
+    /// Fetch and display all submission accounts
+    GetAllSubmissions {
+        /// Optional contributor public key to filter by
+        #[arg(long)]
+        contributor: Option<String>,
+    },
 }
 
 // Changed to a regular function, no more tokio::main attribute
@@ -83,6 +89,9 @@ fn main() -> Result<()> {
         Commands::GetSubmission { submission_index } => {
             cmd_get_submission(&program, submission_index)?;
         }
+        Commands::GetAllSubmissions { contributor } => {
+            cmd_get_all_submissions(&program, contributor)?;
+        }
     }
 
     Ok(())
@@ -105,7 +114,7 @@ fn cmd_submit(program: &Program<Rc<Keypair>>, data: String) -> Result<()> {
     // Check if the ATA exists first using get_account_info
     // (This is optional, you could try to create it directly and handle the error)
     println!("Ensuring ATA exists at {}...", ata_pubkey);
-    
+
     // Try to create the ATA (will fail if it already exists)
     let create_ata_result = program
         .request()
@@ -121,7 +130,7 @@ fn cmd_submit(program: &Program<Rc<Keypair>>, data: String) -> Result<()> {
         })
         .args(CreateUserAtaIx {})
         .send();
-        
+
     match create_ata_result {
         Ok(sig) => println!("Created new ATA (txSig: {})", sig),
         Err(e) => {
@@ -179,6 +188,82 @@ fn cmd_get_submission(program: &Program<Rc<Keypair>>, submission_index: u64) -> 
     println!("Contributor = {}", submission_data.contributor);
     println!("Timestamp = {}", submission_data.timestamp);
     println!("Data = {}", submission_data.data);
+
+    Ok(())
+}
+
+/// Fetch and display all submission accounts
+fn cmd_get_all_submissions(
+    program: &Program<Rc<Keypair>>,
+    contributor: Option<String>,
+) -> Result<()> {
+    // Derive the PDAs from seeds
+    let (state_pda, _state_bump) = Pubkey::find_program_address(&[b"state"], &program.id());
+
+    // Get state data to find total submission count
+    let state_data: StateAccount = program.account(state_pda)?;
+    let submission_count = state_data.submission_count;
+
+    if submission_count == 0 {
+        println!("No submissions found.");
+        return Ok(());
+    }
+
+    println!("Total submissions in protocol: {}", submission_count);
+
+    // Parse contributor pubkey if provided
+    let contributor_pubkey = match contributor {
+        Some(pubkey_str) => match Pubkey::from_str(&pubkey_str) {
+            Ok(pubkey) => Some(pubkey),
+            Err(e) => {
+                return Err(anyhow::anyhow!("Invalid contributor pubkey: {}", e));
+            }
+        },
+        None => None,
+    };
+
+    // Print filter info if contributor filter is active
+    if let Some(pubkey) = contributor_pubkey {
+        println!("Filtering for contributor: {}", pubkey);
+    }
+
+    let mut matched_count = 0;
+
+    // Iterate through all submission indices
+    for i in 0..submission_count {
+        let (submission_pda, _) =
+            Pubkey::find_program_address(&[b"submission", &i.to_le_bytes()], &program.id());
+
+        // Fetch the submission account data
+        let submission_data: SubmissionAccount =
+            match program.account::<SubmissionAccount>(submission_pda) {
+                Ok(data) => data,
+                Err(e) => {
+                    println!("Warning: Failed to fetch submission #{}: {}", i, e);
+                    continue;
+                }
+            };
+
+        // If contributor filter is specified, skip non-matching submissions
+        if let Some(pubkey) = contributor_pubkey {
+            if submission_data.contributor != pubkey {
+                continue;
+            }
+        }
+
+        matched_count += 1;
+
+        println!("\nSubmission #{}", i);
+        println!("PDA = {}", submission_pda);
+        println!("Contributor = {}", submission_data.contributor);
+        println!("Timestamp = {}", submission_data.timestamp);
+        println!("Data = {}", submission_data.data);
+    }
+
+    println!(
+        "\nDisplayed {} submissions matching the criteria",
+        matched_count
+    );
 
     Ok(())
 }
