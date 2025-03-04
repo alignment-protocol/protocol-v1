@@ -3,8 +3,14 @@ use anchor_spl::{
     associated_token::{create, AssociatedToken, Create},
     token::{self, Burn, Mint, MintTo, Token, TokenAccount},
 };
+use sha2::{Digest, Sha256};
 
 declare_id!("BMYn8rtstaZhzFZtgMVMY9io1zhnqacr3yANZrgkv7DF");
+
+// Maximum lengths for strings
+pub const MAX_TOPIC_NAME_LENGTH: usize = 64;
+pub const MAX_TOPIC_DESCRIPTION_LENGTH: usize = 256;
+pub const MAX_DATA_REFERENCE_LENGTH: usize = 128; // For IPFS/Arweave hashes or transaction references
 
 // ------------------------------
 //          Data Structs
@@ -33,9 +39,18 @@ pub struct State {
 
     /// Counts how many submissions have been made
     pub submission_count: u64,
+    
+    /// Counts how many topics have been created
+    pub topic_count: u64,
 
     /// The number of tokens to mint for each submission
     pub tokens_to_mint: u64,
+    
+    /// Default duration for commit phase in seconds (24 hours)
+    pub default_commit_phase_duration: u64,
+    
+    /// Default duration for reveal phase in seconds (24 hours)
+    pub default_reveal_phase_duration: u64,
 }
 
 /// Each submission entry
@@ -47,17 +62,11 @@ pub struct Submission {
     /// Unix timestamp of when they submitted
     pub timestamp: u64,
 
-    /// Arbitrary string to store data or a code-in TX reference
-    pub data: String,
+    /// Arbitrary string to store data reference (IPFS hash, Arweave ID, etc.)
+    pub data_reference: String,
     
-    /// Counts of yes votes received
-    pub yes_count: u64,
-    
-    /// Counts of no votes received
-    pub no_count: u64,
-    
-    /// Status of the submission
-    pub status: SubmissionStatus,
+    /// Bump seed for the submission PDA
+    pub bump: u8,
 }
 
 /// Status of a submission
@@ -89,6 +98,112 @@ pub struct UserProfile {
     pub bump: u8,
 }
 
+/// Topic/Corpus account for organizing submissions
+#[account]
+pub struct Topic {
+    /// Unique identifier for the topic
+    pub id: u64,
+    
+    /// Name of the topic
+    pub name: String,
+    
+    /// Description of the topic
+    pub description: String,
+    
+    /// Creator of the topic (authority or eventually DAO)
+    pub authority: Pubkey,
+    
+    /// Count of submissions in this topic
+    pub submission_count: u64,
+    
+    /// Duration of the commit phase in seconds
+    pub commit_phase_duration: u64,
+    
+    /// Duration of the reveal phase in seconds
+    pub reveal_phase_duration: u64,
+    
+    /// Whether the topic is active and accepting submissions
+    pub is_active: bool,
+    
+    /// Bump seed for the topic PDA
+    pub bump: u8,
+}
+
+/// Tracks the relationship between a submission and a topic
+#[account]
+pub struct SubmissionTopicLink {
+    /// The submission this link refers to
+    pub submission: Pubkey,
+    
+    /// The topic this link refers to
+    pub topic: Pubkey,
+    
+    /// Status of this submission within this specific topic
+    pub status: SubmissionStatus,
+    
+    /// Start timestamp for the commit phase
+    pub commit_phase_start: u64,
+    
+    /// End timestamp for the commit phase
+    pub commit_phase_end: u64,
+    
+    /// Start timestamp for the reveal phase
+    pub reveal_phase_start: u64,
+    
+    /// End timestamp for the reveal phase
+    pub reveal_phase_end: u64,
+    
+    /// Total yes voting power received (quadratic)
+    pub yes_voting_power: u64,
+    
+    /// Total no voting power received (quadratic)
+    pub no_voting_power: u64,
+    
+    /// Total number of committed votes
+    pub total_committed_votes: u64,
+    
+    /// Total number of revealed votes
+    pub total_revealed_votes: u64,
+    
+    /// Bump seed for the link PDA
+    pub bump: u8,
+}
+
+/// Vote direction (Yes/No)
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+pub enum VoteChoice {
+    Yes,
+    No,
+}
+
+/// Vote commit account - stores the hash of a user's vote during the commit phase
+#[account]
+pub struct VoteCommit {
+    /// The link between submission and topic being voted on
+    pub submission_topic_link: Pubkey,
+    
+    /// The validator who created this vote commit
+    pub validator: Pubkey,
+    
+    /// The hashed vote: SHA-256(validator pubkey + submission_topic_link pubkey + vote choice + nonce)
+    pub vote_hash: [u8; 32],
+    
+    /// Whether this vote has been revealed yet
+    pub revealed: bool,
+    
+    /// Commit timestamp
+    pub commit_timestamp: u64,
+    
+    /// The amount of tempRep or Rep tokens committed to this vote
+    pub vote_amount: u64,
+    
+    /// Whether this is using permanent Rep (true) or temporary tempRep (false)
+    pub is_permanent_rep: bool,
+    
+    /// Bump seed for the vote commit PDA
+    pub bump: u8,
+}
+
 // ------------------------------
 //          Error Codes
 // ------------------------------
@@ -117,11 +232,237 @@ pub enum ErrorCode {
     
     #[msg("Cannot stake zero tokens")]
     ZeroStakeAmount,
+    
+    // Topic-related errors
+    #[msg("Topic name cannot be empty")]
+    EmptyTopicName,
+    
+    #[msg("Topic name exceeds maximum length")]
+    TopicNameTooLong,
+    
+    #[msg("Topic description exceeds maximum length")]
+    TopicDescriptionTooLong,
+    
+    #[msg("Topic is inactive")]
+    TopicInactive,
+    
+    #[msg("No active topics available for submission")]
+    NoActiveTopics,
+    
+    #[msg("Submission already exists in this topic")]
+    SubmissionAlreadyInTopic,
+    
+    // Voting-related errors
+    #[msg("Vote has already been committed")]
+    VoteAlreadyCommitted,
+    
+    #[msg("Vote has already been revealed")]
+    VoteAlreadyRevealed,
+    
+    #[msg("Invalid vote hash")]
+    InvalidVoteHash,
+    
+    #[msg("Validator has no reputation tokens for this topic")]
+    NoReputationForTopic,
+    
+    #[msg("Submission is not in the pending state")]
+    SubmissionNotPending,
+    
+    #[msg("Vote amount exceeds available reputation")]
+    InsufficientVotingPower,
+    
+    #[msg("Vote amount must be greater than zero")]
+    ZeroVoteAmount,
+    
+    #[msg("Commit phase has not started yet")]
+    CommitPhaseNotStarted,
+    
+    #[msg("Commit phase has ended")]
+    CommitPhaseEnded,
+    
+    #[msg("Reveal phase has not started yet")]
+    RevealPhaseNotStarted,
+    
+    #[msg("Reveal phase has ended")]
+    RevealPhaseEnded,
 }
 
 // ------------------------------
 //          Instructions
 // ------------------------------
+
+/// Account constraints for creating a new topic
+#[derive(Accounts)]
+pub struct CreateTopic<'info> {
+    #[account(mut, has_one = authority)]
+    pub state: Account<'info, State>,
+    
+    #[account(
+        init,
+        payer = authority,
+        seeds = [
+            b"topic",
+            state.topic_count.to_le_bytes().as_ref(),
+        ],
+        bump,
+        space = 8 + // discriminator
+                8 + // id
+                4 + MAX_TOPIC_NAME_LENGTH + // name (string)
+                4 + MAX_TOPIC_DESCRIPTION_LENGTH + // description (string)
+                32 + // authority
+                8 + // submission_count
+                8 + // commit_phase_duration
+                8 + // reveal_phase_duration
+                1 + // is_active
+                1   // bump
+    )]
+    pub topic: Account<'info, Topic>,
+    
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Account constraints for submitting data to a specific topic
+#[derive(Accounts)]
+pub struct SubmitDataToTopic<'info> {
+    #[account(mut)]
+    pub state: Account<'info, State>,
+    
+    #[account(mut, constraint = topic.is_active == true)]
+    pub topic: Account<'info, Topic>,
+    
+    /// The temporary alignment token mint, must be mutable for minting
+    #[account(
+        mut,
+        constraint = *temp_align_mint.to_account_info().key == state.temp_align_mint
+    )]
+    pub temp_align_mint: Account<'info, Mint>,
+    
+    /// The user's ATA for temporary alignment tokens
+    /// We only mark it mut. We assume it's already created via `create_user_ata`.
+    #[account(
+        mut,
+        constraint = contributor_ata.mint == state.temp_align_mint,
+        constraint = contributor_ata.owner == contributor.key()
+    )]
+    pub contributor_ata: Account<'info, TokenAccount>,
+    
+    /// The new Submission account
+    #[account(
+        init,
+        payer = contributor,
+        // Use seeds to ensure uniqueness
+        seeds = [
+            b"submission",
+            state.submission_count.to_le_bytes().as_ref(),
+        ],
+        bump,
+        // Discriminator + contributor pubkey + timestamp + data field + submission PDA bump
+        space = 8 + 32 + 8 + (4 + MAX_DATA_REFERENCE_LENGTH) + 1
+    )]
+    pub submission: Account<'info, Submission>,
+    
+    /// The link between submission and topic
+    #[account(
+        init,
+        payer = contributor,
+        seeds = [
+            b"submission_topic_link",
+            submission.key().as_ref(),
+            topic.key().as_ref(),
+        ],
+        bump,
+        // Discriminator + submission pubkey + topic pubkey + status + phase timestamps + vote counts + committed/revealed counts + bump
+        space = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1
+    )]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    
+    /// The user making the submission
+    #[account(mut)]
+    pub contributor: Signer<'info>,
+    
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+    
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Account constraints for committing a vote on a submission within a topic
+#[derive(Accounts)]
+pub struct CommitVote<'info> {
+    pub state: Account<'info, State>,
+    
+    #[account(constraint = submission_topic_link.status == SubmissionStatus::Pending)]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    
+    pub topic: Account<'info, Topic>,
+    
+    pub submission: Account<'info, Submission>,
+    
+    #[account(
+        init,
+        payer = validator,
+        seeds = [
+            b"vote_commit",
+            submission_topic_link.key().as_ref(),
+            validator.key().as_ref(),
+        ],
+        bump,
+        // Discriminator + submission_topic_link pubkey + validator pubkey + vote_hash + revealed + commit_timestamp + vote_amount + is_permanent_rep + bump
+        space = 8 + 32 + 32 + 32 + 1 + 8 + 8 + 1 + 1
+    )]
+    pub vote_commit: Account<'info, VoteCommit>,
+    
+    #[account(mut)]
+    pub user_profile: Account<'info, UserProfile>,
+    
+    /// The validator committing the vote
+    #[account(mut, constraint = user_profile.user == validator.key())]
+    pub validator: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Account constraints for revealing a previously committed vote
+#[derive(Accounts)]
+pub struct RevealVote<'info> {
+    pub state: Account<'info, State>,
+    
+    #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    
+    pub topic: Account<'info, Topic>,
+    
+    pub submission: Account<'info, Submission>,
+    
+    #[account(
+        mut,
+        seeds = [
+            b"vote_commit",
+            submission_topic_link.key().as_ref(),
+            validator.key().as_ref(),
+        ],
+        bump = vote_commit.bump,
+        constraint = vote_commit.revealed == false,
+        constraint = vote_commit.validator == validator.key(),
+        constraint = vote_commit.submission_topic_link == submission_topic_link.key()
+    )]
+    pub vote_commit: Account<'info, VoteCommit>,
+    
+    #[account(mut)]
+    pub user_profile: Account<'info, UserProfile>,
+    
+    /// The validator revealing the vote (must match the original committer)
+    #[account(mut, constraint = user_profile.user == validator.key())]
+    pub validator: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
 
 /// Instruction: Initialize the protocol state + create four token mints
 ///
@@ -139,7 +480,7 @@ pub struct Initialize<'info> {
         seeds = [b"state"],
         bump,
         payer = authority,
-        space = 8 + 32 + 32 + 32 + 32 + 32 + 1 + 8 + 8 // Discriminator + 4 mints + authority + bump + submission_count + tokens_to_mint
+        space = 8 + 32 + 32 + 32 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 // Discriminator + 4 mints + authority + bump + submission_count + topic_count + tokens_to_mint + 2 phase durations
     )]
     pub state: Account<'info, State>,
 
@@ -246,6 +587,7 @@ pub struct CreateUserAta<'info> {
 }
 
 /// Instruction: Store data directly in your program's Submission account and mint temporary alignment tokens.
+/// Note: This only creates the submission. For voting, the submission must be linked to a topic.
 #[derive(Accounts)]
 pub struct SubmitData<'info> {
     #[account(mut)]
@@ -277,8 +619,8 @@ pub struct SubmitData<'info> {
             state.submission_count.to_le_bytes().as_ref(),
         ],
         bump,
-        // Discriminator + contributor pubkey + timestamp + data field (4 + your chosen max length) + yes_count + no_count + status
-        space = 8 + 32 + 8 + (4 + 256) + 8 + 8 + 1
+        // Discriminator + contributor pubkey + timestamp + data_reference field + bump
+        space = 8 + 32 + 8 + (4 + MAX_DATA_REFERENCE_LENGTH) + 1
     )]
     pub submission: Account<'info, Submission>,
 
@@ -394,13 +736,20 @@ pub mod alignment_protocol {
         state_acc.authority = ctx.accounts.authority.key();
         state_acc.bump = ctx.bumps.state;
         state_acc.submission_count = 0;
+        state_acc.topic_count = 0;
         state_acc.tokens_to_mint = 0;
+        
+        // Set default voting phase durations (24 hours each by default)
+        state_acc.default_commit_phase_duration = 24 * 60 * 60; // 24 hours in seconds
+        state_acc.default_reveal_phase_duration = 24 * 60 * 60; // 24 hours in seconds
         
         msg!("Initialized protocol with four token mints:");
         msg!("temp_align_mint = {}", state_acc.temp_align_mint);
         msg!("align_mint = {}", state_acc.align_mint);
         msg!("temp_rep_mint = {}", state_acc.temp_rep_mint);
         msg!("rep_mint = {}", state_acc.rep_mint);
+        msg!("Default commit phase duration: {} seconds", state_acc.default_commit_phase_duration);
+        msg!("Default reveal phase duration: {} seconds", state_acc.default_reveal_phase_duration);
         
         Ok(())
     }
@@ -458,6 +807,140 @@ pub mod alignment_protocol {
         user_profile.bump = ctx.bumps.user_profile;
         
         msg!("Created user profile for {}", ctx.accounts.user.key());
+        Ok(())
+    }
+    
+    /// Instruction handler: Create a new topic
+    ///
+    /// This creates a new topic that submissions can be added to.
+    /// Only the protocol authority can create topics.
+    pub fn create_topic(
+        ctx: Context<CreateTopic>,
+        name: String,
+        description: String,
+        commit_phase_duration: Option<u64>,
+        reveal_phase_duration: Option<u64>,
+    ) -> Result<()> {
+        // Validate inputs
+        if name.is_empty() {
+            return Err(ErrorCode::EmptyTopicName.into());
+        }
+        
+        if name.len() > MAX_TOPIC_NAME_LENGTH {
+            return Err(ErrorCode::TopicNameTooLong.into());
+        }
+        
+        if description.len() > MAX_TOPIC_DESCRIPTION_LENGTH {
+            return Err(ErrorCode::TopicDescriptionTooLong.into());
+        }
+        
+        // Initialize the topic
+        let topic = &mut ctx.accounts.topic;
+        let state = &mut ctx.accounts.state;
+        
+        topic.id = state.topic_count;
+        topic.name = name.clone();
+        topic.description = description.clone();
+        topic.authority = ctx.accounts.authority.key();
+        topic.submission_count = 0;
+        topic.is_active = true;
+        topic.bump = ctx.bumps.topic;
+        
+        // Set the commit and reveal phase durations - use provided values or defaults from state
+        topic.commit_phase_duration = commit_phase_duration.unwrap_or(state.default_commit_phase_duration);
+        topic.reveal_phase_duration = reveal_phase_duration.unwrap_or(state.default_reveal_phase_duration);
+        
+        // Increment the topic count
+        state.topic_count = state.topic_count.checked_add(1).ok_or(ErrorCode::Overflow)?;
+        
+        msg!("Created new topic: {} (ID: {})", name, topic.id);
+        msg!("Description: {}", description);
+        msg!("Commit phase duration: {} seconds", topic.commit_phase_duration);
+        msg!("Reveal phase duration: {} seconds", topic.reveal_phase_duration);
+        
+        Ok(())
+    }
+    
+    /// Instruction handler: Submit data to a specific topic
+    ///
+    /// This creates a submission and links it to a topic, setting up the voting phases.
+    pub fn submit_data_to_topic(
+        ctx: Context<SubmitDataToTopic>,
+        data_reference: String,
+    ) -> Result<()> {
+        // Validate inputs
+        if data_reference.len() > MAX_DATA_REFERENCE_LENGTH {
+            return Err(error!(ErrorCode::TopicDescriptionTooLong));
+        }
+        
+        // Get current time
+        let current_time = Clock::get()?.unix_timestamp as u64;
+        
+        // Fill out the Submission account
+        let submission = &mut ctx.accounts.submission;
+        submission.contributor = ctx.accounts.contributor.key();
+        submission.timestamp = current_time;
+        submission.data_reference = data_reference.clone();
+        submission.bump = ctx.bumps.submission;
+        
+        // Fill out the SubmissionTopicLink account
+        let link = &mut ctx.accounts.submission_topic_link;
+        let topic = &mut ctx.accounts.topic;
+        
+        link.submission = ctx.accounts.submission.key();
+        link.topic = ctx.accounts.topic.key();
+        link.status = SubmissionStatus::Pending;
+        link.bump = ctx.bumps.submission_topic_link;
+        
+        // Set up voting phases based on topic durations
+        link.commit_phase_start = current_time;
+        link.commit_phase_end = current_time.checked_add(topic.commit_phase_duration).ok_or(ErrorCode::Overflow)?;
+        link.reveal_phase_start = link.commit_phase_end;
+        link.reveal_phase_end = link.reveal_phase_start.checked_add(topic.reveal_phase_duration).ok_or(ErrorCode::Overflow)?;
+        
+        // Initialize vote counts
+        link.yes_voting_power = 0;
+        link.no_voting_power = 0;
+        link.total_committed_votes = 0;
+        link.total_revealed_votes = 0;
+        
+        // Mint temporary alignment tokens to the contributor if configured
+        if ctx.accounts.state.tokens_to_mint > 0 {
+            let state_bump = ctx.accounts.state.bump;
+            let seeds = &[b"state".as_ref(), &[state_bump]];
+            let signer = &[&seeds[..]];
+            
+            // CPI to the Token Program's 'mint_to'
+            let cpi_ctx = CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.temp_align_mint.to_account_info(),
+                    to: ctx.accounts.contributor_ata.to_account_info(),
+                    authority: ctx.accounts.state.to_account_info(),
+                },
+            )
+            .with_signer(signer);
+            
+            token::mint_to(cpi_ctx, ctx.accounts.state.tokens_to_mint)?;
+            
+            msg!(
+                "Minted {} tempAlign tokens to {}",
+                ctx.accounts.state.tokens_to_mint,
+                ctx.accounts.contributor_ata.key()
+            );
+        }
+        
+        // Increment submission counts
+        let state = &mut ctx.accounts.state;
+        state.submission_count = state.submission_count.checked_add(1).ok_or(ErrorCode::Overflow)?;
+        
+        topic.submission_count = topic.submission_count.checked_add(1).ok_or(ErrorCode::Overflow)?;
+        
+        msg!("New submission added to topic '{}'", topic.name);
+        msg!("Data reference: {}", data_reference);
+        msg!("Commit phase: {} to {}", link.commit_phase_start, link.commit_phase_end);
+        msg!("Reveal phase: {} to {}", link.reveal_phase_start, link.reveal_phase_end);
+        
         Ok(())
     }
     
@@ -530,15 +1013,18 @@ pub mod alignment_protocol {
     /// 1) Creates new `Submission` account with the given data.
     /// 2) Mints a fixed number of temporary alignment tokens to the user's ATA.
     /// 3) Increments the state's submission_count.
-    pub fn submit_data(ctx: Context<SubmitData>, data_str: String) -> Result<()> {
+    pub fn submit_data(ctx: Context<SubmitData>, data_reference: String) -> Result<()> {
+        // Validate inputs
+        if data_reference.len() > MAX_DATA_REFERENCE_LENGTH {
+            return Err(error!(ErrorCode::TopicDescriptionTooLong));
+        }
+        
         // 1) Fill out the Submission account
         let submission = &mut ctx.accounts.submission;
         submission.contributor = ctx.accounts.contributor.key();
         submission.timestamp = Clock::get()?.unix_timestamp as u64;
-        submission.data = data_str.clone(); // store the text or JSON
-        submission.yes_count = 0;
-        submission.no_count = 0;
-        submission.status = SubmissionStatus::Pending;
+        submission.data_reference = data_reference.clone(); // store the reference (hash, tx ID, etc.)
+        submission.bump = ctx.bumps.submission;
 
         // 2) Mint temporary alignment tokens to the contributor
         if ctx.accounts.state.tokens_to_mint > 0 {
@@ -572,7 +1058,149 @@ pub mod alignment_protocol {
             .checked_add(1)
             .ok_or(ErrorCode::Overflow)?;
 
-        msg!("New submission on-chain: {}", data_str);
+        msg!("New submission on-chain (reference): {}", data_reference);
+        msg!("NOTE: This submission is not linked to any topic yet. Use submit_data_to_topic instead.");
+        Ok(())
+    }
+    
+    /// Instruction handler: Commit a vote on a submission within a topic
+    ///
+    /// This creates a vote commitment without revealing the actual vote choice.
+    /// The actual vote is hashed with a nonce for privacy during the commit phase.
+    pub fn commit_vote(
+        ctx: Context<CommitVote>,
+        vote_hash: [u8; 32],
+        vote_amount: u64,
+        is_permanent_rep: bool,
+    ) -> Result<()> {
+        // Get current time to validate voting window
+        let current_time = Clock::get()?.unix_timestamp as u64;
+        let link = &ctx.accounts.submission_topic_link;
+        
+        // Check if commit phase is active
+        if current_time < link.commit_phase_start {
+            return Err(ErrorCode::CommitPhaseNotStarted.into());
+        }
+        
+        if current_time > link.commit_phase_end {
+            return Err(ErrorCode::CommitPhaseEnded.into());
+        }
+        
+        // Validate the vote amount based on token type
+        if vote_amount == 0 {
+            return Err(ErrorCode::ZeroVoteAmount.into());
+        }
+        
+        // Check if user has enough Rep (either temp or permanent)
+        if is_permanent_rep {
+            // Voting with permanent Rep - can vote across any topic
+            if ctx.accounts.user_profile.permanent_rep_amount < vote_amount {
+                return Err(ErrorCode::InsufficientVotingPower.into());
+            }
+        } else {
+            // Voting with tempRep - can only vote within the topic it was gained for
+            if ctx.accounts.user_profile.temp_rep_amount < vote_amount {
+                return Err(ErrorCode::InsufficientVotingPower.into());
+            }
+            
+            // For MVP, we allow any tempRep to be used for any topic
+            // In the future, we'll track tempRep by topic and only allow voting within that topic
+        }
+        
+        // Initialize the vote commit
+        let vote_commit = &mut ctx.accounts.vote_commit;
+        vote_commit.submission_topic_link = ctx.accounts.submission_topic_link.key();
+        vote_commit.validator = ctx.accounts.validator.key();
+        vote_commit.vote_hash = vote_hash;
+        vote_commit.revealed = false;
+        vote_commit.commit_timestamp = current_time;
+        vote_commit.vote_amount = vote_amount;
+        vote_commit.is_permanent_rep = is_permanent_rep;
+        vote_commit.bump = ctx.bumps.vote_commit;
+        
+        // Increment the submission-topic link's committed votes counter
+        let link = &mut ctx.accounts.submission_topic_link;
+        link.total_committed_votes = link.total_committed_votes
+            .checked_add(1)
+            .ok_or(ErrorCode::Overflow)?;
+        
+        msg!("Vote committed for submission in topic '{}'", ctx.accounts.topic.name);
+        msg!("Vote amount: {}", vote_amount);
+        msg!("Using {} Rep", if is_permanent_rep { "permanent" } else { "temporary" });
+        
+        Ok(())
+    }
+    
+    /// Instruction handler: Reveal a previously committed vote
+    ///
+    /// This reveals the actual vote choice and verifies it matches the previously committed hash.
+    /// If valid, it adds the voter's voting power to the appropriate yes/no counter.
+    pub fn reveal_vote(
+        ctx: Context<RevealVote>,
+        vote_choice: VoteChoice,
+        nonce: String,
+    ) -> Result<()> {
+        // Get current time to validate voting window
+        let current_time = Clock::get()?.unix_timestamp as u64;
+        let link = &ctx.accounts.submission_topic_link;
+        
+        // Check if reveal phase is active
+        if current_time < link.reveal_phase_start {
+            return Err(ErrorCode::RevealPhaseNotStarted.into());
+        }
+        
+        if current_time > link.reveal_phase_end {
+            return Err(ErrorCode::RevealPhaseEnded.into());
+        }
+        
+        // Reconstruct the hash from the reveal data and verify it matches the commit
+        let vote_commit = &mut ctx.accounts.vote_commit;
+        
+        // Create the pre-image for the hash
+        // Format: validator pubkey + submission_topic_link pubkey + vote choice (0 for Yes, 1 for No) + nonce
+        let mut hasher = Sha256::new();
+        hasher.update(ctx.accounts.validator.key().as_ref());
+        hasher.update(ctx.accounts.submission_topic_link.key().as_ref());
+        hasher.update(&[vote_choice as u8]);
+        hasher.update(nonce.as_bytes());
+        
+        let reconstructed_hash: [u8; 32] = hasher.finalize().into();
+        
+        // Verify that the reconstructed hash matches the stored hash
+        if reconstructed_hash != vote_commit.vote_hash {
+            return Err(ErrorCode::InvalidVoteHash.into());
+        }
+        
+        // Mark the vote as revealed
+        vote_commit.revealed = true;
+        
+        // Calculate voting power (quadratic)
+        let voting_power = (vote_commit.vote_amount as f64).sqrt() as u64;
+        
+        // Add the voting power to the appropriate counter
+        let link = &mut ctx.accounts.submission_topic_link;
+        match vote_choice {
+            VoteChoice::Yes => {
+                link.yes_voting_power = link.yes_voting_power
+                    .checked_add(voting_power)
+                    .ok_or(ErrorCode::Overflow)?;
+            },
+            VoteChoice::No => {
+                link.no_voting_power = link.no_voting_power
+                    .checked_add(voting_power)
+                    .ok_or(ErrorCode::Overflow)?;
+            },
+        }
+        
+        // Increment the revealed votes counter
+        link.total_revealed_votes = link.total_revealed_votes
+            .checked_add(1)
+            .ok_or(ErrorCode::Overflow)?;
+        
+        msg!("Vote revealed for submission in topic '{}'", ctx.accounts.topic.name);
+        msg!("Vote choice: {:?}", vote_choice);
+        msg!("Voting power (quadratic): {}", voting_power);
+        
         Ok(())
     }
 }
