@@ -1247,7 +1247,7 @@ pub mod alignment_protocol {
         vote_commit.revealed = true;
         
         // Calculate voting power (quadratic)
-        let voting_power = (vote_commit.vote_amount as f64).sqrt() as u64;
+        let voting_power = calculate_quadratic_voting_power(vote_commit.vote_amount);
         
         // Add the voting power to the appropriate counter
         let link = &mut ctx.accounts.submission_topic_link;
@@ -1272,6 +1272,83 @@ pub mod alignment_protocol {
         msg!("Vote revealed for submission in topic '{}'", ctx.accounts.topic.name);
         msg!("Vote choice: {:?}", vote_choice);
         msg!("Voting power (quadratic): {}", voting_power);
+        
+        Ok(())
+    }
+    
+    /// Instruction handler: Finalize a submission within a topic after voting
+    ///
+    /// This determines if a submission is accepted or rejected based on voting results.
+    /// For accepted submissions, it converts contributor's tempAlign tokens to permanent Align tokens.
+    pub fn finalize_submission(
+        ctx: Context<FinalizeSubmission>,
+    ) -> Result<()> {
+        // Calculate final vote tallies
+        let link = &mut ctx.accounts.submission_topic_link;
+        
+        // Determine if the submission is accepted or rejected
+        let is_accepted = link.yes_voting_power > link.no_voting_power;
+        
+        // Update submission status
+        if is_accepted {
+            link.status = SubmissionStatus::Accepted;
+            
+            // Convert contributor's tempAlign tokens to permanent Align tokens
+            // For simplicity, we assume a 1:1 conversion rate in the MVP
+            
+            // Get conversion amount (tempAlign to burn and Align to mint)
+            // In a real implementation, this might be a function of the submission quality
+            let conversion_amount = ctx.accounts.state.tokens_to_mint;
+            
+            // Check if the contributor has enough tempAlign tokens
+            if ctx.accounts.contributor_temp_align_ata.amount < conversion_amount {
+                return Err(ErrorCode::InsufficientTokenBalance.into());
+            }
+            
+            // 1. Burn tempAlign tokens from contributor
+            let burn_cpi_ctx = CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Burn {
+                    mint: ctx.accounts.temp_align_mint.to_account_info(),
+                    from: ctx.accounts.contributor_temp_align_ata.to_account_info(),
+                    authority: ctx.accounts.authority.to_account_info(),
+                },
+            );
+            
+            token::burn(burn_cpi_ctx, conversion_amount)?;
+            
+            // 2. Mint permanent Align tokens to contributor
+            let state_bump = ctx.accounts.state.bump;
+            let seeds = &[b"state".as_ref(), &[state_bump]];
+            let signer = &[&seeds[..]];
+            
+            let mint_cpi_ctx = CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.align_mint.to_account_info(),
+                    to: ctx.accounts.contributor_align_ata.to_account_info(),
+                    authority: ctx.accounts.state.to_account_info(),
+                },
+            )
+            .with_signer(signer);
+            
+            token::mint_to(mint_cpi_ctx, conversion_amount)?;
+            
+            msg!("Submission accepted! Converted {} tempAlign to {} Align for contributor",
+                conversion_amount, conversion_amount);
+        } else {
+            // If rejected, no token conversion happens
+            link.status = SubmissionStatus::Rejected;
+            msg!("Submission rejected. No token conversion performed.");
+        }
+        
+        // Log the voting results
+        msg!("Finalized submission in topic '{}' with status: {:?}", 
+            ctx.accounts.topic.name, 
+            link.status);
+        msg!("Final vote tally: {} YES vs {} NO", 
+            link.yes_voting_power, 
+            link.no_voting_power);
         
         Ok(())
     }
