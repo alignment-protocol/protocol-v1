@@ -99,6 +99,12 @@ pub enum ErrorCode {
 
     #[msg("Arithmetic overflow occurred")]
     Overflow,
+    
+    #[msg("Insufficient token balance for staking")]
+    InsufficientTokenBalance,
+    
+    #[msg("Token mint mismatch")]
+    TokenMintMismatch,
 }
 
 // ------------------------------
