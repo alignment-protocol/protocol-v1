@@ -156,6 +156,9 @@ pub struct UpdateTokensToMint<'info> {
 
 #[derive(Accounts)]
 pub struct CreateUserAta<'info> {
+    /// The state account containing all mint references
+    pub state: Account<'info, State>,
+
     /// The person paying for creating the ATA
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -164,8 +167,13 @@ pub struct CreateUserAta<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    /// The mint for which we want the user's ATA
-    #[account(mut)]
+    /// The mint for which we want the user's ATA (must match one of the four mints in state)
+    #[account(mut, constraint = 
+        *mint.to_account_info().key == state.temp_align_mint || 
+        *mint.to_account_info().key == state.align_mint || 
+        *mint.to_account_info().key == state.temp_rep_mint || 
+        *mint.to_account_info().key == state.rep_mint
+    )]
     pub mint: Account<'info, Mint>,
 
     /// The Associated Token Account (will be created if it doesn't exist)
