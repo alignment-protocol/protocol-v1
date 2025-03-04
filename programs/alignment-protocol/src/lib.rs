@@ -49,6 +49,28 @@ pub struct Submission {
 
     /// Arbitrary string to store data or a code-in TX reference
     pub data: String,
+    
+    /// Counts of yes votes received
+    pub yes_count: u64,
+    
+    /// Counts of no votes received
+    pub no_count: u64,
+    
+    /// Status of the submission
+    pub status: SubmissionStatus,
+}
+
+/// Status of a submission
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+pub enum SubmissionStatus {
+    /// Submission is pending voting/finalization
+    Pending,
+    
+    /// Submission has been accepted by voters
+    Accepted,
+    
+    /// Submission has been rejected by voters
+    Rejected,
 }
 
 // ------------------------------
