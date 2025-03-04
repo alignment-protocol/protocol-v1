@@ -13,8 +13,17 @@ declare_id!("BMYn8rtstaZhzFZtgMVMY9io1zhnqacr3yANZrgkv7DF");
 /// Global state account for this protocol
 #[account]
 pub struct State {
-    /// The SPL token mint created at initialization
-    pub mint: Pubkey,
+    /// The temporary alignment token mint (non-transferable until converted)
+    pub temp_align_mint: Pubkey,
+    
+    /// The permanent alignment token mint (transferable)
+    pub align_mint: Pubkey,
+    
+    /// The temporary reputation token mint (non-transferable)
+    pub temp_rep_mint: Pubkey,
+    
+    /// The permanent reputation token mint (non-transferable)
+    pub rep_mint: Pubkey,
 
     /// The protocol authority (admin, DAO, etc.)
     pub authority: Pubkey,
