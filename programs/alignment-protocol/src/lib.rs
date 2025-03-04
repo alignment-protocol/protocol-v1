@@ -73,6 +73,22 @@ pub enum SubmissionStatus {
     Rejected,
 }
 
+/// User profile account to track reputation
+#[account]
+pub struct UserProfile {
+    /// The user's public key
+    pub user: Pubkey,
+    
+    /// Amount of temporary reputation tokens staked
+    pub temp_rep_amount: u64,
+    
+    /// Amount of permanent reputation tokens earned
+    pub permanent_rep_amount: u64,
+    
+    /// Bump seed for the user profile PDA
+    pub bump: u8,
+}
+
 // ------------------------------
 //          Error Codes
 // ------------------------------
