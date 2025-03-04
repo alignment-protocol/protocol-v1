@@ -191,6 +191,12 @@ pub struct VoteCommit {
     /// Whether this vote has been revealed yet
     pub revealed: bool,
     
+    /// Whether this vote has been finalized (tokens converted or burned)
+    pub finalized: bool,
+    
+    /// The revealed vote choice (only valid after reveal)
+    pub vote_choice: Option<VoteChoice>,
+    
     /// Commit timestamp
     pub commit_timestamp: u64,
     
@@ -415,8 +421,9 @@ pub struct CommitVote<'info> {
             validator.key().as_ref(),
         ],
         bump,
-        // Discriminator + submission_topic_link pubkey + validator pubkey + vote_hash + revealed + commit_timestamp + vote_amount + is_permanent_rep + bump
-        space = 8 + 32 + 32 + 32 + 1 + 8 + 8 + 1 + 1
+        // Discriminator + submission_topic_link pubkey + validator pubkey + vote_hash + revealed + finalized + 
+        // vote_choice (option) + commit_timestamp + vote_amount + is_permanent_rep + bump
+        space = 8 + 32 + 32 + 32 + 1 + 1 + (1 + 1) + 8 + 8 + 1 + 1
     )]
     pub vote_commit: Account<'info, VoteCommit>,
     
@@ -531,6 +538,12 @@ pub struct FinalizeSubmission<'info> {
 }
 
 /// Account constraints for finalizing a validator's vote after submission finalization
+/// 
+/// Note: This design allows anyone to call finalize_vote, not just the validator themselves.
+/// This ensures validators receive rewards or penalties even if they don't explicitly claim them.
+/// Future enhancements could include:
+/// 1. Batch processing multiple vote finalizations in a single transaction for efficiency
+/// 2. An escrow-based approach where tokens are locked during voting and auto-converted after
 #[derive(Accounts)]
 pub struct FinalizeVote<'info> {
     pub state: Account<'info, State>,
@@ -1256,6 +1269,8 @@ pub mod alignment_protocol {
         vote_commit.validator = ctx.accounts.validator.key();
         vote_commit.vote_hash = vote_hash;
         vote_commit.revealed = false;
+        vote_commit.finalized = false;
+        vote_commit.vote_choice = None;
         vote_commit.commit_timestamp = current_time;
         vote_commit.vote_amount = vote_amount;
         vote_commit.is_permanent_rep = is_permanent_rep;
@@ -1314,8 +1329,9 @@ pub mod alignment_protocol {
             return Err(ErrorCode::InvalidVoteHash.into());
         }
         
-        // Mark the vote as revealed
+        // Mark the vote as revealed and store the vote choice
         vote_commit.revealed = true;
+        vote_commit.vote_choice = Some(vote_choice);
         
         // Calculate voting power (quadratic)
         let voting_power = calculate_quadratic_voting_power(vote_commit.vote_amount);
