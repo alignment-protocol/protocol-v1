@@ -285,6 +285,9 @@ pub enum ErrorCode {
     
     #[msg("Reveal phase has ended")]
     RevealPhaseEnded,
+    
+    #[msg("Vote has already been finalized")]
+    VoteAlreadyFinalized,
 }
 
 // ------------------------------
@@ -520,6 +523,74 @@ pub struct FinalizeSubmission<'info> {
     /// The authority calling this instruction (can be any user)
     #[account(mut)]
     pub authority: Signer<'info>,
+    
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+/// Account constraints for finalizing a validator's vote after submission finalization
+#[derive(Accounts)]
+pub struct FinalizeVote<'info> {
+    pub state: Account<'info, State>,
+    
+    #[account(
+        constraint = submission_topic_link.status != SubmissionStatus::Pending,
+    )]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    
+    pub topic: Account<'info, Topic>,
+    
+    pub submission: Account<'info, Submission>,
+    
+    #[account(
+        constraint = vote_commit.revealed == true,
+        constraint = vote_commit.validator == validator.key(),
+        constraint = vote_commit.submission_topic_link == submission_topic_link.key()
+    )]
+    pub vote_commit: Account<'info, VoteCommit>,
+    
+    /// The validator's user profile
+    #[account(
+        mut,
+        constraint = validator_profile.user == validator.key()
+    )]
+    pub validator_profile: Account<'info, UserProfile>,
+    
+    /// The validator's ATA for temporary reputation tokens (for burning)
+    #[account(
+        mut,
+        constraint = validator_temp_rep_ata.mint == state.temp_rep_mint,
+        constraint = validator_temp_rep_ata.owner == validator.key()
+    )]
+    pub validator_temp_rep_ata: Account<'info, TokenAccount>,
+    
+    /// The validator's ATA for permanent reputation tokens (for minting)
+    #[account(
+        mut,
+        constraint = validator_rep_ata.mint == state.rep_mint,
+        constraint = validator_rep_ata.owner == validator.key()
+    )]
+    pub validator_rep_ata: Account<'info, TokenAccount>,
+    
+    /// The tempRep mint (for burning)
+    #[account(
+        mut,
+        constraint = temp_rep_mint.key() == state.temp_rep_mint
+    )]
+    pub temp_rep_mint: Account<'info, Mint>,
+    
+    /// The Rep mint (for minting)
+    #[account(
+        mut,
+        constraint = rep_mint.key() == state.rep_mint
+    )]
+    pub rep_mint: Account<'info, Mint>,
+    
+    /// The validator finalizing their vote
+    #[account(mut)]
+    pub validator: Signer<'info>,
     
     #[account(address = anchor_spl::token::ID)]
     pub token_program: Program<'info, Token>,
