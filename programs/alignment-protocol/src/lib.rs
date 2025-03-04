@@ -231,15 +231,28 @@ pub struct SubmitData<'info> {
 pub mod alignment_protocol {
     use super::*;
 
-    /// Instruction handler: initialize the protocol
+    /// Instruction handler: initialize the protocol with four token mints
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         let state_acc = &mut ctx.accounts.state;
-        state_acc.mint = ctx.accounts.mint.key();
+        
+        // Store all four token mint addresses
+        state_acc.temp_align_mint = ctx.accounts.temp_align_mint.key();
+        state_acc.align_mint = ctx.accounts.align_mint.key();
+        state_acc.temp_rep_mint = ctx.accounts.temp_rep_mint.key();
+        state_acc.rep_mint = ctx.accounts.rep_mint.key();
+        
+        // Set other state properties
         state_acc.authority = ctx.accounts.authority.key();
         state_acc.bump = ctx.bumps.state;
         state_acc.submission_count = 0;
         state_acc.tokens_to_mint = 0;
-        msg!("Initialized protocol. Mint = {}", state_acc.mint);
+        
+        msg!("Initialized protocol with four token mints:");
+        msg!("temp_align_mint = {}", state_acc.temp_align_mint);
+        msg!("align_mint = {}", state_acc.align_mint);
+        msg!("temp_rep_mint = {}", state_acc.temp_rep_mint);
+        msg!("rep_mint = {}", state_acc.rep_mint);
+        
         Ok(())
     }
 
