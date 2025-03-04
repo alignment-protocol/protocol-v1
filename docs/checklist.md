@@ -101,7 +101,7 @@
 - ✅ Implement topic creation by authorities
 - ✅ Create SubmissionTopicLink for many-to-many relationships
 - ✅ Topic-specific voting periods
-- 🟠 ❌ Cross-topic submission linking (add existing submissions to other topics)
+- ✅ Cross-topic submission linking (add existing submissions to other topics)
 - 🟠 ❌ Topic-specific reputation tracking
 
 ## 11. Production Deployment

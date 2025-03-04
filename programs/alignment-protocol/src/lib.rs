@@ -258,6 +258,10 @@ pub enum ErrorCode {
     #[msg("Submission already exists in this topic")]
     SubmissionAlreadyInTopic,
     
+    // Cross-topic submission errors
+    #[msg("Not authorized to link this submission")]
+    NotAuthorizedToLinkSubmission,
+    
     // Voting-related errors
     #[msg("Vote has already been committed")]
     VoteAlreadyCommitted,
@@ -395,6 +399,41 @@ pub struct SubmitDataToTopic<'info> {
     
     #[account(address = anchor_spl::token::ID)]
     pub token_program: Program<'info, Token>,
+    
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Account constraints for linking an existing submission to a topic
+#[derive(Accounts)]
+pub struct LinkSubmissionToTopic<'info> {
+    #[account(mut)]
+    pub state: Account<'info, State>,
+    
+    #[account(mut, constraint = topic.is_active == true)]
+    pub topic: Account<'info, Topic>,
+    
+    /// The existing submission to link to the topic
+    pub submission: Account<'info, Submission>,
+    
+    /// The link between submission and topic
+    #[account(
+        init,
+        payer = authority,
+        seeds = [
+            b"submission_topic_link",
+            submission.key().as_ref(),
+            topic.key().as_ref(),
+        ],
+        bump,
+        // Discriminator + submission pubkey + topic pubkey + status + phase timestamps + vote counts + committed/revealed counts + bump
+        space = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1
+    )]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    
+    /// The user linking the submission to the topic (could be contributor or authority)
+    #[account(mut)]
+    pub authority: Signer<'info>,
     
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
@@ -1564,6 +1603,48 @@ pub mod alignment_protocol {
             ctx.accounts.validator_profile.user,
             ctx.accounts.topic.name
         );
+        
+        Ok(())
+    }
+    
+    /// Instruction handler: Link an existing submission to a topic
+    ///
+    /// This creates a new SubmissionTopicLink for an existing Submission and Topic,
+    /// allowing the submission to be voted on in multiple topics independently.
+    /// Anyone can link if they are willing to pay the transaction fee.
+    pub fn link_submission_to_topic(
+        ctx: Context<LinkSubmissionToTopic>,
+    ) -> Result<()> {
+        // Get current time
+        let current_time = Clock::get()?.unix_timestamp as u64;
+        
+        // Fill out the SubmissionTopicLink account
+        let link = &mut ctx.accounts.submission_topic_link;
+        let topic = &mut ctx.accounts.topic;
+        
+        link.submission = ctx.accounts.submission.key();
+        link.topic = ctx.accounts.topic.key();
+        link.status = SubmissionStatus::Pending;
+        link.bump = ctx.bumps.submission_topic_link;
+        
+        // Set up voting phases based on topic durations
+        link.commit_phase_start = current_time;
+        link.commit_phase_end = current_time.checked_add(topic.commit_phase_duration).ok_or(ErrorCode::Overflow)?;
+        link.reveal_phase_start = link.commit_phase_end;
+        link.reveal_phase_end = link.reveal_phase_start.checked_add(topic.reveal_phase_duration).ok_or(ErrorCode::Overflow)?;
+        
+        // Initialize vote counts
+        link.yes_voting_power = 0;
+        link.no_voting_power = 0;
+        link.total_committed_votes = 0;
+        link.total_revealed_votes = 0;
+        
+        // Increment the topic's submission count
+        topic.submission_count = topic.submission_count.checked_add(1).ok_or(ErrorCode::Overflow)?;
+        
+        msg!("Linked existing submission to topic '{}'", topic.name);
+        msg!("Commit phase: {} to {}", link.commit_phase_start, link.commit_phase_end);
+        msg!("Reveal phase: {} to {}", link.reveal_phase_start, link.reveal_phase_end);
         
         Ok(())
     }
