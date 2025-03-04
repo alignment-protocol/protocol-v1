@@ -446,6 +446,86 @@ pub mod alignment_protocol {
         Ok(())
     }
 
+    /// Instruction handler: Create a user profile for tracking reputation
+    /// 
+    /// This creates a new PDA account to store the user's reputation metrics
+    pub fn create_user_profile(ctx: Context<CreateUserProfile>) -> Result<()> {
+        // Initialize the user profile fields
+        let user_profile = &mut ctx.accounts.user_profile;
+        user_profile.user = ctx.accounts.user.key();
+        user_profile.temp_rep_amount = 0;
+        user_profile.permanent_rep_amount = 0;
+        user_profile.bump = ctx.bumps.user_profile;
+        
+        msg!("Created user profile for {}", ctx.accounts.user.key());
+        Ok(())
+    }
+    
+    /// Instruction handler: Stake temporary alignment tokens to get temporary reputation tokens
+    ///
+    /// Burns tempAlign tokens and mints an equal amount of tempRep tokens
+    pub fn stake_alignment_tokens(ctx: Context<StakeAlignmentTokens>, amount: u64) -> Result<()> {
+        // Validate the stake amount
+        if amount == 0 {
+            return Err(ErrorCode::ZeroStakeAmount.into());
+        }
+        
+        // Double-check user profile is properly initialized
+        // (This is redundant with Anchor's deserialization, but adds an extra safety check)
+        if ctx.accounts.user_profile.user != ctx.accounts.user.key() {
+            return Err(ErrorCode::InvalidUserProfile.into());
+        }
+        
+        // Check if the user has enough temp alignment tokens
+        if ctx.accounts.user_temp_align_ata.amount < amount {
+            return Err(ErrorCode::InsufficientTokenBalance.into());
+        }
+        
+        // Burn the temporary alignment tokens
+        let burn_cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Burn {
+                mint: ctx.accounts.temp_align_mint.to_account_info(),
+                from: ctx.accounts.user_temp_align_ata.to_account_info(),
+                authority: ctx.accounts.user.to_account_info(),
+            },
+        );
+        
+        token::burn(burn_cpi_ctx, amount)?;
+        
+        // Mint temporary reputation tokens
+        let state_bump = ctx.accounts.state.bump;
+        let seeds = &[b"state".as_ref(), &[state_bump]];
+        let signer = &[&seeds[..]];
+        
+        let mint_cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            MintTo {
+                mint: ctx.accounts.temp_rep_mint.to_account_info(),
+                to: ctx.accounts.user_temp_rep_ata.to_account_info(),
+                authority: ctx.accounts.state.to_account_info(),
+            },
+        )
+        .with_signer(signer);
+        
+        token::mint_to(mint_cpi_ctx, amount)?;
+        
+        // Update the user profile with the new reputation amount
+        let user_profile = &mut ctx.accounts.user_profile;
+        user_profile.temp_rep_amount = user_profile.temp_rep_amount
+            .checked_add(amount)
+            .ok_or(ErrorCode::Overflow)?;
+        
+        msg!(
+            "Staked {} tempAlign tokens for {} tempRep tokens for user {}",
+            amount,
+            amount,
+            ctx.accounts.user.key()
+        );
+        
+        Ok(())
+    }
+    
     /// Instruction handler: Submit data directly on-chain
     /// 1) Creates new `Submission` account with the given data.
     /// 2) Mints a fixed number of temporary alignment tokens to the user's ATA.
