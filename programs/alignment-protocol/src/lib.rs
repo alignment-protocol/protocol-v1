@@ -281,6 +281,59 @@ pub struct SubmitData<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+/// Account constraints for staking temporary alignment tokens
+#[derive(Accounts)]
+pub struct StakeAlignmentTokens<'info> {
+    #[account(mut)]
+    pub state: Account<'info, State>,
+    
+    /// The user's profile PDA to track reputation
+    /// This will be checked/initialized in the instruction handler
+    /// CHECK: Verified in the instruction handler
+    #[account(mut)]
+    pub user_profile: UncheckedAccount<'info>,
+    
+    /// The temporary alignment token mint (source tokens to burn)
+    #[account(
+        mut,
+        constraint = *temp_align_mint.to_account_info().key == state.temp_align_mint
+    )]
+    pub temp_align_mint: Account<'info, Mint>,
+    
+    /// The temporary reputation token mint (target tokens to mint)
+    #[account(
+        mut,
+        constraint = *temp_rep_mint.to_account_info().key == state.temp_rep_mint
+    )]
+    pub temp_rep_mint: Account<'info, Mint>,
+    
+    /// The user's ATA for temporary alignment tokens (source)
+    #[account(
+        mut,
+        constraint = user_temp_align_ata.mint == state.temp_align_mint,
+        constraint = user_temp_align_ata.owner == user.key()
+    )]
+    pub user_temp_align_ata: Account<'info, TokenAccount>,
+    
+    /// The user's ATA for temporary reputation tokens (target)
+    #[account(
+        mut,
+        constraint = user_temp_rep_ata.mint == state.temp_rep_mint,
+        constraint = user_temp_rep_ata.owner == user.key()
+    )]
+    pub user_temp_rep_ata: Account<'info, TokenAccount>,
+    
+    /// The user performing the stake
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+    
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
 // ------------------------------
 //          Program Logic
 // ------------------------------
