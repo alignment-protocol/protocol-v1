@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::{create, AssociatedToken, Create},
-    token::{self, Mint, MintTo, Token, TokenAccount},
+    token::{self, Burn, Mint, MintTo, Token, TokenAccount},
 };
 
 declare_id!("BMYn8rtstaZhzFZtgMVMY9io1zhnqacr3yANZrgkv7DF");
@@ -293,17 +293,44 @@ pub struct SubmitData<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+/// Account constraints for creating a user profile
+#[derive(Accounts)]
+pub struct CreateUserProfile<'info> {
+    /// The state account containing protocol configuration
+    pub state: Account<'info, State>,
+    
+    /// The user profile to be created (PDA)
+    #[account(
+        init,
+        payer = user,
+        seeds = [b"user_profile", user.key().as_ref()],
+        bump,
+        space = 8 + 32 + 8 + 8 + 1  // Discriminator + user pubkey + temp_rep_amount + permanent_rep_amount + bump
+    )]
+    pub user_profile: Account<'info, UserProfile>,
+    
+    /// The user creating the profile and paying for the account
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
 /// Account constraints for staking temporary alignment tokens
 #[derive(Accounts)]
 pub struct StakeAlignmentTokens<'info> {
     #[account(mut)]
     pub state: Account<'info, State>,
     
-    /// The user's profile PDA to track reputation
-    /// This will be checked/initialized in the instruction handler
-    /// CHECK: Verified in the instruction handler
-    #[account(mut)]
-    pub user_profile: UncheckedAccount<'info>,
+    /// The user's profile that must already exist
+    #[account(
+        mut,
+        seeds = [b"user_profile", user.key().as_ref()],
+        bump,
+        constraint = user_profile.user == user.key()
+    )]
+    pub user_profile: Account<'info, UserProfile>,
     
     /// The temporary alignment token mint (source tokens to burn)
     #[account(
