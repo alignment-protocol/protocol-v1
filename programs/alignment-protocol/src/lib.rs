@@ -105,6 +105,18 @@ pub enum ErrorCode {
     
     #[msg("Token mint mismatch")]
     TokenMintMismatch,
+    
+    #[msg("Invalid token account")]
+    InvalidTokenAccount,
+    
+    #[msg("Invalid user profile")]
+    InvalidUserProfile,
+    
+    #[msg("User profile already initialized")]
+    UserProfileAlreadyInitialized,
+    
+    #[msg("Cannot stake zero tokens")]
+    ZeroStakeAmount,
 }
 
 // ------------------------------
