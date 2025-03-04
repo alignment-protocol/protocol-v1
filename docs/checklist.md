@@ -12,7 +12,7 @@
 
 - ✅ Create `State` account (PDA)
 - ✅ Create token mint with program as authority
-- 🔴 ❌ Create four token mints (`tempAlignMint`, `AlignMint`, `tempRepMint`, and `RepMint`)
+- ✅ Create four token mints (`tempAlignMint`, `AlignMint`, `tempRepMint`, and `RepMint`)
 - ✅ Add ability to update token mint parameters
 - ✅ Implement authority control for admin functions
 - 🟢 ❌ Add support for eventual DAO governance
@@ -29,30 +29,30 @@
 
 ## 3. Stake tempAlign Tokens for tempRep
 
-- 🔴 ❌ Create `UserProfile` account to track reputation
-- 🔴 ❌ Implement `stake_alignment_tokens` instruction to convert tempAlign to tempRep
+- ✅ Create `UserProfile` account to track reputation
+- ✅ Implement `stake_alignment_tokens` instruction to convert tempAlign to tempRep
 - 🟠 ❌ Add staking period/lockup functionality
-- 🔴 ❌ Implement reputation accounting logic
-- 🟠 ❌ Add reputation weighting mechanisms for voting
+- ✅ Implement reputation accounting logic
+- ✅ Add reputation weighting mechanisms for voting (quadratic)
 
 ## 4. Commit & Reveal Votes
 
-- 🔴 ❌ Implement two-phase voting process
-- 🔴 ❌ Create data structures for commit phase (hashed votes)
-- 🔴 ❌ Create data structures for reveal phase
-- 🔴 ❌ Add time windows or epochs for commit/reveal phases
-- 🔴 ❌ Add verification of commit hash during reveal
-- 🔴 ❌ Update submission vote counters during reveal
-- 🟠 ❌ Handle edge cases (missed reveals, late votes)
+- ✅ Implement two-phase voting process
+- ✅ Create data structures for commit phase (hashed votes)
+- ✅ Create data structures for reveal phase
+- ✅ Add time windows or epochs for commit/reveal phases
+- ✅ Add verification of commit hash during reveal
+- ✅ Update submission vote counters during reveal
+- ✅ Handle edge cases (missed reveals, late votes)
 
 ## 5. Finalize Submission & Convert Temporary Tokens to Permanent Tokens
 
-- 🔴 ❌ Implement finalization logic to determine submission acceptance
-- 🔴 ❌ Add vote tallying mechanisms
-- 🔴 ❌ Convert contributor's tempAlign tokens to Align tokens for accepted submissions
-- 🔴 ❌ Convert correct validators' tempRep to Rep tokens
-- 🔴 ❌ Implement slashing for incorrect votes (burn tempRep)
-- 🔴 ❌ Update submission status (Accepted/Rejected)
+- ✅ Implement finalization logic to determine submission acceptance
+- ✅ Add vote tallying mechanisms
+- ✅ Convert contributor's tempAlign tokens to Align tokens for accepted submissions
+- ✅ Convert correct validators' tempRep to Rep tokens
+- ✅ Implement slashing for incorrect votes (burn tempRep)
+- ✅ Update submission status (Accepted/Rejected)
 
 ## 6. Testing & Validation
 
@@ -92,10 +92,19 @@
 - 🟢 ❌ Transition from admin to DAO governance
 - 🟢 ❌ Parameter adjustment through governance
 - 🟢 ❌ Challenge/dispute windows
-- 🟢 ❌ Weighted or random subset voting
+- 🟢 ❌ Random subset voting (choosing random validators for collusion prevention)
 - 🟢 ❌ Off-chain indexing for data analytics
 
-## 10. Production Deployment
+## 10. Topic/Corpus Organization
+
+- ✅ Create Topic struct for organizing submissions
+- ✅ Implement topic creation by authorities
+- ✅ Create SubmissionTopicLink for many-to-many relationships
+- ✅ Topic-specific voting periods
+- 🟠 ❌ Cross-topic submission linking (add existing submissions to other topics)
+- 🟠 ❌ Topic-specific reputation tracking
+
+## 11. Production Deployment
 
 - 🟢 ❌ Devnet → Testnet → Mainnet migration
 - 🟢 ❌ Production security review
