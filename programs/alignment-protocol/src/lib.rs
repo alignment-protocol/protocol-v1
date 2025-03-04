@@ -559,23 +559,20 @@ pub struct FinalizeVote<'info> {
     
     #[account(
         constraint = vote_commit.revealed == true,
-        constraint = vote_commit.validator == validator.key(),
+        constraint = vote_commit.validator == validator_profile.user,
         constraint = vote_commit.submission_topic_link == submission_topic_link.key()
     )]
     pub vote_commit: Account<'info, VoteCommit>,
     
     /// The validator's user profile
-    #[account(
-        mut,
-        constraint = validator_profile.user == validator.key()
-    )]
+    #[account(mut)]
     pub validator_profile: Account<'info, UserProfile>,
     
     /// The validator's ATA for temporary reputation tokens (for burning)
     #[account(
         mut,
         constraint = validator_temp_rep_ata.mint == state.temp_rep_mint,
-        constraint = validator_temp_rep_ata.owner == validator.key()
+        constraint = validator_temp_rep_ata.owner == validator_profile.user
     )]
     pub validator_temp_rep_ata: Account<'info, TokenAccount>,
     
@@ -583,7 +580,7 @@ pub struct FinalizeVote<'info> {
     #[account(
         mut,
         constraint = validator_rep_ata.mint == state.rep_mint,
-        constraint = validator_rep_ata.owner == validator.key()
+        constraint = validator_rep_ata.owner == validator_profile.user
     )]
     pub validator_rep_ata: Account<'info, TokenAccount>,
     
@@ -601,9 +598,9 @@ pub struct FinalizeVote<'info> {
     )]
     pub rep_mint: Account<'info, Mint>,
     
-    /// The validator finalizing their vote
+    /// The signer finalizing the vote (can be anyone, not just the validator)
     #[account(mut)]
-    pub validator: Signer<'info>,
+    pub authority: Signer<'info>,
     
     #[account(address = anchor_spl::token::ID)]
     pub token_program: Program<'info, Token>,
@@ -1436,6 +1433,137 @@ pub mod alignment_protocol {
         msg!("Final vote tally: {} YES vs {} NO", 
             link.yes_voting_power, 
             link.no_voting_power);
+        
+        Ok(())
+    }
+    
+    /// Instruction handler: Finalize a validator's vote after submission has been finalized
+    ///
+    /// This processes the token rewards or penalties for a validator based on their vote:
+    /// - For correct votes: Burn tempRep tokens and mint permanent Rep tokens
+    /// - For incorrect votes: Just burn tempRep tokens with no replacement
+    /// - No penalty for permanent Rep tokens used for voting
+    pub fn finalize_vote(
+        ctx: Context<FinalizeVote>,
+    ) -> Result<()> {
+        // Check if the vote has already been finalized
+        if ctx.accounts.vote_commit.finalized {
+            return Err(ErrorCode::VoteAlreadyFinalized.into());
+        }
+        
+        // Get the consensus outcome (accepted/rejected)
+        let consensus_is_yes = ctx.accounts.submission_topic_link.status == SubmissionStatus::Accepted;
+        
+        // Get the validator's vote choice
+        let vote_choice = ctx.accounts.vote_commit.vote_choice.ok_or(ErrorCode::InvalidVoteHash)?;
+        let voted_yes = vote_choice == VoteChoice::Yes;
+        
+        // Check if the validator voted with the consensus
+        let voted_with_consensus = (consensus_is_yes && voted_yes) || (!consensus_is_yes && !voted_yes);
+        
+        // Only process token conversions for temporary reputation
+        // With permanent reputation, we don't burn or reward tokens for now
+        if !ctx.accounts.vote_commit.is_permanent_rep {
+            let vote_amount = ctx.accounts.vote_commit.vote_amount;
+            
+            if voted_with_consensus {
+                // Validator voted correctly - convert tempRep to permanent Rep
+                
+                // Check if the validator has enough tempRep tokens
+                if ctx.accounts.validator_temp_rep_ata.amount < vote_amount {
+                    return Err(ErrorCode::InsufficientTokenBalance.into());
+                }
+                
+                // 1. Burn tempRep tokens
+                let burn_cpi_ctx = CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    Burn {
+                        mint: ctx.accounts.temp_rep_mint.to_account_info(),
+                        from: ctx.accounts.validator_temp_rep_ata.to_account_info(),
+                        authority: ctx.accounts.authority.to_account_info(),
+                    },
+                );
+                
+                token::burn(burn_cpi_ctx, vote_amount)?;
+                
+                // 2. Mint permanent Rep tokens
+                let state_bump = ctx.accounts.state.bump;
+                let seeds = &[b"state".as_ref(), &[state_bump]];
+                let signer = &[&seeds[..]];
+                
+                let mint_cpi_ctx = CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    MintTo {
+                        mint: ctx.accounts.rep_mint.to_account_info(),
+                        to: ctx.accounts.validator_rep_ata.to_account_info(),
+                        authority: ctx.accounts.state.to_account_info(),
+                    },
+                )
+                .with_signer(signer);
+                
+                token::mint_to(mint_cpi_ctx, vote_amount)?;
+                
+                // Update validator profile
+                let validator_profile = &mut ctx.accounts.validator_profile;
+                validator_profile.temp_rep_amount = validator_profile.temp_rep_amount
+                    .checked_sub(vote_amount)
+                    .ok_or(ErrorCode::Overflow)?;
+                    
+                validator_profile.permanent_rep_amount = validator_profile.permanent_rep_amount
+                    .checked_add(vote_amount)
+                    .ok_or(ErrorCode::Overflow)?;
+                
+                msg!(
+                    "Validator voted correctly! Converted {} tempRep to {} permanent Rep",
+                    vote_amount,
+                    vote_amount
+                );
+            } else {
+                // Validator voted incorrectly - burn tempRep tokens with no replacement
+                
+                // Check if the validator has enough tempRep tokens
+                if ctx.accounts.validator_temp_rep_ata.amount < vote_amount {
+                    return Err(ErrorCode::InsufficientTokenBalance.into());
+                }
+                
+                // Burn tempRep tokens
+                let burn_cpi_ctx = CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    Burn {
+                        mint: ctx.accounts.temp_rep_mint.to_account_info(),
+                        from: ctx.accounts.validator_temp_rep_ata.to_account_info(),
+                        authority: ctx.accounts.authority.to_account_info(),
+                    },
+                );
+                
+                token::burn(burn_cpi_ctx, vote_amount)?;
+                
+                // Update validator profile
+                let validator_profile = &mut ctx.accounts.validator_profile;
+                validator_profile.temp_rep_amount = validator_profile.temp_rep_amount
+                    .checked_sub(vote_amount)
+                    .ok_or(ErrorCode::Overflow)?;
+                
+                msg!(
+                    "Validator voted incorrectly. Burned {} tempRep tokens with no replacement",
+                    vote_amount
+                );
+            }
+        } else {
+            // Using permanent Rep tokens
+            // For MVP we don't apply penalties to permanent Rep
+            msg!("Vote was made with permanent Rep tokens. No token conversion applied.");
+        }
+        
+        // Mark the vote as finalized
+        let vote_commit = &mut ctx.accounts.vote_commit;
+        vote_commit.finalized = true;
+        
+        msg!(
+            "Finalized vote for validator {} on submission in topic '{}'",
+            ctx.accounts.validator_profile.user,
+            ctx.accounts.topic.name
+        );
         
         Ok(())
     }
