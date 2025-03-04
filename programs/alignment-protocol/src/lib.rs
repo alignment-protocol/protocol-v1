@@ -189,19 +189,26 @@ pub struct CreateUserAta<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-/// Instruction: Store data directly in your program's Submission account.
+/// Instruction: Store data directly in your program's Submission account and mint temporary alignment tokens.
 #[derive(Accounts)]
 pub struct SubmitData<'info> {
     #[account(mut)]
     pub state: Account<'info, State>,
 
-    /// The mint for temp tokens, must be mutable if we plan to mint more
-    #[account(mut)]
-    pub mint: Account<'info, Mint>,
+    /// The temporary alignment token mint, must be mutable for minting
+    #[account(
+        mut,
+        constraint = *temp_align_mint.to_account_info().key == state.temp_align_mint
+    )]
+    pub temp_align_mint: Account<'info, Mint>,
 
-    /// The user's ATA to receive minted tokens
+    /// The user's ATA for temporary alignment tokens
     /// We only mark it mut. We assume it's already created via `create_user_ata`.
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = contributor_ata.mint == state.temp_align_mint,
+        constraint = contributor_ata.owner == contributor.key()
+    )]
     pub contributor_ata: Account<'info, TokenAccount>,
 
     /// The new Submission account
@@ -214,8 +221,8 @@ pub struct SubmitData<'info> {
             state.submission_count.to_le_bytes().as_ref(),
         ],
         bump,
-        // Discriminator + contributor pubkey + timestamp + data field (4 + your chosen max length)
-        space = 8 + 32 + 8 + (4 + 256)
+        // Discriminator + contributor pubkey + timestamp + data field (4 + your chosen max length) + yes_count + no_count + status
+        space = 8 + 32 + 8 + (4 + 256) + 8 + 8 + 1
     )]
     pub submission: Account<'info, Submission>,
 
@@ -223,8 +230,6 @@ pub struct SubmitData<'info> {
     #[account(mut)]
     pub contributor: Signer<'info>,
 
-    /// We do NOT require the authority to sign, we only check `state.authority` to match
-    /// so we pass it as a normal AccountInfo if needed or omit it if not used
     #[account(address = anchor_spl::token::ID)]
     pub token_program: Program<'info, Token>,
 
