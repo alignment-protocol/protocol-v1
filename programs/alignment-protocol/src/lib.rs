@@ -67,10 +67,14 @@ pub enum ErrorCode {
 //          Instructions
 // ------------------------------
 
-/// Instruction: Initialize the protocol state + create a token mint
+/// Instruction: Initialize the protocol state + create four token mints
 ///
 /// 1) Creates the `State` account (PDA with seeds=["state"]).
-/// 2) Creates the `Mint` account (PDA with seeds=["mint"]).
+/// 2) Creates the four token mint accounts with different seeds and properties:
+///   - temp_align_mint: Non-transferable temporary alignment tokens (seeds=["temp_align_mint"])
+///   - align_mint: Transferable permanent alignment tokens (seeds=["align_mint"])
+///   - temp_rep_mint: Non-transferable temporary reputation tokens (seeds=["temp_rep_mint"])
+///   - rep_mint: Non-transferable permanent reputation tokens (seeds=["rep_mint"])
 /// 3) Sets `submission_count = 0`.
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -79,20 +83,53 @@ pub struct Initialize<'info> {
         seeds = [b"state"],
         bump,
         payer = authority,
-        space = 8 + 32 + 32 + 1 + 8 + 8 // Discriminator + mint + authority + bump + submission_count + tokens_to_mint
+        space = 8 + 32 + 32 + 32 + 32 + 32 + 1 + 8 + 8 // Discriminator + 4 mints + authority + bump + submission_count + tokens_to_mint
     )]
     pub state: Account<'info, State>,
 
     #[account(
         init,
-        seeds = [b"mint"],
+        seeds = [b"temp_align_mint"],
         bump,
         payer = authority,
-        mint::decimals = 0,            // Adjust decimals as needed
+        mint::decimals = 0,            
         mint::authority = state.key(), // The state PDA is the mint authority
         mint::freeze_authority = state.key()
     )]
-    pub mint: Account<'info, Mint>,
+    pub temp_align_mint: Account<'info, Mint>,
+
+    #[account(
+        init,
+        seeds = [b"align_mint"],
+        bump,
+        payer = authority,
+        mint::decimals = 0,            
+        mint::authority = state.key(), 
+        mint::freeze_authority = state.key()
+    )]
+    pub align_mint: Account<'info, Mint>,
+
+    #[account(
+        init,
+        seeds = [b"temp_rep_mint"],
+        bump,
+        payer = authority,
+        mint::decimals = 0,            
+        mint::authority = state.key(), 
+        mint::freeze_authority = state.key()
+    )]
+    pub temp_rep_mint: Account<'info, Mint>,
+
+    #[account(
+        init,
+        seeds = [b"rep_mint"],
+        bump,
+        payer = authority,
+        mint::decimals = 0,            
+        mint::authority = state.key(), 
+        mint::freeze_authority = state.key()
+    )]
+    pub rep_mint: Account<'info, Mint>,
 
     #[account(mut)]
     pub authority: Signer<'info>,
