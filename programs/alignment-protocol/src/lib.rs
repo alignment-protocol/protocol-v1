@@ -464,6 +464,69 @@ pub struct RevealVote<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Account constraints for finalizing a submission within a topic after voting
+#[derive(Accounts)]
+pub struct FinalizeSubmission<'info> {
+    pub state: Account<'info, State>,
+    
+    #[account(
+        mut,
+        constraint = submission_topic_link.status == SubmissionStatus::Pending,
+        constraint = Clock::get()?.unix_timestamp as u64 > submission_topic_link.reveal_phase_end
+    )]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    
+    pub topic: Account<'info, Topic>,
+    
+    pub submission: Account<'info, Submission>,
+    
+    /// The contributor's user profile
+    #[account(
+        mut,
+        constraint = contributor_profile.user == submission.contributor
+    )]
+    pub contributor_profile: Account<'info, UserProfile>,
+    
+    /// The contributor's ATA for temporary alignment tokens
+    #[account(
+        mut,
+        constraint = contributor_temp_align_ata.mint == state.temp_align_mint,
+        constraint = contributor_temp_align_ata.owner == submission.contributor
+    )]
+    pub contributor_temp_align_ata: Account<'info, TokenAccount>,
+    
+    /// The contributor's ATA for permanent alignment tokens
+    #[account(
+        mut,
+        constraint = contributor_align_ata.mint == state.align_mint,
+        constraint = contributor_align_ata.owner == submission.contributor
+    )]
+    pub contributor_align_ata: Account<'info, TokenAccount>,
+    
+    /// The tempAlign mint (for burning)
+    #[account(
+        mut,
+        constraint = temp_align_mint.key() == state.temp_align_mint
+    )]
+    pub temp_align_mint: Account<'info, Mint>,
+    
+    /// The Align mint (for minting)
+    #[account(
+        mut,
+        constraint = align_mint.key() == state.align_mint
+    )]
+    pub align_mint: Account<'info, Mint>,
+    
+    /// The authority calling this instruction (can be any user)
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+    
+    pub system_program: Program<'info, System>,
+}
+
 /// Instruction: Initialize the protocol state + create four token mints
 ///
 /// 1) Creates the `State` account (PDA with seeds=["state"]).
