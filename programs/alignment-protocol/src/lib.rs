@@ -312,7 +312,7 @@ pub mod alignment_protocol {
 
     /// Instruction handler: Submit data directly on-chain
     /// 1) Creates new `Submission` account with the given data.
-    /// 2) Mints a fixed number of tokens from the State's mint to the user's ATA.
+    /// 2) Mints a fixed number of temporary alignment tokens to the user's ATA.
     /// 3) Increments the state's submission_count.
     pub fn submit_data(ctx: Context<SubmitData>, data_str: String) -> Result<()> {
         // 1) Fill out the Submission account
@@ -320,8 +320,11 @@ pub mod alignment_protocol {
         submission.contributor = ctx.accounts.contributor.key();
         submission.timestamp = Clock::get()?.unix_timestamp as u64;
         submission.data = data_str.clone(); // store the text or JSON
+        submission.yes_count = 0;
+        submission.no_count = 0;
+        submission.status = SubmissionStatus::Pending;
 
-        // 2) Mint tokens to the contributor
+        // 2) Mint temporary alignment tokens to the contributor
         if ctx.accounts.state.tokens_to_mint > 0 {
             let state_bump = ctx.accounts.state.bump;
             let seeds = &[b"state".as_ref(), &[state_bump]];
@@ -331,7 +334,7 @@ pub mod alignment_protocol {
             let cpi_ctx = CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 MintTo {
-                    mint: ctx.accounts.mint.to_account_info(),
+                    mint: ctx.accounts.temp_align_mint.to_account_info(),
                     to: ctx.accounts.contributor_ata.to_account_info(),
                     authority: ctx.accounts.state.to_account_info(),
                 },
@@ -340,7 +343,7 @@ pub mod alignment_protocol {
 
             token::mint_to(cpi_ctx, ctx.accounts.state.tokens_to_mint)?;
             msg!(
-                "Minted {} tokens to {}",
+                "Minted {} tempAlign tokens to {}",
                 ctx.accounts.state.tokens_to_mint,
                 ctx.accounts.contributor_ata.key()
             );
