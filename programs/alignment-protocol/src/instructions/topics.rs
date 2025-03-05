@@ -54,7 +54,6 @@ pub fn create_user_profile(ctx: Context<CreateUserProfile>) -> Result<()> {
     // Initialize the user profile fields
     let user_profile = &mut ctx.accounts.user_profile;
     user_profile.user = ctx.accounts.user.key();
-    user_profile.temp_rep_amount = 0;
     user_profile.permanent_rep_amount = 0;
     user_profile.bump = ctx.bumps.user_profile;
     

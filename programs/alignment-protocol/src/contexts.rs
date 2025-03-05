@@ -5,6 +5,8 @@ use anchor_spl::{
 };
 use crate::data::*;
 
+// Removed legacy context structures
+
 /// Account constraints for creating a new topic
 #[derive(Accounts)]
 pub struct CreateTopic<'info> {
@@ -482,54 +484,7 @@ pub struct CreateUserAta<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-/// Instruction: Store data directly in your program's Submission account and mint temporary alignment tokens.
-/// Note: This only creates the submission. For voting, the submission must be linked to a topic.
-#[derive(Accounts)]
-pub struct SubmitData<'info> {
-    #[account(mut)]
-    pub state: Account<'info, State>,
-
-    /// The temporary alignment token mint, must be mutable for minting
-    #[account(
-        mut,
-        constraint = *temp_align_mint.to_account_info().key == state.temp_align_mint
-    )]
-    pub temp_align_mint: Account<'info, Mint>,
-
-    /// The user's ATA for temporary alignment tokens
-    /// We only mark it mut. We assume it's already created via `create_user_ata`.
-    #[account(
-        mut,
-        constraint = contributor_ata.mint == state.temp_align_mint,
-        constraint = contributor_ata.owner == contributor.key()
-    )]
-    pub contributor_ata: Account<'info, TokenAccount>,
-
-    /// The new Submission account
-    #[account(
-        init,
-        payer = contributor,
-        // Use seeds to ensure uniqueness
-        seeds = [
-            b"submission",
-            state.submission_count.to_le_bytes().as_ref(),
-        ],
-        bump,
-        // Discriminator + contributor pubkey + timestamp + data_reference field + bump
-        space = 8 + 32 + 8 + (4 + MAX_DATA_REFERENCE_LENGTH) + 1
-    )]
-    pub submission: Account<'info, Submission>,
-
-    /// The user making the submission
-    #[account(mut)]
-    pub contributor: Signer<'info>,
-
-    #[account(address = anchor_spl::token::ID)]
-    pub token_program: Program<'info, Token>,
-
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
-}
+// Removed legacy SubmitData context
 
 /// Account constraints for creating a user profile
 #[derive(Accounts)]
@@ -543,7 +498,7 @@ pub struct CreateUserProfile<'info> {
         payer = user,
         seeds = [b"user_profile", user.key().as_ref()],
         bump,
-        space = 8 + 32 + 8 + 8 + 4 + 200 + 1  // Discriminator + user pubkey + temp_rep_amount + permanent_rep_amount + vector length + topic tokens (initially space for ~10 topics) + bump
+        space = 8 + 32 + 8 + 4 + 200 + 1  // Discriminator + user pubkey + permanent_rep_amount + vector length + topic tokens (initially space for ~10 topics) + bump
     )]
     pub user_profile: Account<'info, UserProfile>,
     
@@ -555,61 +510,7 @@ pub struct CreateUserProfile<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-/// Account constraints for staking temporary alignment tokens
-#[derive(Accounts)]
-pub struct StakeAlignmentTokens<'info> {
-    #[account(mut)]
-    pub state: Account<'info, State>,
-    
-    /// The user's profile that must already exist
-    #[account(
-        mut,
-        seeds = [b"user_profile", user.key().as_ref()],
-        bump,
-        constraint = user_profile.user == user.key()
-    )]
-    pub user_profile: Account<'info, UserProfile>,
-    
-    /// The temporary alignment token mint (source tokens to burn)
-    #[account(
-        mut,
-        constraint = *temp_align_mint.to_account_info().key == state.temp_align_mint
-    )]
-    pub temp_align_mint: Account<'info, Mint>,
-    
-    /// The temporary reputation token mint (target tokens to mint)
-    #[account(
-        mut,
-        constraint = *temp_rep_mint.to_account_info().key == state.temp_rep_mint
-    )]
-    pub temp_rep_mint: Account<'info, Mint>,
-    
-    /// The user's ATA for temporary alignment tokens (source)
-    #[account(
-        mut,
-        constraint = user_temp_align_ata.mint == state.temp_align_mint,
-        constraint = user_temp_align_ata.owner == user.key()
-    )]
-    pub user_temp_align_ata: Account<'info, TokenAccount>,
-    
-    /// The user's ATA for temporary reputation tokens (target)
-    #[account(
-        mut,
-        constraint = user_temp_rep_ata.mint == state.temp_rep_mint,
-        constraint = user_temp_rep_ata.owner == user.key()
-    )]
-    pub user_temp_rep_ata: Account<'info, TokenAccount>,
-    
-    /// The user performing the stake
-    #[account(mut)]
-    pub user: Signer<'info>,
-    
-    #[account(address = anchor_spl::token::ID)]
-    pub token_program: Program<'info, Token>,
-    
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
-}
+// Removed legacy StakeAlignmentTokens context
 
 /// Account constraints for staking temporary alignment tokens for a specific topic
 #[derive(Accounts)]

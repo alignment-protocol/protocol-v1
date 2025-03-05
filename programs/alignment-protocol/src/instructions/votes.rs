@@ -39,11 +39,6 @@ pub fn commit_vote(
     } else {
         // Voting with tempRep - can only vote within the topic it was gained for
         
-        // First check if they have enough total tempRep (legacy check)
-        if ctx.accounts.user_profile.temp_rep_amount < vote_amount {
-            return Err(ErrorCode::InsufficientVotingPower.into());
-        }
-        
         // Get the topic ID from the submission-topic link
         let topic_id = ctx.accounts.topic.id;
         
@@ -225,10 +220,6 @@ pub fn finalize_vote(
             
             // Update validator profile
             let validator_profile = &mut ctx.accounts.validator_profile;
-            validator_profile.temp_rep_amount = validator_profile.temp_rep_amount
-                .checked_sub(vote_amount)
-                .ok_or(ErrorCode::Overflow)?;
-                
             validator_profile.permanent_rep_amount = validator_profile.permanent_rep_amount
                 .checked_add(vote_amount)
                 .ok_or(ErrorCode::Overflow)?;
@@ -285,9 +276,6 @@ pub fn finalize_vote(
             
             // Update validator profile
             let validator_profile = &mut ctx.accounts.validator_profile;
-            validator_profile.temp_rep_amount = validator_profile.temp_rep_amount
-                .checked_sub(vote_amount)
-                .ok_or(ErrorCode::Overflow)?;
                 
             // Get the topic ID
             let topic_id = ctx.accounts.topic.id;

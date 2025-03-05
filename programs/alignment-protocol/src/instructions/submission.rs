@@ -1,58 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, MintTo};
-use crate::contexts::{SubmitData, SubmitDataToTopic, LinkSubmissionToTopic, FinalizeSubmission};
+use crate::contexts::{SubmitDataToTopic, LinkSubmissionToTopic, FinalizeSubmission};
 use crate::data::{SubmissionStatus, MAX_DATA_REFERENCE_LENGTH};
 use crate::error::ErrorCode;
 
-pub fn submit_data(ctx: Context<SubmitData>, data_reference: String) -> Result<()> {
-    // Validate inputs
-    if data_reference.len() > MAX_DATA_REFERENCE_LENGTH {
-        return Err(error!(ErrorCode::TopicDescriptionTooLong));
-    }
-    
-    // 1) Fill out the Submission account
-    let submission = &mut ctx.accounts.submission;
-    submission.contributor = ctx.accounts.contributor.key();
-    submission.timestamp = Clock::get()?.unix_timestamp as u64;
-    submission.data_reference = data_reference.clone(); // store the reference (hash, tx ID, etc.)
-    submission.bump = ctx.bumps.submission;
-
-    // 2) Mint temporary alignment tokens to the contributor
-    if ctx.accounts.state.tokens_to_mint > 0 {
-        let state_bump = ctx.accounts.state.bump;
-        let seeds = &[b"state".as_ref(), &[state_bump]];
-        let signer = &[&seeds[..]];
-
-        // CPI to the Token Program's 'mint_to'
-        let cpi_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            MintTo {
-                mint: ctx.accounts.temp_align_mint.to_account_info(),
-                to: ctx.accounts.contributor_ata.to_account_info(),
-                authority: ctx.accounts.state.to_account_info(),
-            },
-        )
-        .with_signer(signer);
-
-        token::mint_to(cpi_ctx, ctx.accounts.state.tokens_to_mint)?;
-        msg!(
-            "Minted {} tempAlign tokens to {}",
-            ctx.accounts.state.tokens_to_mint,
-            ctx.accounts.contributor_ata.key()
-        );
-    }
-
-    // 3) Increment submission_count
-    let state_acc = &mut ctx.accounts.state;
-    state_acc.submission_count = state_acc
-        .submission_count
-        .checked_add(1)
-        .ok_or(ErrorCode::Overflow)?;
-
-    msg!("New submission on-chain (reference): {}", data_reference);
-    msg!("NOTE: This submission is not linked to any topic yet. Use submit_data_to_topic instead.");
-    Ok(())
-}
+// Removed legacy submit_data function
 
 pub fn submit_data_to_topic(
     ctx: Context<SubmitDataToTopic>,

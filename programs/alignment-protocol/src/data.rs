@@ -87,9 +87,6 @@ pub struct UserProfile {
     /// The user's public key
     pub user: Pubkey,
     
-    /// Amount of temporary reputation tokens staked (legacy field, maintained for backward compatibility)
-    pub temp_rep_amount: u64,
-    
     /// Amount of permanent reputation tokens earned
     pub permanent_rep_amount: u64,
     
