@@ -5,7 +5,6 @@ use anchor_spl::{
 };
 use crate::contexts::{CreateUserAta, StakeTopicSpecificTokens};
 use crate::error::ErrorCode;
-use crate::data::TopicToken;
 
 pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
     // Build a CPI context for the associated token program

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::{AssociatedToken},
+    associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount},
 };
 use crate::data::*;
@@ -101,8 +101,7 @@ pub struct SubmitDataToTopic<'info> {
         mut, 
         seeds = [b"user_profile", contributor.key().as_ref()],
         bump,
-        constraint = contributor_profile.user == contributor.key(),
-        optional
+        constraint = contributor_profile.user == contributor.key()
     )]
     pub contributor_profile: Option<Account<'info, UserProfile>>,
     
