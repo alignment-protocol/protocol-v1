@@ -74,10 +74,10 @@ pub fn submit_data_to_topic(
             
             // Try to find the topic in the user's topic_tokens map
             let mut found = false;
-            for (id, token_balance) in topic_tokens.iter_mut() {
-                if *id == topic_id {
+            for topic_pair in topic_tokens.iter_mut() {
+                if topic_pair.topic_id == topic_id {
                     // Topic found, add to its temp_align_amount
-                    token_balance.temp_align_amount = token_balance.temp_align_amount
+                    topic_pair.token.temp_align_amount = topic_pair.token.temp_align_amount
                         .checked_add(ctx.accounts.state.tokens_to_mint)
                         .ok_or(ErrorCode::Overflow)?;
                     found = true;
@@ -87,13 +87,13 @@ pub fn submit_data_to_topic(
             
             // If not found, create a new entry
             if !found {
-                topic_tokens.push((
+                topic_tokens.push(crate::data::TopicTokenPair {
                     topic_id,
-                    crate::data::TopicToken {
+                    token: crate::data::TopicToken {
                         temp_align_amount: ctx.accounts.state.tokens_to_mint,
                         temp_rep_amount: 0,
                     },
-                ));
+                });
             }
             
             msg!(
@@ -188,10 +188,10 @@ pub fn finalize_submission(
         let mut found_topic = false;
         
         // Check the contributor's topic-specific token balance
-        for (id, token_balance) in ctx.accounts.contributor_profile.topic_tokens.iter() {
-            if *id == topic_id {
+        for topic_pair in ctx.accounts.contributor_profile.topic_tokens.iter() {
+            if topic_pair.topic_id == topic_id {
                 found_topic = true;
-                topic_align_balance = token_balance.temp_align_amount;
+                topic_align_balance = topic_pair.token.temp_align_amount;
                 break;
             }
         }
@@ -246,10 +246,10 @@ pub fn finalize_submission(
         
         // Update the contributor's topic-specific balance
         if found_topic {
-            for (id, token_balance) in ctx.accounts.contributor_profile.topic_tokens.iter_mut() {
-                if *id == topic_id {
+            for topic_pair in ctx.accounts.contributor_profile.topic_tokens.iter_mut() {
+                if topic_pair.topic_id == topic_id {
                     // Reduce the topic-specific tempAlign amount
-                    token_balance.temp_align_amount = token_balance.temp_align_amount
+                    topic_pair.token.temp_align_amount = topic_pair.token.temp_align_amount
                         .checked_sub(conversion_amount)
                         .ok_or(ErrorCode::Overflow)?;
                     break;

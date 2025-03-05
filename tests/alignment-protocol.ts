@@ -621,15 +621,14 @@ describe("alignment-protocol", () => {
     // Verify the contributor's topic-specific token balance was updated
     const contributorProfile = await program.account.userProfile.fetch(contributorProfilePda);
     const topicTokenEntry = contributorProfile.topicTokens.find(
-      ([id]) => id.toNumber() === 0 // Topic ID 0
+      (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
     );
     expect(topicTokenEntry).to.not.be.undefined;
     
-    // @ts-ignore - we've already checked that topicTokenEntry exists
-    const [topicId, tokenBalance] = topicTokenEntry;
-    expect(topicId.toNumber()).to.equal(0);
-    expect(tokenBalance.tempAlignAmount.toNumber()).to.equal(100);
-    expect(tokenBalance.tempRepAmount.toNumber()).to.equal(0);
+    // Now that we've already checked that topicTokenEntry exists
+    expect(topicTokenEntry.topicId.toNumber()).to.equal(0);
+    expect(topicTokenEntry.token.tempAlignAmount.toNumber()).to.equal(100);
+    expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(0);
   });
 
   // ========== TEST SECTION 5: CROSS-TOPIC LINKING ==========
@@ -746,15 +745,14 @@ describe("alignment-protocol", () => {
     // Verify that the user profile's topic-specific token balances were updated
     const contributorProfile = await program.account.userProfile.fetch(contributorProfilePda);
     const topicTokenEntry = contributorProfile.topicTokens.find(
-      ([id]) => id.toNumber() === 0 // Topic ID 0
+      (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
     );
     expect(topicTokenEntry).to.not.be.undefined;
     
-    // @ts-ignore - we've already checked that topicTokenEntry exists
-    const [topicId, tokenBalance] = topicTokenEntry;
-    expect(topicId.toNumber()).to.equal(0);
-    expect(tokenBalance.tempAlignAmount.toNumber()).to.equal(100 - stakeAmount); // 50 remaining
-    expect(tokenBalance.tempRepAmount.toNumber()).to.equal(stakeAmount); // 50 earned
+    // Now that we've already checked that topicTokenEntry exists
+    expect(topicTokenEntry.topicId.toNumber()).to.equal(0);
+    expect(topicTokenEntry.token.tempAlignAmount.toNumber()).to.equal(100 - stakeAmount); // 50 remaining
+    expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(stakeAmount); // 50 earned
   });
 
   // ========== TEST SECTION 7: VOTING ==========

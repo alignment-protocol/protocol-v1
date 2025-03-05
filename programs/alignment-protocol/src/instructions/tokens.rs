@@ -50,10 +50,10 @@ pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amoun
     let mut topic_temp_align = 0;
     
     // Find the topic in the user's topic_tokens collection
-    for (id, token_balance) in user_profile.topic_tokens.iter() {
-        if *id == topic_id {
+    for topic_pair in user_profile.topic_tokens.iter() {
+        if topic_pair.topic_id == topic_id {
             found_topic = true;
-            topic_temp_align = token_balance.temp_align_amount;
+            topic_temp_align = topic_pair.token.temp_align_amount;
             break;
         }
     }
@@ -98,15 +98,15 @@ pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amoun
     token::mint_to(mint_cpi_ctx, amount)?;
     
     // Update the topic-specific token balances in the user profile
-    for (id, token_balance) in user_profile.topic_tokens.iter_mut() {
-        if *id == topic_id {
+    for topic_pair in user_profile.topic_tokens.iter_mut() {
+        if topic_pair.topic_id == topic_id {
             // Decrease tempAlign for this topic
-            token_balance.temp_align_amount = token_balance.temp_align_amount
+            topic_pair.token.temp_align_amount = topic_pair.token.temp_align_amount
                 .checked_sub(amount)
                 .ok_or(ErrorCode::Overflow)?;
             
             // Increase tempRep for this topic
-            token_balance.temp_rep_amount = token_balance.temp_rep_amount
+            topic_pair.token.temp_rep_amount = topic_pair.token.temp_rep_amount
                 .checked_add(amount)
                 .ok_or(ErrorCode::Overflow)?;
             

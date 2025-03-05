@@ -81,6 +81,16 @@ pub struct TopicToken {
     pub temp_rep_amount: u64,
 }
 
+/// Structure to pair a topic ID with its token balance
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+pub struct TopicTokenPair {
+    /// The topic ID
+    pub topic_id: u64,
+    
+    /// Token balances for this topic
+    pub token: TopicToken,
+}
+
 /// User profile account to track reputation
 #[account]
 pub struct UserProfile {
@@ -92,7 +102,7 @@ pub struct UserProfile {
     
     /// Map of topic ID to topic-specific token balances
     /// This allows tracking which tokens were earned in which topic
-    pub topic_tokens: Vec<(u64, TopicToken)>,
+    pub topic_tokens: Vec<TopicTokenPair>,
     
     /// Bump seed for the user profile PDA
     pub bump: u8,

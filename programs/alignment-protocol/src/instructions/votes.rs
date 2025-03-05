@@ -48,10 +48,10 @@ pub fn commit_vote(
         let mut topic_temp_rep = 0;
         
         // Find the topic in the user's topic_tokens collection
-        for (id, token_balance) in user_profile.topic_tokens.iter() {
-            if *id == topic_id {
+        for topic_pair in user_profile.topic_tokens.iter() {
+            if topic_pair.topic_id == topic_id {
                 found_topic = true;
-                topic_temp_rep = token_balance.temp_rep_amount;
+                topic_temp_rep = topic_pair.token.temp_rep_amount;
                 break;
             }
         }
@@ -231,12 +231,12 @@ pub fn finalize_vote(
             let mut found_topic = false;
             
             // Find the topic in the user's topic_tokens collection
-            for (id, token_balance) in validator_profile.topic_tokens.iter_mut() {
-                if *id == topic_id {
+            for topic_pair in validator_profile.topic_tokens.iter_mut() {
+                if topic_pair.topic_id == topic_id {
                     found_topic = true;
                     
                     // Decrease tempRep for this topic
-                    token_balance.temp_rep_amount = token_balance.temp_rep_amount
+                    topic_pair.token.temp_rep_amount = topic_pair.token.temp_rep_amount
                         .checked_sub(vote_amount)
                         .ok_or(ErrorCode::Overflow)?;
                     
@@ -284,12 +284,12 @@ pub fn finalize_vote(
             let mut found_topic = false;
             
             // Find the topic in the user's topic_tokens collection
-            for (id, token_balance) in validator_profile.topic_tokens.iter_mut() {
-                if *id == topic_id {
+            for topic_pair in validator_profile.topic_tokens.iter_mut() {
+                if topic_pair.topic_id == topic_id {
                     found_topic = true;
                     
                     // Decrease tempRep for this topic
-                    token_balance.temp_rep_amount = token_balance.temp_rep_amount
+                    topic_pair.token.temp_rep_amount = topic_pair.token.temp_rep_amount
                         .checked_sub(vote_amount)
                         .ok_or(ErrorCode::Overflow)?;
                     
