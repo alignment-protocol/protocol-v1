@@ -8,6 +8,10 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 name = "alignment_protocol"
 
+# Keep this ordering the same as what would be output by anchor build
+# Sometimes the order of modules imported matters in the actual build 
+# even if the compiler doesn't complain here
+
 [features]
 default = []
 cpi = ["no-entrypoint"]
@@ -16,6 +20,7 @@ no-idl = []
 anchor-debug = []
 custom-heap = []
 no-log-ix-name = []
+custom-panic = []
 idl-build = [
     "anchor-lang/idl-build",
     "anchor-spl/idl-build"
@@ -24,3 +29,4 @@ idl-build = [
 [dependencies]
 anchor-lang = "0.30.1"
 anchor-spl = "0.30.1"
+sha2 = "0.10.8"
