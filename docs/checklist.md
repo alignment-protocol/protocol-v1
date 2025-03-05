@@ -62,6 +62,7 @@
 - 🔴 ❌ Unit tests for staking functionality
 - 🔴 ❌ Unit tests for voting mechanisms
 - 🔴 ❌ Unit tests for finalization and rewards
+- 🔴 ❌ Unit tests for cross-topic submission linking
 - 🔴 ❌ Integration tests for end-to-end workflows
 - 🟢 ❌ Security audits and edge case handling
 - 🟢 ❌ Performance testing
@@ -102,7 +103,7 @@
 - ✅ Create SubmissionTopicLink for many-to-many relationships
 - ✅ Topic-specific voting periods
 - ✅ Cross-topic submission linking (add existing submissions to other topics)
-- 🟠 ❌ Topic-specific reputation tracking
+- ✅ Topic-specific reputation tracking
 
 ## 11. Production Deployment
 
