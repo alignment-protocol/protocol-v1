@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("BMYn8rtstaZhzFZtgMVMY9io1zhnqacr3yANZrgkv7DF");
+declare_id!("Dj6JQyyqSxwEimAmTWuNZaWMv4mCSAsM6DEJbiRYNnJh");
 
 // Module declarations
 pub mod contexts;
@@ -27,9 +27,29 @@ pub mod __client_accounts_contexts {
 pub mod alignment_protocol {
     use super::*;
 
-    /// Instruction handler: initialize the protocol with four token mints
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        instructions::initialize::initialize(ctx)
+    /// Instruction handler: initialize the protocol state (Part 1)
+    pub fn initialize_state(ctx: Context<InitializeState>) -> Result<()> {
+        instructions::initialize::initialize_state(ctx)
+    }
+
+    /// Instruction handler: initialize temp_align_mint (Part 2a)
+    pub fn initialize_temp_align_mint(ctx: Context<InitializeTempAlignMint>) -> Result<()> {
+        instructions::initialize::initialize_temp_align_mint(ctx)
+    }
+
+    /// Instruction handler: initialize align_mint (Part 2b)
+    pub fn initialize_align_mint(ctx: Context<InitializeAlignMint>) -> Result<()> {
+        instructions::initialize::initialize_align_mint(ctx)
+    }
+
+    /// Instruction handler: initialize temp_rep_mint (Part 2c)
+    pub fn initialize_temp_rep_mint(ctx: Context<InitializeTempRepMint>) -> Result<()> {
+        instructions::initialize::initialize_temp_rep_mint(ctx)
+    }
+
+    /// Instruction handler: initialize rep_mint (Part 2d)
+    pub fn initialize_rep_mint(ctx: Context<InitializeRepMint>) -> Result<()> {
+        instructions::initialize::initialize_rep_mint(ctx)
     }
 
     /// Instruction handler: update the number of tokens to mint for each submission

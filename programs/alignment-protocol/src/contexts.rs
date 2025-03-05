@@ -361,17 +361,13 @@ pub struct FinalizeVote<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Instruction: Initialize the protocol state + create four token mints
+/// Instruction: Initialize the protocol state (Part 1)
 ///
 /// 1) Creates the `State` account (PDA with seeds=["state"]).
-/// 2) Creates the four token mint accounts with different seeds and properties:
-///   - temp_align_mint: Non-transferable temporary alignment tokens (seeds=["temp_align_mint"])
-///   - align_mint: Transferable permanent alignment tokens (seeds=["align_mint"])
-///   - temp_rep_mint: Non-transferable temporary reputation tokens (seeds=["temp_rep_mint"])
-///   - rep_mint: Non-transferable permanent reputation tokens (seeds=["rep_mint"])
-/// 3) Sets `submission_count = 0`.
+/// 2) Initializes the state account with default values
+/// 3) Sets `submission_count = 0` and `topic_count = 0`.
 #[derive(Accounts)]
-pub struct Initialize<'info> {
+pub struct InitializeState<'info> {
     #[account(
         init,
         seeds = [b"state"],
@@ -379,6 +375,22 @@ pub struct Initialize<'info> {
         payer = authority,
         space = 8 + 32 + 32 + 32 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 // Discriminator + 4 mints + authority + bump + submission_count + topic_count + tokens_to_mint + 2 phase durations
     )]
+    pub state: Account<'info, State>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Instruction: Initialize temporary alignment token mint
+///
+/// Creates the temp_align_mint token mint with seeds=["temp_align_mint"]
+/// This is a non-transferable temporary alignment token
+#[derive(Accounts)]
+pub struct InitializeTempAlignMint<'info> {
+    #[account(mut, seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
     #[account(
@@ -392,6 +404,25 @@ pub struct Initialize<'info> {
     )]
     pub temp_align_mint: Account<'info, Mint>,
 
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Instruction: Initialize permanent alignment token mint
+///
+/// Creates the align_mint token mint with seeds=["align_mint"]
+/// This is a transferable permanent alignment token
+#[derive(Accounts)]
+pub struct InitializeAlignMint<'info> {
+    #[account(mut, seeds = [b"state"], bump)]
+    pub state: Account<'info, State>,
+
     #[account(
         init,
         seeds = [b"align_mint"],
@@ -403,6 +434,25 @@ pub struct Initialize<'info> {
     )]
     pub align_mint: Account<'info, Mint>,
 
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Instruction: Initialize temporary reputation token mint
+///
+/// Creates the temp_rep_mint token mint with seeds=["temp_rep_mint"]
+/// This is a non-transferable temporary reputation token
+#[derive(Accounts)]
+pub struct InitializeTempRepMint<'info> {
+    #[account(mut, seeds = [b"state"], bump)]
+    pub state: Account<'info, State>,
+
     #[account(
         init,
         seeds = [b"temp_rep_mint"],
@@ -413,6 +463,25 @@ pub struct Initialize<'info> {
         mint::freeze_authority = state.key()
     )]
     pub temp_rep_mint: Account<'info, Mint>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Instruction: Initialize permanent reputation token mint
+///
+/// Creates the rep_mint token mint with seeds=["rep_mint"]
+/// This is a non-transferable permanent reputation token
+#[derive(Accounts)]
+pub struct InitializeRepMint<'info> {
+    #[account(mut, seeds = [b"state"], bump)]
+    pub state: Account<'info, State>,
 
     #[account(
         init,
