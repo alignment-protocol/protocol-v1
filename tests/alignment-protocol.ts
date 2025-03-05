@@ -10,247 +10,193 @@ import {
 } from "@solana/spl-token";
 import * as fs from "fs";
 
-describe("alignment-protocol-devnet", () => {
-  // Set up provider for devnet
+describe("alignment-protocol", () => {
+  // Set up provider for localnet
   const provider = AnchorProvider.env();
   anchor.setProvider(provider);
 
   // Our program from the workspace
   const program = anchor.workspace.AlignmentProtocol as Program<AlignmentProtocol>;
 
-  // Keypairs:
-  // 1) authorityKeypair: "admin/deployer"
-  // 2) userKeypair: normal user who will create an ATA and submit data
+  // Load authority keypair from local solana config for tests
   const secretKeyString = fs.readFileSync("/Users/cheul/.config/solana/id.json", "utf8");
   const secretKey = Uint8Array.from(JSON.parse(secretKeyString));
   const authorityKeypair = web3.Keypair.fromSecretKey(secretKey);
-  const userKeypair = web3.Keypair.generate();
-
+  
+  // Generate additional keypairs for tests
+  const contributorKeypair = web3.Keypair.generate();
+  const validatorKeypair = web3.Keypair.generate();
+  const user3Keypair = web3.Keypair.generate(); // For additional testing
+  
+  // PDAs and account variables
   let statePda: web3.PublicKey;
-  let mintPda: web3.PublicKey;
-  let userAta: web3.PublicKey;
+  let tempAlignMintPda: web3.PublicKey;
+  let alignMintPda: web3.PublicKey;
+  let tempRepMintPda: web3.PublicKey;
+  let repMintPda: web3.PublicKey;
+  
+  // Topic PDAs
+  let topic1Pda: web3.PublicKey;
+  let topic2Pda: web3.PublicKey;
+  
+  // User ATAs
+  let contributorTempAlignAta: web3.PublicKey;
+  let contributorAlignAta: web3.PublicKey;
+  let validatorTempRepAta: web3.PublicKey;
+  let validatorRepAta: web3.PublicKey;
+  
+  // User profiles
+  let contributorProfilePda: web3.PublicKey;
+  let validatorProfilePda: web3.PublicKey;
+  
+  // Submission tracking
+  let submissionPda: web3.PublicKey;
+  let submissionTopicLinkPda: web3.PublicKey;
+  let crossTopicLinkPda: web3.PublicKey;
+  
+  // Vote tracking
+  let voteCommitPda: web3.PublicKey;
+  
+  // Constants for testing
+  const TOPIC1_NAME = "AI Safety";
+  const TOPIC1_DESCRIPTION = "Alignment, interpretability, and safety research for AI systems";
+  const TOPIC2_NAME = "Climate";
+  const TOPIC2_DESCRIPTION = "Climate change mitigation and adaptation strategies";
+  const SUBMISSION_DATA = "ipfs://QmULkt3mMt5K8XHnYYxmnvtUGZ4p1qGQgvTKYwXkUxBcmx";
+  
+  // Vote nonce and secrets
+  const VOTE_NONCE = "my-secret-nonce-123";
+  const VOTE_CHOICE_YES = { yes: {} };
+  let voteHash: number[] = [];
 
-  // -----------------------------------
-  // 1) Before All: Transfer SOL to user
-  // -----------------------------------
-  before("Transfer devnet SOL to the userKeypair", async () => {
-    // 0.1 SOL
-    const lamports = 0.1 * web3.LAMPORTS_PER_SOL;
-    // Build & send tx
-    const tx = new web3.Transaction().add(
-      web3.SystemProgram.transfer({
-        fromPubkey: authorityKeypair.publicKey,
-        toPubkey: userKeypair.publicKey,
-        lamports,
-      })
-    );
-    const sigU = await provider.sendAndConfirm(tx, [authorityKeypair]);
-    console.log("Transfer signature:", sigU);
+  // ========== BEFORE HOOKS ==========
+
+  before("Fund test accounts with SOL", async () => {
+    // Fund each test account with 1 SOL
+    const lamports = 1 * web3.LAMPORTS_PER_SOL;
+    
+    // Build and send transactions for funding
+    for (const keypair of [contributorKeypair, validatorKeypair, user3Keypair]) {
+      const tx = new web3.Transaction().add(
+        web3.SystemProgram.transfer({
+          fromPubkey: authorityKeypair.publicKey,
+          toPubkey: keypair.publicKey,
+          lamports,
+        })
+      );
+      await provider.sendAndConfirm(tx, [authorityKeypair]);
+    }
+    
     console.log("Authority:", authorityKeypair.publicKey.toBase58());
-    console.log("User:", userKeypair.publicKey.toBase58());
+    console.log("Contributor:", contributorKeypair.publicKey.toBase58());
+    console.log("Validator:", validatorKeypair.publicKey.toBase58());
   });
 
-  // Derive PDAs just once (assuming they won't change).
-  before("Derive statePda and mintPda", () => {
+  before("Derive program PDAs", () => {
+    // State PDA
     [statePda] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("state")],
       program.programId
     );
-    [mintPda] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("mint")],
+    
+    // Token mint PDAs
+    [tempAlignMintPda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("temp_align_mint")],
       program.programId
-    );
-  });
-
-  // -----------------------------------------------------------
-  // 2) Test: Initialize if not already
-  // -----------------------------------------------------------
-  it("Initializes the protocol if State is missing", async () => {
-    // Attempt to fetch the State account
-    let stateAccount = null;
-    try {
-      stateAccount = await program.account.state.fetch(statePda);
-    } catch (err) {
-      // If fetch fails, the state doesn't exist yet
-    }
-
-    if (stateAccount) {
-      console.log("State already exists. Skipping initialization.");
-    } else {
-      const initSig = await program.methods
-        .initialize()
-        .accounts({
-          state: statePda,
-          mint: mintPda,
-          authority: authorityKeypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
-        })
-        .signers([authorityKeypair])
-        .rpc();
-      console.log("initialize() txSig:", initSig);
-      stateAccount = await program.account.state.fetch(statePda);
-      // submissionCount starts at 0
-      expect(stateAccount.submissionCount.toNumber()).to.equal(0);
-    }
-
-    console.log("stateAccount:", stateAccount);
-
-    // Verify the state is now available
-    expect(stateAccount.authority.toBase58()).to.equal(
-      authorityKeypair.publicKey.toBase58()
     );
     
-    // Mint must have decimals=0
-    const mintInfo = await getMint(provider.connection, mintPda);
-    expect(mintInfo.decimals).to.equal(0);
-  });
-
-  // -----------------------------------------------------------
-  // 3) Test: Update tokensToMint if it's 0
-  // -----------------------------------------------------------
-  it("Updates tokens_to_mint to 1 (if zero)", async () => {
-    const stateAccount = await program.account.state.fetch(statePda);
-    const currentTokensToMint = stateAccount.tokensToMint.toNumber();
-    console.log("tokens_to_mint current:", currentTokensToMint);
-
-    if (currentTokensToMint === 0) {
-      const txSig = await program.methods
-        .updateTokensToMint(new anchor.BN(1))
-        .accounts({
-          state: statePda,
-          authority: authorityKeypair.publicKey,
-        })
-        .signers([authorityKeypair])
-        .rpc();
-      console.log("updateTokensToMint txSig:", txSig);
-
-      const updatedState = await program.account.state.fetch(statePda);
-      expect(updatedState.tokensToMint.toNumber()).to.equal(1);
-    } else {
-      console.log("tokens_to_mint is already nonzero; skipping update.");
-    }
-  });
-
-  // -----------------------------------------------------------
-  // 4) Test: Create the user's ATA
-  // -----------------------------------------------------------
-  it("Explicitly creates user ATA, then checks second creation fails", async () => {
-    // Derive user ATA
-    userAta = await getAssociatedTokenAddress(mintPda, userKeypair.publicKey);
-
-    // Check if the ATA already exists
-    let existingAtaInfo = await provider.connection.getAccountInfo(userAta);
-    if (existingAtaInfo) {
-      console.log("User ATA already exists. Skipping creation.");
-    } else {
-      // Create it
-      const txSig = await program.methods
-        .createUserAta()
-        .accounts({
-          payer: userKeypair.publicKey,
-          user: userKeypair.publicKey,
-          mint: mintPda,
-          userAta: userAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
-        })
-        .signers([userKeypair])
-        .rpc();
-      console.log("createUserAta tx:", txSig);
-
-      // Confirm it exists now
-      existingAtaInfo = await provider.connection.getAccountInfo(userAta);
-      expect(existingAtaInfo).to.not.be.null;
-      console.log("ATA created at", userAta.toBase58());
-    }
-
-    // Attempt second creation -> expect error
-    let threw = false;
-    try {
-      await program.methods
-        .createUserAta()
-        .accounts({
-          payer: userKeypair.publicKey,
-          user: userKeypair.publicKey,
-          mint: mintPda,
-          userAta: userAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
-        })
-        .signers([userKeypair])
-        .rpc();
-    } catch (e) {
-      threw = true;
-      console.log("As expected, second creation failed:", e.error);
-    }
-    expect(threw).to.be.true;
-  });
-
-  // -----------------------------------------------------------
-  // 5) Test: Submit data
-  // -----------------------------------------------------------
-  it("Submits data from user, awarding tokens", async () => {
-    // Before: get the user's ATA balance
-    const stateAccount = await program.account.state.fetch(statePda);
-    const currCount = stateAccount.submissionCount.toNumber();
-
-    const ataInfoBefore = await getAccount(provider.connection, userAta);
-    const beforeBalance = Number(ataInfoBefore.amount);
-    console.log("User ATA token balance (before):", beforeBalance);
-
-    // Derive next submission PDA
-    const [submissionPda] = web3.PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("submission"),
-        new anchor.BN(currCount).toArrayLike(Buffer, "le", 8),
-      ],
+    [alignMintPda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("align_mint")],
       program.programId
     );
-
-    // Submit
-    const dataStr = "Test data from devnet user";
-    const txSig = await program.methods
-      .submitData(dataStr)
-      .accounts({
-        state: statePda,
-        mint: mintPda,
-        contributorAta: userAta,
-        submission: submissionPda,
-        contributor: userKeypair.publicKey,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: web3.SystemProgram.programId,
-        rent: web3.SYSVAR_RENT_PUBKEY,
-      })
-      .signers([userKeypair])
-      .rpc();
-    console.log("submitData txSig:", txSig);
-
-    // Check state
-    const updatedState = await program.account.state.fetch(statePda);
-    expect(updatedState.submissionCount.toNumber()).to.equal(currCount + 1);
-
-    // Check new Submission account
-    const submissionAccount = await program.account.submission.fetch(submissionPda);
-    expect(submissionAccount.contributor.toBase58()).to.equal(
-      userKeypair.publicKey.toBase58()
+    
+    [tempRepMintPda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("temp_rep_mint")],
+      program.programId
     );
-    expect(submissionAccount.data).to.equal(dataStr);
-    console.log("Submission account:", submissionAccount);
+    
+    [repMintPda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("rep_mint")],
+      program.programId
+    );
+    
+    // User profile PDAs
+    [contributorProfilePda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("user_profile"), contributorKeypair.publicKey.toBuffer()],
+      program.programId
+    );
+    
+    [validatorProfilePda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("user_profile"), validatorKeypair.publicKey.toBuffer()],
+      program.programId
+    );
+  });
 
-    // Confirm user now has 1 more token (assuming tokens_to_mint=1)
-    const ataInfoAfter = await getAccount(provider.connection, userAta);
-    const afterBalance = Number(ataInfoAfter.amount);
-    console.log("User ATA token balance (after):", afterBalance);
-    expect(afterBalance).to.equal(beforeBalance + 1);
+  // ========== TEST SECTION 1: INITIALIZATION ==========
 
-    // Finally, log the state account
-    const finalStateAccount = await program.account.state.fetch(statePda);
-    console.log("stateAccount:", finalStateAccount);
+  it("Initializes the protocol with four token mints", async () => {
+    // TODO: Implement protocol initialization test
+  });
+
+  it("Sets tokens_to_mint to a non-zero value", async () => {
+    // TODO: Implement tokens_to_mint update test
+  });
+
+  // ========== TEST SECTION 2: TOPIC MANAGEMENT ==========
+
+  it("Creates the first topic", async () => {
+    // TODO: Implement topic creation test
+  });
+
+  it("Creates a second topic", async () => {
+    // TODO: Implement second topic creation test
+  });
+
+  // ========== TEST SECTION 3: USER SETUP ==========
+
+  it("Creates user profiles for contributor and validator", async () => {
+    // TODO: Implement user profile creation test
+  });
+
+  it("Creates ATAs for all users and token types", async () => {
+    // TODO: Implement token account creation test
+  });
+
+  // ========== TEST SECTION 4: SUBMISSION FLOW ==========
+
+  it("Submits data to the first topic", async () => {
+    // TODO: Implement data submission test
+  });
+
+  // ========== TEST SECTION 5: CROSS-TOPIC LINKING ==========
+
+  it("Links the submission to the second topic", async () => {
+    // TODO: Implement cross-topic linking test
+  });
+
+  // ========== TEST SECTION 6: STAKING ==========
+
+  it("Stakes tempAlign tokens for tempRep tokens", async () => {
+    // TODO: Implement staking test
+  });
+
+  // ========== TEST SECTION 7: VOTING ==========
+
+  it("Commits a vote on the submission", async () => {
+    // TODO: Implement vote commit test
+  });
+
+  it("Reveals the committed vote", async () => {
+    // TODO: Implement vote reveal test
+  });
+
+  // ========== TEST SECTION 8: FINALIZATION ==========
+
+  it("Finalizes the submission", async () => {
+    // TODO: Implement submission finalization test
+  });
+
+  it("Finalizes the vote", async () => {
+    // TODO: Implement vote finalization test
   });
 });
