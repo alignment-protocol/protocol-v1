@@ -112,6 +112,45 @@ pub fn submit_data_to_topic(
         
         token::mint_to(cpi_ctx, ctx.accounts.state.tokens_to_mint)?;
         
+        // If contributor has a user profile, update their topic-specific token balance
+        if let Some(contributor_profile) = ctx.accounts.contributor_profile.as_mut() {
+            // Get the topic ID
+            let topic_id = ctx.accounts.topic.id;
+            
+            // Find or create the topic token entry
+            let topic_tokens = &mut contributor_profile.topic_tokens;
+            
+            // Try to find the topic in the user's topic_tokens map
+            let mut found = false;
+            for (id, token_balance) in topic_tokens.iter_mut() {
+                if *id == topic_id {
+                    // Topic found, add to its temp_align_amount
+                    token_balance.temp_align_amount = token_balance.temp_align_amount
+                        .checked_add(ctx.accounts.state.tokens_to_mint)
+                        .ok_or(ErrorCode::Overflow)?;
+                    found = true;
+                    break;
+                }
+            }
+            
+            // If not found, create a new entry
+            if !found {
+                topic_tokens.push((
+                    topic_id,
+                    crate::data::TopicToken {
+                        temp_align_amount: ctx.accounts.state.tokens_to_mint,
+                        temp_rep_amount: 0,
+                    },
+                ));
+            }
+            
+            msg!(
+                "Updated topic-specific token balance for topic {} (+{} tempAlign)",
+                topic_id,
+                ctx.accounts.state.tokens_to_mint
+            );
+        }
+        
         msg!(
             "Minted {} tempAlign tokens to {}",
             ctx.accounts.state.tokens_to_mint,
@@ -189,9 +228,37 @@ pub fn finalize_submission(
         
         // Get conversion amount (tempAlign to burn and Align to mint)
         // In a real implementation, this might be a function of the submission quality
-        let conversion_amount = ctx.accounts.state.tokens_to_mint;
+        let tokens_to_mint = ctx.accounts.state.tokens_to_mint;
         
-        // Check if the contributor has enough tempAlign tokens
+        // Check if topic-specific balance can be found
+        let topic_id = ctx.accounts.topic.id;
+        let mut topic_align_balance = 0;
+        let mut found_topic = false;
+        
+        // Check the contributor's topic-specific token balance
+        for (id, token_balance) in ctx.accounts.contributor_profile.topic_tokens.iter() {
+            if *id == topic_id {
+                found_topic = true;
+                topic_align_balance = token_balance.temp_align_amount;
+                break;
+            }
+        }
+        
+        // Determine conversion amount based on topic-specific balance
+        let conversion_amount = if found_topic {
+            // Don't try to convert more than what was earned in this topic
+            std::cmp::min(tokens_to_mint, topic_align_balance)
+        } else {
+            // If topic not found, assume they have none from this topic
+            0
+        };
+        
+        // If no topic-specific tokens, abort with error
+        if conversion_amount == 0 {
+            return Err(ErrorCode::InsufficientTopicTokens.into());
+        }
+        
+        // Check if the contributor has enough tempAlign tokens globally
         if ctx.accounts.contributor_temp_align_ata.amount < conversion_amount {
             return Err(ErrorCode::InsufficientTokenBalance.into());
         }
@@ -225,8 +292,24 @@ pub fn finalize_submission(
         
         token::mint_to(mint_cpi_ctx, conversion_amount)?;
         
+        // Update the contributor's topic-specific balance
+        if found_topic {
+            for (id, token_balance) in ctx.accounts.contributor_profile.topic_tokens.iter_mut() {
+                if *id == topic_id {
+                    // Reduce the topic-specific tempAlign amount
+                    token_balance.temp_align_amount = token_balance.temp_align_amount
+                        .checked_sub(conversion_amount)
+                        .ok_or(ErrorCode::Overflow)?;
+                    break;
+                }
+            }
+        }
+        
         msg!("Submission accepted! Converted {} tempAlign to {} Align for contributor",
             conversion_amount, conversion_amount);
+        msg!("Remaining topic-specific tempAlign for topic {}: {}", 
+            topic_id, 
+            if found_topic { topic_align_balance.saturating_sub(conversion_amount) } else { 0 });
     } else {
         // If rejected, no token conversion happens
         link.status = SubmissionStatus::Rejected;

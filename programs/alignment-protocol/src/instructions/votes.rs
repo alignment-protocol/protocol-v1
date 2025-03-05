@@ -38,12 +38,33 @@ pub fn commit_vote(
         }
     } else {
         // Voting with tempRep - can only vote within the topic it was gained for
+        
+        // First check if they have enough total tempRep (legacy check)
         if ctx.accounts.user_profile.temp_rep_amount < vote_amount {
             return Err(ErrorCode::InsufficientVotingPower.into());
         }
         
-        // For MVP, we allow any tempRep to be used for any topic
-        // In the future, we'll track tempRep by topic and only allow voting within that topic
+        // Get the topic ID from the submission-topic link
+        let topic_id = ctx.accounts.topic.id;
+        
+        // Check if they have enough topic-specific tempRep for this specific topic
+        let user_profile = &ctx.accounts.user_profile;
+        let mut found_topic = false;
+        let mut topic_temp_rep = 0;
+        
+        // Find the topic in the user's topic_tokens collection
+        for (id, token_balance) in user_profile.topic_tokens.iter() {
+            if *id == topic_id {
+                found_topic = true;
+                topic_temp_rep = token_balance.temp_rep_amount;
+                break;
+            }
+        }
+        
+        // Ensure the user has enough topic-specific tokens
+        if !found_topic || topic_temp_rep < vote_amount {
+            return Err(ErrorCode::NoReputationForTopic.into());
+        }
     }
     
     // Initialize the vote commit
@@ -212,6 +233,31 @@ pub fn finalize_vote(
                 .checked_add(vote_amount)
                 .ok_or(ErrorCode::Overflow)?;
             
+            // Get the topic ID
+            let topic_id = ctx.accounts.topic.id;
+            
+            // Update topic-specific token balances
+            let mut found_topic = false;
+            
+            // Find the topic in the user's topic_tokens collection
+            for (id, token_balance) in validator_profile.topic_tokens.iter_mut() {
+                if *id == topic_id {
+                    found_topic = true;
+                    
+                    // Decrease tempRep for this topic
+                    token_balance.temp_rep_amount = token_balance.temp_rep_amount
+                        .checked_sub(vote_amount)
+                        .ok_or(ErrorCode::Overflow)?;
+                    
+                    break;
+                }
+            }
+            
+            // We should always find the topic since we already verified in commit_vote
+            if !found_topic {
+                msg!("Warning: Topic {} not found in validator's profile during finalization", topic_id);
+            }
+            
             msg!(
                 "Validator voted correctly! Converted {} tempRep to {} permanent Rep",
                 vote_amount,
@@ -242,6 +288,31 @@ pub fn finalize_vote(
             validator_profile.temp_rep_amount = validator_profile.temp_rep_amount
                 .checked_sub(vote_amount)
                 .ok_or(ErrorCode::Overflow)?;
+                
+            // Get the topic ID
+            let topic_id = ctx.accounts.topic.id;
+            
+            // Update topic-specific token balances
+            let mut found_topic = false;
+            
+            // Find the topic in the user's topic_tokens collection
+            for (id, token_balance) in validator_profile.topic_tokens.iter_mut() {
+                if *id == topic_id {
+                    found_topic = true;
+                    
+                    // Decrease tempRep for this topic
+                    token_balance.temp_rep_amount = token_balance.temp_rep_amount
+                        .checked_sub(vote_amount)
+                        .ok_or(ErrorCode::Overflow)?;
+                    
+                    break;
+                }
+            }
+            
+            // We should always find the topic since we already verified in commit_vote
+            if !found_topic {
+                msg!("Warning: Topic {} not found in validator's profile during finalization", topic_id);
+            }
             
             msg!(
                 "Validator voted incorrectly. Burned {} tempRep tokens with no replacement",

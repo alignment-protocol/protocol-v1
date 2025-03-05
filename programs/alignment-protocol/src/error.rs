@@ -85,4 +85,7 @@ pub enum ErrorCode {
     
     #[msg("Vote has already been finalized")]
     VoteAlreadyFinalized,
+    
+    #[msg("Insufficient topic-specific token balance")]
+    InsufficientTopicTokens,
 }

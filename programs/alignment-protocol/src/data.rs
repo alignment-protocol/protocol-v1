@@ -71,17 +71,31 @@ pub enum SubmissionStatus {
     Rejected,
 }
 
+/// Structure to track token balances for a specific topic
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, Debug)]
+pub struct TopicToken {
+    /// Amount of temporary alignment tokens for this topic
+    pub temp_align_amount: u64,
+    
+    /// Amount of temporary reputation tokens staked for this topic
+    pub temp_rep_amount: u64,
+}
+
 /// User profile account to track reputation
 #[account]
 pub struct UserProfile {
     /// The user's public key
     pub user: Pubkey,
     
-    /// Amount of temporary reputation tokens staked
+    /// Amount of temporary reputation tokens staked (legacy field, maintained for backward compatibility)
     pub temp_rep_amount: u64,
     
     /// Amount of permanent reputation tokens earned
     pub permanent_rep_amount: u64,
+    
+    /// Map of topic ID to topic-specific token balances
+    /// This allows tracking which tokens were earned in which topic
+    pub topic_tokens: Vec<(u64, TopicToken)>,
     
     /// Bump seed for the user profile PDA
     pub bump: u8,

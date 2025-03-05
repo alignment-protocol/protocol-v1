@@ -94,6 +94,16 @@ pub struct SubmitDataToTopic<'info> {
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
     
+    /// The contributor's user profile (optional)
+    #[account(
+        mut, 
+        seeds = [b"user_profile", contributor.key().as_ref()],
+        bump,
+        constraint = contributor_profile.user == contributor.key(),
+        optional
+    )]
+    pub contributor_profile: Option<Account<'info, UserProfile>>,
+    
     /// The user making the submission
     #[account(mut)]
     pub contributor: Signer<'info>,
@@ -230,9 +240,11 @@ pub struct FinalizeSubmission<'info> {
     
     pub submission: Account<'info, Submission>,
     
-    /// The contributor's user profile
+    /// The contributor's user profile with topic-specific token balances
     #[account(
         mut,
+        seeds = [b"user_profile", submission.contributor.as_ref()],
+        bump,
         constraint = contributor_profile.user == submission.contributor
     )]
     pub contributor_profile: Account<'info, UserProfile>,
@@ -531,7 +543,7 @@ pub struct CreateUserProfile<'info> {
         payer = user,
         seeds = [b"user_profile", user.key().as_ref()],
         bump,
-        space = 8 + 32 + 8 + 8 + 1  // Discriminator + user pubkey + temp_rep_amount + permanent_rep_amount + bump
+        space = 8 + 32 + 8 + 8 + 4 + 200 + 1  // Discriminator + user pubkey + temp_rep_amount + permanent_rep_amount + vector length + topic tokens (initially space for ~10 topics) + bump
     )]
     pub user_profile: Account<'info, UserProfile>,
     
@@ -548,6 +560,65 @@ pub struct CreateUserProfile<'info> {
 pub struct StakeAlignmentTokens<'info> {
     #[account(mut)]
     pub state: Account<'info, State>,
+    
+    /// The user's profile that must already exist
+    #[account(
+        mut,
+        seeds = [b"user_profile", user.key().as_ref()],
+        bump,
+        constraint = user_profile.user == user.key()
+    )]
+    pub user_profile: Account<'info, UserProfile>,
+    
+    /// The temporary alignment token mint (source tokens to burn)
+    #[account(
+        mut,
+        constraint = *temp_align_mint.to_account_info().key == state.temp_align_mint
+    )]
+    pub temp_align_mint: Account<'info, Mint>,
+    
+    /// The temporary reputation token mint (target tokens to mint)
+    #[account(
+        mut,
+        constraint = *temp_rep_mint.to_account_info().key == state.temp_rep_mint
+    )]
+    pub temp_rep_mint: Account<'info, Mint>,
+    
+    /// The user's ATA for temporary alignment tokens (source)
+    #[account(
+        mut,
+        constraint = user_temp_align_ata.mint == state.temp_align_mint,
+        constraint = user_temp_align_ata.owner == user.key()
+    )]
+    pub user_temp_align_ata: Account<'info, TokenAccount>,
+    
+    /// The user's ATA for temporary reputation tokens (target)
+    #[account(
+        mut,
+        constraint = user_temp_rep_ata.mint == state.temp_rep_mint,
+        constraint = user_temp_rep_ata.owner == user.key()
+    )]
+    pub user_temp_rep_ata: Account<'info, TokenAccount>,
+    
+    /// The user performing the stake
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, Token>,
+    
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Account constraints for staking temporary alignment tokens for a specific topic
+#[derive(Accounts)]
+pub struct StakeTopicSpecificTokens<'info> {
+    #[account(mut)]
+    pub state: Account<'info, State>,
+    
+    /// The topic for which tokens are being staked
+    pub topic: Account<'info, Topic>,
     
     /// The user's profile that must already exist
     #[account(

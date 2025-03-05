@@ -93,6 +93,16 @@ pub mod alignment_protocol {
     ) -> Result<()> {
         instructions::tokens::stake_alignment_tokens(ctx, amount)
     }
+    
+    /// Instruction handler: Stake topic-specific temporary alignment tokens
+    ///
+    /// Burns tempAlign tokens from a specific topic and mints tempRep tokens for that topic
+    pub fn stake_topic_specific_tokens(
+        ctx: Context<StakeTopicSpecificTokens>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::tokens::stake_topic_specific_tokens(ctx, amount)
+    }
 
     /// Instruction handler: Submit data directly on-chain
     /// 1) Creates new `Submission` account with the given data.
