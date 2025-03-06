@@ -3,7 +3,7 @@ use anchor_spl::{
     associated_token::{create, Create},
     token::{self, Burn, MintTo},
 };
-use crate::contexts::{CreateUserAta, CreateUserTempTokenAccount, StakeTopicSpecificTokens};
+use crate::contexts::{CreateUserAta, CreateUserTempAlignAccount, CreateUserTempRepAccount, StakeTopicSpecificTokens};
 use crate::error::ErrorCode;
 
 pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
@@ -27,25 +27,34 @@ pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
     Ok(())
 }
 
-/// Creates a protocol-owned temporary token account for a user
+/// Creates a protocol-owned tempAlign token account for a user
 /// 
 /// This creates a token account that:
 /// 1. Is owned by the protocol (state PDA) rather than the user
 /// 2. Has the state PDA as the authority, allowing burns without user signature
-/// 3. Uses PDA with seeds ["user_temp_align"|"user_temp_rep", user.key()]
-pub fn create_user_temp_token_account(ctx: Context<CreateUserTempTokenAccount>) -> Result<()> {
+/// 3. Uses PDA with seeds ["user_temp_align", user.key()]
+pub fn create_user_temp_align_account(ctx: Context<CreateUserTempAlignAccount>) -> Result<()> {
     // The token account is initialized in the context with proper ownership and authority
     
-    // Determine which token type is being created
-    let token_type = if ctx.accounts.mint.key() == ctx.accounts.state.temp_align_mint {
-        "tempAlign"
-    } else {
-        "tempRep"
-    };
+    msg!(
+        "Created protocol-owned tempAlign token account for user {}",
+        ctx.accounts.user.key()
+    );
+    
+    Ok(())
+}
+
+/// Creates a protocol-owned tempRep token account for a user
+/// 
+/// This creates a token account that:
+/// 1. Is owned by the protocol (state PDA) rather than the user
+/// 2. Has the state PDA as the authority, allowing burns without user signature
+/// 3. Uses PDA with seeds ["user_temp_rep", user.key()]
+pub fn create_user_temp_rep_account(ctx: Context<CreateUserTempRepAccount>) -> Result<()> {
+    // The token account is initialized in the context with proper ownership and authority
     
     msg!(
-        "Created protocol-owned {} token account for user {}",
-        token_type,
+        "Created protocol-owned tempRep token account for user {}",
         ctx.accounts.user.key()
     );
     

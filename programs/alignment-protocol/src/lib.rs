@@ -68,13 +68,20 @@ pub mod alignment_protocol {
         instructions::tokens::create_user_ata(ctx)
     }
     
-    /// Instruction handler: create protocol-owned temporary token account for a user
+    /// Instruction handler: create protocol-owned tempAlign token account for a user
     ///
-    /// This creates a token account for temporary tokens (tempAlign, tempRep) that is
-    /// owned by the protocol (state PDA) rather than the user, allowing the protocol
-    /// to burn tokens without requiring user signatures.
-    pub fn create_user_temp_token_account(ctx: Context<CreateUserTempTokenAccount>) -> Result<()> {
-        instructions::tokens::create_user_temp_token_account(ctx)
+    /// This creates a token account for tempAlign tokens that is owned by the protocol (state PDA)
+    /// rather than the user, allowing the protocol to burn tokens without requiring user signatures.
+    pub fn create_user_temp_align_account(ctx: Context<CreateUserTempAlignAccount>) -> Result<()> {
+        instructions::tokens::create_user_temp_align_account(ctx)
+    }
+    
+    /// Instruction handler: create protocol-owned tempRep token account for a user
+    ///
+    /// This creates a token account for tempRep tokens that is owned by the protocol (state PDA)
+    /// rather than the user, allowing the protocol to burn tokens without requiring user signatures.
+    pub fn create_user_temp_rep_account(ctx: Context<CreateUserTempRepAccount>) -> Result<()> {
+        instructions::tokens::create_user_temp_rep_account(ctx)
     }
 
     /// Instruction handler: Create a user profile for tracking reputation

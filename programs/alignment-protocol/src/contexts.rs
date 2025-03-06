@@ -577,10 +577,9 @@ pub struct CreateUserAta<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-/// Account constraints for creating protocol-owned temporary token accounts for users
-/// This creates token accounts controlled by the protocol for temporary tokens
+/// Account constraints for creating protocol-owned temporary tempAlign token account
 #[derive(Accounts)]
-pub struct CreateUserTempTokenAccount<'info> {
+pub struct CreateUserTempAlignAccount<'info> {
     /// The state account containing protocol configuration
     #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
@@ -592,9 +591,45 @@ pub struct CreateUserTempTokenAccount<'info> {
     /// The user for whom we're creating the account (but not the account owner)
     pub user: Signer<'info>,
     
-    /// The mint must be one of the temporary token mints
+    /// The mint must be the tempAlign mint
     #[account(mut, constraint = 
-        *mint.to_account_info().key == state.temp_align_mint || 
+        *mint.to_account_info().key == state.temp_align_mint
+    )]
+    pub mint: Account<'info, Mint>,
+    
+    /// The token account will be a PDA owned by the program
+    /// With the state as the authority, not the user
+    #[account(
+        init,
+        payer = payer,
+        token::mint = mint,
+        token::authority = state,
+        seeds = [b"user_temp_align", user.key().as_ref()],
+        bump
+    )]
+    pub token_account: Account<'info, TokenAccount>,
+    
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Account constraints for creating protocol-owned temporary tempRep token account
+#[derive(Accounts)]
+pub struct CreateUserTempRepAccount<'info> {
+    /// The state account containing protocol configuration
+    #[account(seeds = [b"state"], bump)]
+    pub state: Account<'info, State>,
+    
+    /// The payer for the transaction
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    
+    /// The user for whom we're creating the account (but not the account owner)
+    pub user: Signer<'info>,
+    
+    /// The mint must be the tempRep mint
+    #[account(mut, constraint = 
         *mint.to_account_info().key == state.temp_rep_mint
     )]
     pub mint: Account<'info, Mint>,
@@ -606,10 +641,7 @@ pub struct CreateUserTempTokenAccount<'info> {
         payer = payer,
         token::mint = mint,
         token::authority = state,
-        seeds = [
-            if *mint.to_account_info().key == state.temp_align_mint { b"user_temp_align" } else { b"user_temp_rep" },
-            user.key().as_ref()
-        ],
+        seeds = [b"user_temp_rep", user.key().as_ref()],
         bump
     )]
     pub token_account: Account<'info, TokenAccount>,
