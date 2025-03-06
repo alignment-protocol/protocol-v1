@@ -56,7 +56,7 @@ pub fn submit_data_to_topic(
             ctx.accounts.token_program.to_account_info(),
             MintTo {
                 mint: ctx.accounts.temp_align_mint.to_account_info(),
-                to: ctx.accounts.contributor_ata.to_account_info(),
+                to: ctx.accounts.contributor_temp_align_account.to_account_info(),
                 authority: ctx.accounts.state.to_account_info(),
             },
         )
@@ -104,9 +104,10 @@ pub fn submit_data_to_topic(
         }
         
         msg!(
-            "Minted {} tempAlign tokens to {}",
+            "Minted {} tempAlign tokens to {} (protocol-owned account for user {})",
             ctx.accounts.state.tokens_to_mint,
-            ctx.accounts.contributor_ata.key()
+            ctx.accounts.contributor_temp_align_account.key(),
+            ctx.accounts.contributor.key()
         );
     }
     
@@ -211,19 +212,24 @@ pub fn finalize_submission(
         }
         
         // Check if the contributor has enough tempAlign tokens globally
-        if ctx.accounts.contributor_temp_align_ata.amount < conversion_amount {
+        if ctx.accounts.contributor_temp_align_account.amount < conversion_amount {
             return Err(ErrorCode::InsufficientTokenBalance.into());
         }
         
-        // 1. Burn tempAlign tokens from contributor
+        // 1. Burn tempAlign tokens from contributor's protocol-owned token account
+        // Since the token account is owned by the protocol, we use the state PDA as the authority
+        let state_bump = ctx.accounts.state.bump;
+        let seeds = &[b"state".as_ref(), &[state_bump]];
+        let signer = &[&seeds[..]];
+        
         let burn_cpi_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             Burn {
                 mint: ctx.accounts.temp_align_mint.to_account_info(),
-                from: ctx.accounts.contributor_temp_align_ata.to_account_info(),
-                authority: ctx.accounts.authority.to_account_info(),
+                from: ctx.accounts.contributor_temp_align_account.to_account_info(),
+                authority: ctx.accounts.state.to_account_info(),
             },
-        );
+        ).with_signer(signer);
         
         token::burn(burn_cpi_ctx, conversion_amount)?;
         
