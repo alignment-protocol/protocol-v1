@@ -76,7 +76,9 @@ pub fn commit_vote(
     vote_commit.bump = ctx.bumps.vote_commit;
     
     // Increment the submission-topic link's committed votes counter
+    // Important: we need to use checked_add to avoid overflow
     let link = &mut ctx.accounts.submission_topic_link;
+    msg!("Before increment: total_committed_votes = {}", link.total_committed_votes);
     link.total_committed_votes = link.total_committed_votes
         .checked_add(1)
         .ok_or(ErrorCode::Overflow)?;
@@ -84,6 +86,7 @@ pub fn commit_vote(
     msg!("Vote committed for submission in topic '{}'", ctx.accounts.topic.name);
     msg!("Vote amount: {}", vote_amount);
     msg!("Using {} Rep", if is_permanent_rep { "permanent" } else { "temporary" });
+    msg!("After increment: total_committed_votes = {}", link.total_committed_votes);
     
     Ok(())
 }
