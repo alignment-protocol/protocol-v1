@@ -39,10 +39,16 @@ describe("alignment-protocol", () => {
   let topic1Pda: web3.PublicKey;
   let topic2Pda: web3.PublicKey;
   
-  // User ATAs
-  let contributorTempAlignAta: web3.PublicKey;
+  // User token accounts
+  // Protocol-owned temporary token accounts (all users need both types potentially)
+  let contributorTempAlignAccount: web3.PublicKey; 
+  let contributorTempRepAccount: web3.PublicKey;
+  let validatorTempAlignAccount: web3.PublicKey;
+  let validatorTempRepAccount: web3.PublicKey;
+  // User-owned permanent token ATAs
   let contributorAlignAta: web3.PublicKey;
-  let validatorTempRepAta: web3.PublicKey;
+  let contributorRepAta: web3.PublicKey;
+  let validatorAlignAta: web3.PublicKey;
   let validatorRepAta: web3.PublicKey;
   
   // User profiles
@@ -420,21 +426,41 @@ describe("alignment-protocol", () => {
     expect(validatorProfile.topicTokens.length).to.equal(0);
   });
 
-  it("Creates ATAs for all users and token types", async () => {
-    // Calculate the ATAs for contributor
-    contributorTempAlignAta = await getAssociatedTokenAddress(
-      tempAlignMintPda,
-      contributorKeypair.publicKey
+  it("Creates token accounts for all users and token types", async () => {
+    // Calculate PDAs for protocol-owned temporary token accounts
+    [contributorTempAlignAccount] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("user_temp_align"), contributorKeypair.publicKey.toBuffer()],
+      program.programId
     );
     
+    [contributorTempRepAccount] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("user_temp_rep"), contributorKeypair.publicKey.toBuffer()],
+      program.programId
+    );
+    
+    [validatorTempAlignAccount] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("user_temp_align"), validatorKeypair.publicKey.toBuffer()],
+      program.programId
+    );
+    
+    [validatorTempRepAccount] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("user_temp_rep"), validatorKeypair.publicKey.toBuffer()],
+      program.programId
+    );
+    
+    // Calculate ATAs for permanent tokens (user-owned)
     contributorAlignAta = await getAssociatedTokenAddress(
       alignMintPda,
       contributorKeypair.publicKey
     );
     
-    // Calculate the ATAs for validator
-    validatorTempRepAta = await getAssociatedTokenAddress(
-      tempRepMintPda,
+    contributorRepAta = await getAssociatedTokenAddress(
+      repMintPda,
+      contributorKeypair.publicKey
+    );
+    
+    validatorAlignAta = await getAssociatedTokenAddress(
+      alignMintPda,
       validatorKeypair.publicKey
     );
     
@@ -443,26 +469,79 @@ describe("alignment-protocol", () => {
       validatorKeypair.publicKey
     );
     
-    // Create ATA for contributor's tempAlign
+    // Create protocol-owned tempAlign account for contributor
     let tx = await program.methods
-      .createUserAta()
+      .createUserTempAlignAccount()
       .accounts({
         state: statePda,
         payer: authorityKeypair.publicKey,
         user: contributorKeypair.publicKey,
         mint: tempAlignMintPda,
-        userAta: contributorTempAlignAta,
+        tokenAccount: contributorTempAlignAccount,
         systemProgram: web3.SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: anchor.web3.ASSOCIATED_TOKEN_PROGRAM_ID,
         rent: web3.SYSVAR_RENT_PUBKEY,
       })
       .signers([authorityKeypair, contributorKeypair])
       .rpc();
     
-    console.log("Create contributorTempAlignAta transaction signature:", tx);
+    console.log("Create contributor's protocol-owned tempAlign account transaction signature:", tx);
     
-    // Create ATA for contributor's Align
+    // Create protocol-owned tempRep account for contributor
+    tx = await program.methods
+      .createUserTempRepAccount()
+      .accounts({
+        state: statePda,
+        payer: authorityKeypair.publicKey,
+        user: contributorKeypair.publicKey,
+        mint: tempRepMintPda,
+        tokenAccount: contributorTempRepAccount,
+        systemProgram: web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([authorityKeypair, contributorKeypair])
+      .rpc();
+    
+    console.log("Create contributor's protocol-owned tempRep account transaction signature:", tx);
+    
+    // Create protocol-owned tempAlign account for validator
+    tx = await program.methods
+      .createUserTempAlignAccount()
+      .accounts({
+        state: statePda,
+        payer: authorityKeypair.publicKey,
+        user: validatorKeypair.publicKey,
+        mint: tempAlignMintPda,
+        tokenAccount: validatorTempAlignAccount,
+        systemProgram: web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([authorityKeypair, validatorKeypair])
+      .rpc();
+    
+    console.log("Create validator's protocol-owned tempAlign account transaction signature:", tx);
+    
+    // Create protocol-owned tempRep account for validator
+    tx = await program.methods
+      .createUserTempRepAccount()
+      .accounts({
+        state: statePda,
+        payer: authorityKeypair.publicKey,
+        user: validatorKeypair.publicKey,
+        mint: tempRepMintPda,
+        tokenAccount: validatorTempRepAccount,
+        systemProgram: web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([authorityKeypair, validatorKeypair])
+      .rpc();
+    
+    console.log("Create validator's protocol-owned tempRep account transaction signature:", tx);
+    
+    // Create ATA for contributor's permanent Align
     tx = await program.methods
       .createUserAta()
       .accounts({
@@ -479,17 +558,36 @@ describe("alignment-protocol", () => {
       .signers([authorityKeypair, contributorKeypair])
       .rpc();
     
-    console.log("Create contributorAlignAta transaction signature:", tx);
+    console.log("Create contributor's Align ATA transaction signature:", tx);
     
-    // Create ATA for validator's tempRep
+    // Create ATA for contributor's permanent Rep
+    tx = await program.methods
+      .createUserAta()
+      .accounts({
+        state: statePda,
+        payer: authorityKeypair.publicKey,
+        user: contributorKeypair.publicKey,
+        mint: repMintPda,
+        userAta: contributorRepAta,
+        systemProgram: web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: anchor.web3.ASSOCIATED_TOKEN_PROGRAM_ID,
+        rent: web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([authorityKeypair, contributorKeypair])
+      .rpc();
+    
+    console.log("Create contributor's Rep ATA transaction signature:", tx);
+    
+    // Create ATA for validator's permanent Align
     tx = await program.methods
       .createUserAta()
       .accounts({
         state: statePda,
         payer: authorityKeypair.publicKey,
         user: validatorKeypair.publicKey,
-        mint: tempRepMintPda,
-        userAta: validatorTempRepAta,
+        mint: alignMintPda,
+        userAta: validatorAlignAta,
         systemProgram: web3.SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: anchor.web3.ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -498,9 +596,9 @@ describe("alignment-protocol", () => {
       .signers([authorityKeypair, validatorKeypair])
       .rpc();
     
-    console.log("Create validatorTempRepAta transaction signature:", tx);
+    console.log("Create validator's Align ATA transaction signature:", tx);
     
-    // Create ATA for validator's Rep
+    // Create ATA for validator's permanent Rep
     tx = await program.methods
       .createUserAta()
       .accounts({
@@ -517,40 +615,77 @@ describe("alignment-protocol", () => {
       .signers([authorityKeypair, validatorKeypair])
       .rpc();
     
-    console.log("Create validatorRepAta transaction signature:", tx);
+    console.log("Create validator's Rep ATA transaction signature:", tx);
     
-    // Verify that all token accounts were created
-    const contributorTempAlignAccount = await getAccount(
+    // Verify temporary token accounts (protocol-owned)
+    // Contributor's temporary token accounts
+    const contributorTempAlignData = await getAccount(
       provider.connection,
-      contributorTempAlignAta
+      contributorTempAlignAccount
     );
-    expect(contributorTempAlignAccount.mint.toString()).to.equal(tempAlignMintPda.toString());
-    expect(contributorTempAlignAccount.owner.toString()).to.equal(contributorKeypair.publicKey.toString());
-    expect(Number(contributorTempAlignAccount.amount)).to.equal(0);
+    expect(contributorTempAlignData.mint.toString()).to.equal(tempAlignMintPda.toString());
+    expect(contributorTempAlignData.owner.toString()).to.equal(statePda.toString()); // State PDA owns account
+    expect(Number(contributorTempAlignData.amount)).to.equal(0);
     
-    const contributorAlignAccount = await getAccount(
+    const contributorTempRepData = await getAccount(
+      provider.connection,
+      contributorTempRepAccount
+    );
+    expect(contributorTempRepData.mint.toString()).to.equal(tempRepMintPda.toString());
+    expect(contributorTempRepData.owner.toString()).to.equal(statePda.toString()); // State PDA owns account
+    expect(Number(contributorTempRepData.amount)).to.equal(0);
+    
+    // Validator's temporary token accounts
+    const validatorTempAlignData = await getAccount(
+      provider.connection,
+      validatorTempAlignAccount
+    );
+    expect(validatorTempAlignData.mint.toString()).to.equal(tempAlignMintPda.toString());
+    expect(validatorTempAlignData.owner.toString()).to.equal(statePda.toString()); // State PDA owns account
+    expect(Number(validatorTempAlignData.amount)).to.equal(0);
+    
+    const validatorTempRepData = await getAccount(
+      provider.connection,
+      validatorTempRepAccount
+    );
+    expect(validatorTempRepData.mint.toString()).to.equal(tempRepMintPda.toString());
+    expect(validatorTempRepData.owner.toString()).to.equal(statePda.toString()); // State PDA owns account
+    expect(Number(validatorTempRepData.amount)).to.equal(0);
+    
+    // Verify permanent token accounts (user-owned ATAs)
+    // Contributor's permanent token ATAs
+    const contributorAlignData = await getAccount(
       provider.connection,
       contributorAlignAta
     );
-    expect(contributorAlignAccount.mint.toString()).to.equal(alignMintPda.toString());
-    expect(contributorAlignAccount.owner.toString()).to.equal(contributorKeypair.publicKey.toString());
-    expect(Number(contributorAlignAccount.amount)).to.equal(0);
+    expect(contributorAlignData.mint.toString()).to.equal(alignMintPda.toString());
+    expect(contributorAlignData.owner.toString()).to.equal(contributorKeypair.publicKey.toString());
+    expect(Number(contributorAlignData.amount)).to.equal(0);
     
-    const validatorTempRepAccount = await getAccount(
+    const contributorRepData = await getAccount(
       provider.connection,
-      validatorTempRepAta
+      contributorRepAta
     );
-    expect(validatorTempRepAccount.mint.toString()).to.equal(tempRepMintPda.toString());
-    expect(validatorTempRepAccount.owner.toString()).to.equal(validatorKeypair.publicKey.toString());
-    expect(Number(validatorTempRepAccount.amount)).to.equal(0);
+    expect(contributorRepData.mint.toString()).to.equal(repMintPda.toString());
+    expect(contributorRepData.owner.toString()).to.equal(contributorKeypair.publicKey.toString());
+    expect(Number(contributorRepData.amount)).to.equal(0);
     
-    const validatorRepAccount = await getAccount(
+    // Validator's permanent token ATAs
+    const validatorAlignData = await getAccount(
+      provider.connection,
+      validatorAlignAta
+    );
+    expect(validatorAlignData.mint.toString()).to.equal(alignMintPda.toString());
+    expect(validatorAlignData.owner.toString()).to.equal(validatorKeypair.publicKey.toString());
+    expect(Number(validatorAlignData.amount)).to.equal(0);
+    
+    const validatorRepData = await getAccount(
       provider.connection,
       validatorRepAta
     );
-    expect(validatorRepAccount.mint.toString()).to.equal(repMintPda.toString());
-    expect(validatorRepAccount.owner.toString()).to.equal(validatorKeypair.publicKey.toString());
-    expect(Number(validatorRepAccount.amount)).to.equal(0);
+    expect(validatorRepData.mint.toString()).to.equal(repMintPda.toString());
+    expect(validatorRepData.owner.toString()).to.equal(validatorKeypair.publicKey.toString());
+    expect(Number(validatorRepData.amount)).to.equal(0);
   });
 
   // ========== TEST SECTION 4: SUBMISSION FLOW ==========
@@ -575,7 +710,7 @@ describe("alignment-protocol", () => {
         state: statePda,
         topic: topic1Pda,
         tempAlignMint: tempAlignMintPda,
-        contributorAta: contributorTempAlignAta,
+        contributorTempAlignAccount: contributorTempAlignAccount,
         submission: submissionPda,
         submissionTopicLink: submissionTopicLinkPda,
         contributorProfile: contributorProfilePda,
@@ -604,12 +739,12 @@ describe("alignment-protocol", () => {
     expect(linkAcc.totalCommittedVotes.toNumber()).to.equal(0);
     expect(linkAcc.totalRevealedVotes.toNumber()).to.equal(0);
     
-    // Verify that tempAlign tokens were minted to the contributor
-    const contributorTempAlignAccount = await getAccount(
+    // Verify that tempAlign tokens were minted to the contributor's protocol-owned account
+    const contributorTempAlignData = await getAccount(
       provider.connection,
-      contributorTempAlignAta
+      contributorTempAlignAccount
     );
-    expect(Number(contributorTempAlignAccount.amount)).to.equal(100); // Should match tokensToMint = 100
+    expect(Number(contributorTempAlignData.amount)).to.equal(100); // Should match tokensToMint = 100
     
     // Verify that the submission count was incremented in state and topic
     const stateAcc = await program.account.state.fetch(statePda);
@@ -679,30 +814,7 @@ describe("alignment-protocol", () => {
   // ========== TEST SECTION 6: STAKING ==========
 
   it("Stakes tempAlign tokens for tempRep tokens", async () => {
-    // First, let's create a tempRep token account for the contributor
-    let contributorTempRepAta = await getAssociatedTokenAddress(
-      tempRepMintPda,
-      contributorKeypair.publicKey
-    );
-    
-    // Create ATA for contributor's tempRep
-    let creationTx = await program.methods
-      .createUserAta()
-      .accounts({
-        state: statePda,
-        payer: authorityKeypair.publicKey,
-        user: contributorKeypair.publicKey,
-        mint: tempRepMintPda,
-        userAta: contributorTempRepAta,
-        systemProgram: web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: anchor.web3.ASSOCIATED_TOKEN_PROGRAM_ID,
-        rent: web3.SYSVAR_RENT_PUBKEY,
-      })
-      .signers([authorityKeypair, contributorKeypair])
-      .rpc();
-    
-    console.log("Create contributorTempRepAta transaction signature:", creationTx);
+    // The contributor's tempRep account was already created in previous test
     
     // Define the staking amount - stake half of the earned tempAlign tokens
     const stakeAmount = 50;
@@ -716,8 +828,8 @@ describe("alignment-protocol", () => {
         userProfile: contributorProfilePda,
         tempAlignMint: tempAlignMintPda,
         tempRepMint: tempRepMintPda,
-        userTempAlignAta: contributorTempAlignAta,
-        userTempRepAta: contributorTempRepAta,
+        userTempAlignAccount: contributorTempAlignAccount,
+        userTempRepAccount: contributorTempRepAccount,
         user: contributorKeypair.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: web3.SystemProgram.programId,
@@ -731,14 +843,14 @@ describe("alignment-protocol", () => {
     // Verify that tempAlign tokens were burned
     const tempAlignAccount = await getAccount(
       provider.connection,
-      contributorTempAlignAta
+      contributorTempAlignAccount
     );
     expect(Number(tempAlignAccount.amount)).to.equal(100 - stakeAmount); // 50 burned
     
     // Verify that tempRep tokens were minted
     const tempRepAccount = await getAccount(
       provider.connection,
-      contributorTempRepAta
+      contributorTempRepAccount
     );
     expect(Number(tempRepAccount.amount)).to.equal(stakeAmount); // 50 minted
     
@@ -755,34 +867,7 @@ describe("alignment-protocol", () => {
     expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(stakeAmount); // 50 earned
     
     // Now, have the validator also submit data to get tempAlign tokens
-    // First, create tempAlign ATA for validator
-    let validatorTempAlignAta = await getAssociatedTokenAddress(
-      tempAlignMintPda,
-      validatorKeypair.publicKey
-    );
-    
-    // Create ATA for validator's tempAlign tokens if it doesn't exist yet
-    try {
-      await getAccount(provider.connection, validatorTempAlignAta);
-    } catch (e) {
-      creationTx = await program.methods
-        .createUserAta()
-        .accounts({
-          state: statePda,
-          payer: authorityKeypair.publicKey,
-          user: validatorKeypair.publicKey,
-          mint: tempAlignMintPda,
-          userAta: validatorTempAlignAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: anchor.web3.ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
-        })
-        .signers([authorityKeypair, validatorKeypair])
-        .rpc();
-      
-      console.log("Create validatorTempAlignAta transaction signature:", creationTx);
-    }
+    // The validator's tempAlign account was already created in previous test
     
     // Derive a new submission PDA for validator submission (using submission count = 1)
     const [validatorSubmissionPda] = web3.PublicKey.findProgramAddressSync(
@@ -803,7 +888,7 @@ describe("alignment-protocol", () => {
         state: statePda,
         topic: topic1Pda,
         tempAlignMint: tempAlignMintPda,
-        contributorAta: validatorTempAlignAta,
+        contributorTempAlignAccount: validatorTempAlignAccount,
         submission: validatorSubmissionPda,
         submissionTopicLink: validatorSubmissionTopicLinkPda,
         contributorProfile: validatorProfilePda,
@@ -818,38 +903,17 @@ describe("alignment-protocol", () => {
     console.log("Validator submission transaction signature:", validatorSubmissionTx);
     
     // Verify validator received tempAlign tokens
-    const validatorTempAlignAccount = await getAccount(
+    const validatorTempAlignData = await getAccount(
       provider.connection,
-      validatorTempAlignAta
+      validatorTempAlignAccount
     );
-    expect(Number(validatorTempAlignAccount.amount)).to.equal(100); // tokens_to_mint value
+    expect(Number(validatorTempAlignData.amount)).to.equal(100); // tokens_to_mint value
     
     // Now stake validator's tempAlign for tempRep so they can vote
     // Define stake amount for validator
     const validatorStakeAmount = 50;
     
-    // Create ATA for validator's tempRep tokens if needed
-    try {
-      await getAccount(provider.connection, validatorTempRepAta);
-    } catch (e) {
-      creationTx = await program.methods
-        .createUserAta()
-        .accounts({
-          state: statePda,
-          payer: authorityKeypair.publicKey,
-          user: validatorKeypair.publicKey,
-          mint: tempRepMintPda,
-          userAta: validatorTempRepAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: anchor.web3.ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
-        })
-        .signers([authorityKeypair, validatorKeypair])
-        .rpc();
-      
-      console.log("Create validatorTempRepAta transaction signature:", creationTx);
-    }
+    // Validator's tempRep account was already created in the setup
     
     // Stake validator's tokens
     const validatorStakeTx = await program.methods
@@ -860,8 +924,8 @@ describe("alignment-protocol", () => {
         userProfile: validatorProfilePda,
         tempAlignMint: tempAlignMintPda,
         tempRepMint: tempRepMintPda,
-        userTempAlignAta: validatorTempAlignAta,
-        userTempRepAta: validatorTempRepAta,
+        userTempAlignAccount: validatorTempAlignAccount,
+        userTempRepAccount: validatorTempRepAccount,
         user: validatorKeypair.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: web3.SystemProgram.programId,
@@ -873,17 +937,17 @@ describe("alignment-protocol", () => {
     console.log("Validator stake transaction signature:", validatorStakeTx);
     
     // Verify validator's tempAlign tokens were burned and tempRep tokens were minted
-    const updatedValidatorTempAlignAccount = await getAccount(
+    const updatedValidatorTempAlignData = await getAccount(
       provider.connection,
-      validatorTempAlignAta
+      validatorTempAlignAccount
     );
-    expect(Number(updatedValidatorTempAlignAccount.amount)).to.equal(100 - validatorStakeAmount);
+    expect(Number(updatedValidatorTempAlignData.amount)).to.equal(100 - validatorStakeAmount);
     
-    const validatorTempRepAccount = await getAccount(
+    const validatorTempRepData = await getAccount(
       provider.connection,
-      validatorTempRepAta
+      validatorTempRepAccount
     );
-    expect(Number(validatorTempRepAccount.amount)).to.equal(validatorStakeAmount);
+    expect(Number(validatorTempRepData.amount)).to.equal(validatorStakeAmount);
     
     // Verify validator's user profile was updated with the topic tokens
     const validatorProfile = await program.account.userProfile.fetch(validatorProfilePda);
@@ -1027,7 +1091,7 @@ describe("alignment-protocol", () => {
         topic: topic1Pda,
         submission: submissionPda,
         contributorProfile: contributorProfilePda,
-        contributorTempAlignAta: contributorTempAlignAta,
+        contributorTempAlignAccount: contributorTempAlignAccount,
         contributorAlignAta: contributorAlignAta,
         tempAlignMint: tempAlignMintPda,
         alignMint: alignMintPda,
@@ -1045,19 +1109,19 @@ describe("alignment-protocol", () => {
     expect(linkAcc.status.accepted).to.not.be.undefined;
     
     // Verify that tempAlign tokens were converted to Align tokens
-    const tempAlignAccount = await getAccount(
+    const tempAlignData = await getAccount(
       provider.connection,
-      contributorTempAlignAta
+      contributorTempAlignAccount
     );
-    const alignAccount = await getAccount(
+    const alignData = await getAccount(
       provider.connection,
       contributorAlignAta
     );
     
     // The tokens_to_mint is 100, we've already burned 50 for staking, so there's 50 left
     // All 50 remaining should have been burned and converted to Align
-    expect(Number(tempAlignAccount.amount)).to.equal(0);
-    expect(Number(alignAccount.amount)).to.equal(50);
+    expect(Number(tempAlignData.amount)).to.equal(0);
+    expect(Number(alignData.amount)).to.equal(50);
     
     // Verify the contributor's topic-specific token balances were updated
     const contributorProfile = await program.account.userProfile.fetch(contributorProfilePda);
@@ -1108,7 +1172,7 @@ describe("alignment-protocol", () => {
         submission: submissionPda,
         voteCommit: voteCommitPda,
         validatorProfile: validatorProfilePda,
-        validatorTempRepAta: validatorTempRepAta,
+        validatorTempRepAccount: validatorTempRepAccount,
         validatorRepAta: validatorRepAta,
         tempRepMint: tempRepMintPda,
         repMint: repMintPda,
@@ -1126,19 +1190,19 @@ describe("alignment-protocol", () => {
     expect(voteCommitAcc.finalized).to.be.true;
     
     // Verify the validator's tempRep tokens were converted to permanent Rep
-    const tempRepAccount = await getAccount(
+    const tempRepData = await getAccount(
       provider.connection,
-      validatorTempRepAta
+      validatorTempRepAccount
     );
-    const repAccount = await getAccount(
+    const repData = await getAccount(
       provider.connection,
       validatorRepAta
     );
     
     // Since we voted yes and the submission was accepted (vote with consensus),
     // 25 tempRep tokens should be converted to 25 permanent Rep tokens
-    expect(Number(tempRepAccount.amount)).to.equal(0); // All converted
-    expect(Number(repAccount.amount)).to.equal(25);
+    expect(Number(tempRepData.amount)).to.equal(0); // All converted
+    expect(Number(repData.amount)).to.equal(25);
     
     // Verify that the validator's profile was updated
     const validatorProfile = await program.account.userProfile.fetch(validatorProfilePda);
