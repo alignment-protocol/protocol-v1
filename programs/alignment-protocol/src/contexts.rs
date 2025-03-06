@@ -225,6 +225,25 @@ pub struct RevealVote<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Account constraints for modifying voting phases (for testing and admin controls)
+#[derive(Accounts)]
+pub struct SetVotingPhases<'info> {
+    pub state: Account<'info, State>,
+    
+    #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    
+    pub topic: Account<'info, Topic>,
+    
+    pub submission: Account<'info, Submission>,
+    
+    /// Only authority can modify phases
+    #[account(mut, constraint = state.authority == authority.key())]
+    pub authority: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
 /// Account constraints for finalizing a submission within a topic after voting
 #[derive(Accounts)]
 pub struct FinalizeSubmission<'info> {

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, MintTo};
-use crate::contexts::{CommitVote, RevealVote, FinalizeVote};
+use crate::contexts::{CommitVote, RevealVote, FinalizeVote, SetVotingPhases};
 use crate::error::ErrorCode;
 use crate::data::{VoteChoice, SubmissionStatus};
 use crate::helpers::calculate_quadratic_voting_power;
@@ -322,6 +322,62 @@ pub fn finalize_vote(
         ctx.accounts.validator_profile.user,
         ctx.accounts.topic.name
     );
+    
+    Ok(())
+}
+
+/// Set arbitrary timestamps for a submission's voting phases for testing or administrative purposes
+///
+/// This function allows the protocol authority to manually set timestamps for the commit and reveal phases.
+/// This is primarily intended for testing where time-based constraints are difficult to simulate,
+/// but could also be used for emergency situations in production.
+///
+/// Parameters:
+/// * `commit_phase_start`: Optional start timestamp for commit phase. If None, keeps current value.
+/// * `commit_phase_end`: Optional end timestamp for commit phase. If None, keeps current value.
+/// * `reveal_phase_start`: Optional start timestamp for reveal phase. If None, keeps current value.
+/// * `reveal_phase_end`: Optional end timestamp for reveal phase. If None, keeps current value.
+pub fn set_voting_phases(
+    ctx: Context<SetVotingPhases>,
+    commit_phase_start: Option<u64>,
+    commit_phase_end: Option<u64>,
+    reveal_phase_start: Option<u64>,
+    reveal_phase_end: Option<u64>,
+) -> Result<()> {
+    // Get the current time for logging purposes (though we don't use it for validation)
+    let _current_time = Clock::get()?.unix_timestamp as u64;
+    let link = &mut ctx.accounts.submission_topic_link;
+    
+    // Update timestamps, validating time ordering constraints
+    let new_commit_start = commit_phase_start.unwrap_or(link.commit_phase_start);
+    let new_commit_end = commit_phase_end.unwrap_or(link.commit_phase_end);
+    let new_reveal_start = reveal_phase_start.unwrap_or(link.reveal_phase_start);
+    let new_reveal_end = reveal_phase_end.unwrap_or(link.reveal_phase_end);
+    
+    // Basic validation: times should be in ascending order and not in the past
+    // Exception: we allow setting times in the past for testing purposes, but maintain the order
+    if new_commit_start > new_commit_end {
+        return Err(ErrorCode::InvalidPhaseOrder.into());
+    }
+    if new_commit_end > new_reveal_start {
+        return Err(ErrorCode::InvalidPhaseOrder.into());
+    }
+    if new_reveal_start > new_reveal_end {
+        return Err(ErrorCode::InvalidPhaseOrder.into());
+    }
+    
+    // Apply the new timestamps
+    link.commit_phase_start = new_commit_start;
+    link.commit_phase_end = new_commit_end;
+    link.reveal_phase_start = new_reveal_start;
+    link.reveal_phase_end = new_reveal_end;
+    
+    msg!(
+        "Modified voting phases for submission in topic '{}' by authority",
+        ctx.accounts.topic.name
+    );
+    msg!("New commit phase: {} to {}", link.commit_phase_start, link.commit_phase_end);
+    msg!("New reveal phase: {} to {}", link.reveal_phase_start, link.reveal_phase_end);
     
     Ok(())
 }
