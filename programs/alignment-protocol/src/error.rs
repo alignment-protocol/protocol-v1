@@ -88,4 +88,7 @@ pub enum ErrorCode {
     
     #[msg("Insufficient topic-specific token balance")]
     InsufficientTopicTokens,
+    
+    #[msg("Invalid voting phase order")]
+    InvalidPhaseOrder,
 }

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Dj6JQyyqSxwEimAmTWuNZaWMv4mCSAsM6DEJbiRYNnJh");
+declare_id!("3NYwpp7xv6m35he2sbWTDKPyzepwQiJq5YkD2AzdHmRc");
 
 // Module declarations
 pub mod contexts;
@@ -167,5 +167,19 @@ pub mod alignment_protocol {
     /// Anyone can link if they are willing to pay the transaction fee.
     pub fn link_submission_to_topic(ctx: Context<LinkSubmissionToTopic>) -> Result<()> {
         instructions::submission::link_submission_to_topic(ctx)
+    }
+    
+    /// Instruction handler: Set voting phases for a submission-topic link
+    ///
+    /// This allows the protocol authority to manually set timestamps for the commit and reveal phases.
+    /// This is primarily intended for testing and administrative purposes.
+    pub fn set_voting_phases(
+        ctx: Context<SetVotingPhases>,
+        commit_phase_start: Option<u64>,
+        commit_phase_end: Option<u64>,
+        reveal_phase_start: Option<u64>,
+        reveal_phase_end: Option<u64>,
+    ) -> Result<()> {
+        instructions::votes::set_voting_phases(ctx, commit_phase_start, commit_phase_end, reveal_phase_start, reveal_phase_end)
     }
 }
