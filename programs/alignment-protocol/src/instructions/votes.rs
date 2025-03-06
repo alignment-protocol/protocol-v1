@@ -188,19 +188,24 @@ pub fn finalize_vote(
             // Validator voted correctly - convert tempRep to permanent Rep
             
             // Check if the validator has enough tempRep tokens
-            if ctx.accounts.validator_temp_rep_ata.amount < vote_amount {
+            if ctx.accounts.validator_temp_rep_account.amount < vote_amount {
                 return Err(ErrorCode::InsufficientTokenBalance.into());
             }
             
-            // 1. Burn tempRep tokens
+            // 1. Burn tempRep tokens from protocol-owned account
+            // Use state PDA as the authority
+            let state_bump = ctx.accounts.state.bump;
+            let seeds = &[b"state".as_ref(), &[state_bump]];
+            let signer = &[&seeds[..]];
+            
             let burn_cpi_ctx = CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 Burn {
                     mint: ctx.accounts.temp_rep_mint.to_account_info(),
-                    from: ctx.accounts.validator_temp_rep_ata.to_account_info(),
-                    authority: ctx.accounts.authority.to_account_info(),
+                    from: ctx.accounts.validator_temp_rep_account.to_account_info(),
+                    authority: ctx.accounts.state.to_account_info(),
                 },
-            );
+            ).with_signer(signer);
             
             token::burn(burn_cpi_ctx, vote_amount)?;
             
@@ -261,19 +266,24 @@ pub fn finalize_vote(
             // Validator voted incorrectly - burn tempRep tokens with no replacement
             
             // Check if the validator has enough tempRep tokens
-            if ctx.accounts.validator_temp_rep_ata.amount < vote_amount {
+            if ctx.accounts.validator_temp_rep_account.amount < vote_amount {
                 return Err(ErrorCode::InsufficientTokenBalance.into());
             }
             
-            // Burn tempRep tokens
+            // Burn tempRep tokens from protocol-owned account
+            // Use state PDA as the authority for the protocol-owned tempRep account
+            let state_bump = ctx.accounts.state.bump;
+            let seeds = &[b"state".as_ref(), &[state_bump]];
+            let signer = &[&seeds[..]];
+            
             let burn_cpi_ctx = CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
                 Burn {
                     mint: ctx.accounts.temp_rep_mint.to_account_info(),
-                    from: ctx.accounts.validator_temp_rep_ata.to_account_info(),
-                    authority: ctx.accounts.authority.to_account_info(),
+                    from: ctx.accounts.validator_temp_rep_account.to_account_info(),
+                    authority: ctx.accounts.state.to_account_info(),
                 },
-            );
+            ).with_signer(signer);
             
             token::burn(burn_cpi_ctx, vote_amount)?;
             

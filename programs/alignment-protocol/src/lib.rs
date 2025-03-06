@@ -60,12 +60,28 @@ pub mod alignment_protocol {
         instructions::initialize::update_tokens_to_mint(ctx, new_tokens_to_mint)
     }
 
-    /// Instruction handler: explicitly create user's ATA
+    /// Instruction handler: explicitly create user's ATA for permanent tokens (Align, Rep)
     ///
     /// This does NOT use `init_if_needed`. Instead, it does a CPI to the associated_token::create method.
     /// If the ATA already exists, this transaction will fail (unless you do extra checks).
     pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
         instructions::tokens::create_user_ata(ctx)
+    }
+    
+    /// Instruction handler: create protocol-owned tempAlign token account for a user
+    ///
+    /// This creates a token account for tempAlign tokens that is owned by the protocol (state PDA)
+    /// rather than the user, allowing the protocol to burn tokens without requiring user signatures.
+    pub fn create_user_temp_align_account(ctx: Context<CreateUserTempAlignAccount>) -> Result<()> {
+        instructions::tokens::create_user_temp_align_account(ctx)
+    }
+    
+    /// Instruction handler: create protocol-owned tempRep token account for a user
+    ///
+    /// This creates a token account for tempRep tokens that is owned by the protocol (state PDA)
+    /// rather than the user, allowing the protocol to burn tokens without requiring user signatures.
+    pub fn create_user_temp_rep_account(ctx: Context<CreateUserTempRepAccount>) -> Result<()> {
+        instructions::tokens::create_user_temp_rep_account(ctx)
     }
 
     /// Instruction handler: Create a user profile for tracking reputation
