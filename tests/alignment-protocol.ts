@@ -753,6 +753,147 @@ describe("alignment-protocol", () => {
     expect(topicTokenEntry.topicId.toNumber()).to.equal(0);
     expect(topicTokenEntry.token.tempAlignAmount.toNumber()).to.equal(100 - stakeAmount); // 50 remaining
     expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(stakeAmount); // 50 earned
+    
+    // Now, have the validator also submit data to get tempAlign tokens
+    // First, create tempAlign ATA for validator
+    let validatorTempAlignAta = await getAssociatedTokenAddress(
+      tempAlignMintPda,
+      validatorKeypair.publicKey
+    );
+    
+    // Create ATA for validator's tempAlign tokens if it doesn't exist yet
+    try {
+      await getAccount(provider.connection, validatorTempAlignAta);
+    } catch (e) {
+      creationTx = await program.methods
+        .createUserAta()
+        .accounts({
+          state: statePda,
+          payer: authorityKeypair.publicKey,
+          user: validatorKeypair.publicKey,
+          mint: tempAlignMintPda,
+          userAta: validatorTempAlignAta,
+          systemProgram: web3.SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: anchor.web3.ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([authorityKeypair, validatorKeypair])
+        .rpc();
+      
+      console.log("Create validatorTempAlignAta transaction signature:", creationTx);
+    }
+    
+    // Derive a new submission PDA for validator submission (using submission count = 1)
+    const [validatorSubmissionPda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("submission"), Buffer.from([1, 0, 0, 0, 0, 0, 0, 0])],
+      program.programId
+    );
+    
+    // Derive a new submission-topic link PDA for validator submission
+    const [validatorSubmissionTopicLinkPda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("submission_topic_link"), validatorSubmissionPda.toBuffer(), topic1Pda.toBuffer()],
+      program.programId
+    );
+    
+    // Have validator submit data to earn tokens
+    const validatorSubmissionTx = await program.methods
+      .submitDataToTopic("validator-test-submission")
+      .accounts({
+        state: statePda,
+        topic: topic1Pda,
+        tempAlignMint: tempAlignMintPda,
+        contributorAta: validatorTempAlignAta,
+        submission: validatorSubmissionPda,
+        submissionTopicLink: validatorSubmissionTopicLinkPda,
+        contributorProfile: validatorProfilePda,
+        contributor: validatorKeypair.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: web3.SystemProgram.programId,
+        rent: web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([validatorKeypair])
+      .rpc();
+    
+    console.log("Validator submission transaction signature:", validatorSubmissionTx);
+    
+    // Verify validator received tempAlign tokens
+    const validatorTempAlignAccount = await getAccount(
+      provider.connection,
+      validatorTempAlignAta
+    );
+    expect(Number(validatorTempAlignAccount.amount)).to.equal(100); // tokens_to_mint value
+    
+    // Now stake validator's tempAlign for tempRep so they can vote
+    // Define stake amount for validator
+    const validatorStakeAmount = 50;
+    
+    // Create ATA for validator's tempRep tokens if needed
+    try {
+      await getAccount(provider.connection, validatorTempRepAta);
+    } catch (e) {
+      creationTx = await program.methods
+        .createUserAta()
+        .accounts({
+          state: statePda,
+          payer: authorityKeypair.publicKey,
+          user: validatorKeypair.publicKey,
+          mint: tempRepMintPda,
+          userAta: validatorTempRepAta,
+          systemProgram: web3.SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: anchor.web3.ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([authorityKeypair, validatorKeypair])
+        .rpc();
+      
+      console.log("Create validatorTempRepAta transaction signature:", creationTx);
+    }
+    
+    // Stake validator's tokens
+    const validatorStakeTx = await program.methods
+      .stakeTopicSpecificTokens(new anchor.BN(validatorStakeAmount))
+      .accounts({
+        state: statePda,
+        topic: topic1Pda,
+        userProfile: validatorProfilePda,
+        tempAlignMint: tempAlignMintPda,
+        tempRepMint: tempRepMintPda,
+        userTempAlignAta: validatorTempAlignAta,
+        userTempRepAta: validatorTempRepAta,
+        user: validatorKeypair.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: web3.SystemProgram.programId,
+        rent: web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([validatorKeypair])
+      .rpc();
+    
+    console.log("Validator stake transaction signature:", validatorStakeTx);
+    
+    // Verify validator's tempAlign tokens were burned and tempRep tokens were minted
+    const updatedValidatorTempAlignAccount = await getAccount(
+      provider.connection,
+      validatorTempAlignAta
+    );
+    expect(Number(updatedValidatorTempAlignAccount.amount)).to.equal(100 - validatorStakeAmount);
+    
+    const validatorTempRepAccount = await getAccount(
+      provider.connection,
+      validatorTempRepAta
+    );
+    expect(Number(validatorTempRepAccount.amount)).to.equal(validatorStakeAmount);
+    
+    // Verify validator's user profile was updated with the topic tokens
+    const validatorProfile = await program.account.userProfile.fetch(validatorProfilePda);
+    const validatorTopicTokenEntry = validatorProfile.topicTokens.find(
+      (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
+    );
+    expect(validatorTopicTokenEntry).to.not.be.undefined;
+    expect(validatorTopicTokenEntry.topicId.toNumber()).to.equal(0);
+    expect(validatorTopicTokenEntry.token.tempAlignAmount.toNumber()).to.equal(100 - validatorStakeAmount);
+    expect(validatorTopicTokenEntry.token.tempRepAmount.toNumber()).to.equal(validatorStakeAmount);
   });
 
   // ========== TEST SECTION 7: VOTING ==========
@@ -921,15 +1062,13 @@ describe("alignment-protocol", () => {
     // Verify the contributor's topic-specific token balances were updated
     const contributorProfile = await program.account.userProfile.fetch(contributorProfilePda);
     const topicTokenEntry = contributorProfile.topicTokens.find(
-      ([id]) => id.toNumber() === 0 // Topic ID 0
+      (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
     );
     expect(topicTokenEntry).to.not.be.undefined;
     
-    // @ts-ignore - we've already checked that topicTokenEntry exists
-    const [topicId, tokenBalance] = topicTokenEntry;
-    expect(topicId.toNumber()).to.equal(0);
-    expect(tokenBalance.tempAlignAmount.toNumber()).to.equal(0); // All converted
-    expect(tokenBalance.tempRepAmount.toNumber()).to.equal(50); // 50 earned from staking
+    expect(topicTokenEntry.topicId.toNumber()).to.equal(0);
+    expect(topicTokenEntry.token.tempAlignAmount.toNumber()).to.equal(0); // All converted
+    expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(50); // 50 earned from staking
   });
 
   it("Finalizes the vote", async () => {
@@ -1007,14 +1146,12 @@ describe("alignment-protocol", () => {
     
     // Verify the validator's topic-specific token balances were updated
     const topicTokenEntry = validatorProfile.topicTokens.find(
-      ([id]) => id.toNumber() === 0 // Topic ID 0
+      (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
     );
     
     if (topicTokenEntry) {
-      // @ts-ignore - we've already checked that topicTokenEntry exists
-      const [topicId, tokenBalance] = topicTokenEntry;
-      expect(topicId.toNumber()).to.equal(0);
-      expect(tokenBalance.tempRepAmount.toNumber()).to.equal(0); // All converted
+      expect(topicTokenEntry.topicId.toNumber()).to.equal(0);
+      expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(0); // All converted
     }
   });
 });
