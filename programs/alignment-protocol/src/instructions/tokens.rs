@@ -3,7 +3,7 @@ use anchor_spl::{
     associated_token::{create, Create},
     token::{self, Burn, MintTo},
 };
-use crate::contexts::{CreateUserAta, StakeTopicSpecificTokens};
+use crate::contexts::{CreateUserAta, CreateUserTempTokenAccount, StakeTopicSpecificTokens};
 use crate::error::ErrorCode;
 
 pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
@@ -23,13 +23,39 @@ pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
     // If the ATA already exists, create(...) will throw an error
     create(cpi_ctx)?;
 
-    msg!("Created ATA for user {}", ctx.accounts.user.key());
+    msg!("Created permanent token ATA for user {}", ctx.accounts.user.key());
+    Ok(())
+}
+
+/// Creates a protocol-owned temporary token account for a user
+/// 
+/// This creates a token account that:
+/// 1. Is owned by the protocol (state PDA) rather than the user
+/// 2. Has the state PDA as the authority, allowing burns without user signature
+/// 3. Uses PDA with seeds ["user_temp_align"|"user_temp_rep", user.key()]
+pub fn create_user_temp_token_account(ctx: Context<CreateUserTempTokenAccount>) -> Result<()> {
+    // The token account is initialized in the context with proper ownership and authority
+    
+    // Determine which token type is being created
+    let token_type = if ctx.accounts.mint.key() == ctx.accounts.state.temp_align_mint {
+        "tempAlign"
+    } else {
+        "tempRep"
+    };
+    
+    msg!(
+        "Created protocol-owned {} token account for user {}",
+        token_type,
+        ctx.accounts.user.key()
+    );
+    
     Ok(())
 }
 
 // Removed legacy stake_alignment_tokens function
 
 /// Stakes tempAlign tokens for a specific topic to earn topic-specific tempRep
+/// Uses protocol-owned token accounts where the state PDA is the authority
 pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amount: u64) -> Result<()> {
     // Validate the stake amount
     if amount == 0 {
@@ -64,36 +90,38 @@ pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amoun
     }
     
     // Check the global token balance
-    if ctx.accounts.user_temp_align_ata.amount < amount {
+    if ctx.accounts.user_temp_align_account.amount < amount {
         return Err(ErrorCode::InsufficientTokenBalance.into());
     }
     
-    // Burn the temporary alignment tokens
-    let burn_cpi_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Burn {
-            mint: ctx.accounts.temp_align_mint.to_account_info(),
-            from: ctx.accounts.user_temp_align_ata.to_account_info(),
-            authority: ctx.accounts.user.to_account_info(),
-        },
-    );
-    
-    token::burn(burn_cpi_ctx, amount)?;
-    
-    // Mint temporary reputation tokens
+    // Get the state PDA signer seeds
     let state_bump = ctx.accounts.state.bump;
     let seeds = &[b"state".as_ref(), &[state_bump]];
     let signer = &[&seeds[..]];
     
+    // Burn the temporary alignment tokens
+    // Since these are protocol-owned, we need to use the state PDA as the authority
+    let burn_cpi_ctx = CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        Burn {
+            mint: ctx.accounts.temp_align_mint.to_account_info(),
+            from: ctx.accounts.user_temp_align_account.to_account_info(),
+            authority: ctx.accounts.state.to_account_info(),
+        },
+    ).with_signer(signer);
+    
+    token::burn(burn_cpi_ctx, amount)?;
+    
+    // Mint temporary reputation tokens
+    // The target is also a protocol-owned account
     let mint_cpi_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         MintTo {
             mint: ctx.accounts.temp_rep_mint.to_account_info(),
-            to: ctx.accounts.user_temp_rep_ata.to_account_info(),
+            to: ctx.accounts.user_temp_rep_account.to_account_info(),
             authority: ctx.accounts.state.to_account_info(),
         },
-    )
-    .with_signer(signer);
+    ).with_signer(signer);
     
     token::mint_to(mint_cpi_ctx, amount)?;
     
@@ -113,8 +141,6 @@ pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amoun
             break;
         }
     }
-    
-    // Legacy temp_rep_amount field has been removed
     
     msg!(
         "Staked {} topic-specific tempAlign tokens for topic {} for {} tempRep tokens for user {}",
