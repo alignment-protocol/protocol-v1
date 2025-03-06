@@ -44,7 +44,7 @@ pub struct CreateTopic<'info> {
 /// Account constraints for submitting data to a specific topic
 #[derive(Accounts)]
 pub struct SubmitDataToTopic<'info> {
-    #[account(mut)]
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
     
     #[account(mut, constraint = topic.is_active == true)]
@@ -57,14 +57,15 @@ pub struct SubmitDataToTopic<'info> {
     )]
     pub temp_align_mint: Account<'info, Mint>,
     
-    /// The user's ATA for temporary alignment tokens
-    /// We only mark it mut. We assume it's already created via `create_user_ata`.
+    /// The protocol-owned tempAlign token account for this contributor
     #[account(
         mut,
-        constraint = contributor_ata.mint == state.temp_align_mint,
-        constraint = contributor_ata.owner == contributor.key()
+        seeds = [b"user_temp_align", contributor.key().as_ref()],
+        bump,
+        constraint = contributor_temp_align_account.mint == state.temp_align_mint,
+        constraint = contributor_temp_align_account.owner == state.key()
     )]
-    pub contributor_ata: Account<'info, TokenAccount>,
+    pub contributor_temp_align_account: Account<'info, TokenAccount>,
     
     /// The new Submission account
     #[account(
@@ -247,6 +248,7 @@ pub struct SetVotingPhases<'info> {
 /// Account constraints for finalizing a submission within a topic after voting
 #[derive(Accounts)]
 pub struct FinalizeSubmission<'info> {
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
     
     #[account(
@@ -269,15 +271,17 @@ pub struct FinalizeSubmission<'info> {
     )]
     pub contributor_profile: Account<'info, UserProfile>,
     
-    /// The contributor's ATA for temporary alignment tokens
+    /// The protocol-owned tempAlign token account for the contributor
     #[account(
         mut,
-        constraint = contributor_temp_align_ata.mint == state.temp_align_mint,
-        constraint = contributor_temp_align_ata.owner == submission.contributor
+        seeds = [b"user_temp_align", submission.contributor.as_ref()],
+        bump,
+        constraint = contributor_temp_align_account.mint == state.temp_align_mint,
+        constraint = contributor_temp_align_account.owner == state.key()
     )]
-    pub contributor_temp_align_ata: Account<'info, TokenAccount>,
+    pub contributor_temp_align_account: Account<'info, TokenAccount>,
     
-    /// The contributor's ATA for permanent alignment tokens
+    /// The contributor's ATA for permanent alignment tokens (regular user-owned ATA)
     #[account(
         mut,
         constraint = contributor_align_ata.mint == state.align_mint,
@@ -318,6 +322,7 @@ pub struct FinalizeSubmission<'info> {
 /// 2. An escrow-based approach where tokens are locked during voting and auto-converted after
 #[derive(Accounts)]
 pub struct FinalizeVote<'info> {
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
     
     #[account(
@@ -340,15 +345,18 @@ pub struct FinalizeVote<'info> {
     #[account(mut)]
     pub validator_profile: Account<'info, UserProfile>,
     
-    /// The validator's ATA for temporary reputation tokens (for burning)
+    /// The protocol-owned tempRep token account for this validator (for burning)
     #[account(
         mut,
-        constraint = validator_temp_rep_ata.mint == state.temp_rep_mint,
-        constraint = validator_temp_rep_ata.owner == validator_profile.user
+        seeds = [b"user_temp_rep", validator_profile.user.as_ref()],
+        bump,
+        constraint = validator_temp_rep_account.mint == state.temp_rep_mint,
+        constraint = validator_temp_rep_account.owner == state.key()
     )]
-    pub validator_temp_rep_ata: Account<'info, TokenAccount>,
+    pub validator_temp_rep_account: Account<'info, TokenAccount>,
     
     /// The validator's ATA for permanent reputation tokens (for minting)
+    /// This remains user-owned since permanent tokens belong to users
     #[account(
         mut,
         constraint = validator_rep_ata.mint == state.rep_mint,
@@ -549,11 +557,9 @@ pub struct CreateUserAta<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    /// The mint for which we want the user's ATA (must match one of the four mints in state)
+    /// The mint for which we want the user's ATA (only permanent token mints)
     #[account(mut, constraint = 
-        *mint.to_account_info().key == state.temp_align_mint || 
         *mint.to_account_info().key == state.align_mint || 
-        *mint.to_account_info().key == state.temp_rep_mint || 
         *mint.to_account_info().key == state.rep_mint
     )]
     pub mint: Account<'info, Mint>,
@@ -568,6 +574,48 @@ pub struct CreateUserAta<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+/// Account constraints for creating protocol-owned temporary token accounts for users
+/// This creates token accounts controlled by the protocol for temporary tokens
+#[derive(Accounts)]
+pub struct CreateUserTempTokenAccount<'info> {
+    /// The state account containing protocol configuration
+    #[account(seeds = [b"state"], bump)]
+    pub state: Account<'info, State>,
+    
+    /// The payer for the transaction
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    
+    /// The user for whom we're creating the account (but not the account owner)
+    pub user: Signer<'info>,
+    
+    /// The mint must be one of the temporary token mints
+    #[account(mut, constraint = 
+        *mint.to_account_info().key == state.temp_align_mint || 
+        *mint.to_account_info().key == state.temp_rep_mint
+    )]
+    pub mint: Account<'info, Mint>,
+    
+    /// The token account will be a PDA owned by the program
+    /// With the state as the authority, not the user
+    #[account(
+        init,
+        payer = payer,
+        token::mint = mint,
+        token::authority = state,
+        seeds = [
+            if *mint.to_account_info().key == state.temp_align_mint { b"user_temp_align" } else { b"user_temp_rep" },
+            user.key().as_ref()
+        ],
+        bump
+    )]
+    pub token_account: Account<'info, TokenAccount>,
+    
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
 }
 
@@ -602,7 +650,7 @@ pub struct CreateUserProfile<'info> {
 /// Account constraints for staking temporary alignment tokens for a specific topic
 #[derive(Accounts)]
 pub struct StakeTopicSpecificTokens<'info> {
-    #[account(mut)]
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
     
     /// The topic for which tokens are being staked
@@ -631,23 +679,27 @@ pub struct StakeTopicSpecificTokens<'info> {
     )]
     pub temp_rep_mint: Account<'info, Mint>,
     
-    /// The user's ATA for temporary alignment tokens (source)
+    /// The protocol-owned tempAlign token account for this user (source)
     #[account(
         mut,
-        constraint = user_temp_align_ata.mint == state.temp_align_mint,
-        constraint = user_temp_align_ata.owner == user.key()
+        seeds = [b"user_temp_align", user.key().as_ref()],
+        bump,
+        constraint = user_temp_align_account.mint == state.temp_align_mint,
+        constraint = user_temp_align_account.owner == state.key()
     )]
-    pub user_temp_align_ata: Account<'info, TokenAccount>,
+    pub user_temp_align_account: Account<'info, TokenAccount>,
     
-    /// The user's ATA for temporary reputation tokens (target)
+    /// The protocol-owned tempRep token account for this user (target)
     #[account(
         mut,
-        constraint = user_temp_rep_ata.mint == state.temp_rep_mint,
-        constraint = user_temp_rep_ata.owner == user.key()
+        seeds = [b"user_temp_rep", user.key().as_ref()],
+        bump,
+        constraint = user_temp_rep_account.mint == state.temp_rep_mint,
+        constraint = user_temp_rep_account.owner == state.key()
     )]
-    pub user_temp_rep_ata: Account<'info, TokenAccount>,
+    pub user_temp_rep_account: Account<'info, TokenAccount>,
     
-    /// The user performing the stake
+    /// The user associated with these tokens (not the token account owner)
     #[account(mut)]
     pub user: Signer<'info>,
     
