@@ -1319,7 +1319,8 @@ describe("alignment-protocol", () => {
     
     // Since we voted yes and the submission was accepted (vote with consensus),
     // 25 tempRep tokens should be converted to 25 permanent Rep tokens
-    expect(Number(tempRepData.amount)).to.equal(0); // All converted
+    // Validator originally had 50 tempRep, used 25 for voting, so 25 should remain
+    expect(Number(tempRepData.amount)).to.equal(25); // Only voted amount converted
     expect(Number(repData.amount)).to.equal(25);
     
     // Verify that the validator's profile was updated
@@ -1333,7 +1334,8 @@ describe("alignment-protocol", () => {
     
     if (topicTokenEntry) {
       expect(topicTokenEntry.topicId.toNumber()).to.equal(0);
-      expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(0); // All converted
+      // Should still have 25 tempRep tokens left (50 initial - 25 used for voting)
+      expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(25); // Only voted amount converted
     }
   });
 });

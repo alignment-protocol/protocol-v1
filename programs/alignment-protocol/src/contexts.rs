@@ -326,6 +326,7 @@ pub struct FinalizeVote<'info> {
     pub state: Account<'info, State>,
     
     #[account(
+        mut,
         constraint = submission_topic_link.status != SubmissionStatus::Pending,
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
