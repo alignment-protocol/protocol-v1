@@ -59,22 +59,32 @@
 - ✅ Unit tests for initialize instruction
 - ✅ Unit tests for submit data instruction
 - ✅ Unit tests for token minting
-- 🔴 ❌ Unit tests for staking functionality
-- 🔴 ❌ Unit tests for voting mechanisms
-- 🔴 ❌ Unit tests for finalization and rewards
-- 🔴 ❌ Unit tests for cross-topic submission linking
-- 🔴 ❌ Integration tests for end-to-end workflows
+- ✅ Unit tests for staking functionality
+- ✅ Unit tests for voting mechanisms
+- ✅ Unit tests for finalization and rewards
+- ✅ Unit tests for cross-topic submission linking
+- ✅ End-to-end tests with basic workflow
+- 🔴 ❌ Tests with multiple contributors and validators
 - 🟢 ❌ Security audits and edge case handling
 - 🟢 ❌ Performance testing
 
 ## 7. Client/UI Development
 
 - 🔄 CLI tool implementation (basic framework exists)
-- 🔴 ❌ CLI commands for all protocol functions
+- 🔴 ❌ CLI commands for all protocol functions:
+  - 🔴 ❌ Topic creation
+  - 🔴 ❌ Submission creation
+  - 🔴 ❌ Token staking
+  - 🔴 ❌ Voting (commit/reveal)
+  - 🔴 ❌ Finalization
+- 🔴 ❌ CLI "explorer" functionality:
+  - 🔴 ❌ Browse topics
+  - 🔴 ❌ Browse submissions
+  - 🔴 ❌ View user profiles and tokens
+  - 🔴 ❌ View network stats
+- 🔴 ❌ Deploy protocol to devnet for testing
 - 🟠 ❌ Web UI/dApp for user-friendly interaction
 - 🟠 ❌ Wallet integration
-- 🟢 ❌ Display of user reputation and voting history
-- 🟢 ❌ Submission browsing and filtering
 
 ## 8. Non-Functional Requirements
 
@@ -82,19 +92,24 @@
 - 🟢 ❌ Comprehensive error handling
 - 🟢 ❌ Scalability considerations
 - 🟢 ❌ Security hardening
-- 🔴 ❌ Documentation
+- 🔄 Documentation
+  - ✅ Test flow documentation
   - 🔴 ❌ API documentation
   - 🔴 ❌ User guides
   - 🟠 ❌ Developer documentation
 - 🟢 ❌ Monitoring and analytics
 
-## 9. DAO Governance & Advanced Features
+## 9. Diagrams & Visual Documentation
 
-- 🟢 ❌ Transition from admin to DAO governance
-- 🟢 ❌ Parameter adjustment through governance
-- 🟢 ❌ Challenge/dispute windows
-- 🟢 ❌ Random subset voting (choosing random validators for collusion prevention)
-- 🟢 ❌ Off-chain indexing for data analytics
+- 🔴 ❌ Token flow diagram
+  - 🔴 ❌ tempAlign → tempRep → permanent token conversion
+  - 🔴 ❌ Voting power and staking relationships
+  - 🔴 ❌ Acceptance/rejection token flows
+- 🟠 ❌ Revenue sharing diagram
+  - 🟠 ❌ Corpus-specific vs platform revenue
+  - 🟠 ❌ Distribution percentages by participant type
+  - 🟠 ❌ Corpus shares attribution
+- 🟢 ❌ UI mockups/wireframes
 
 ## 10. Topic/Corpus Organization
 
@@ -112,29 +127,27 @@
 - 🟢 ❌ Community onboarding
 - 🟢 ❌ Ecosystem integration
 
-## Hackathon Implementation Plan (6 Days)
+## Hackathon Implementation Plan (3 Days Remaining)
 
-### Day 1-2: Four-Mint System & Staking
-- Create all four token mints with appropriate transferability settings:
-  - `tempAlignMint`: Non-transferable temporary alignment tokens
-  - `AlignMint`: Transferable permanent alignment tokens
-  - `tempRepMint`: Non-transferable temporary reputation tokens
-  - `RepMint`: Non-transferable permanent reputation tokens
-- Set up the `UserProfile` account structure
-- Implement the `stake_alignment_tokens` function to burn tempAlign and mint tempRep
+### Day 1: Diagram Creation & Documentation
+- Create token flow diagram using Mermaid:
+  - tempAlign → tempRep → permanent token conversion
+  - Voting power and staking relationships
+  - Acceptance/rejection token flows
+- Create revenue sharing diagram using Mermaid:
+  - Corpus-specific vs platform revenue
+  - Distribution percentages by participant type
+  - Corpus shares attribution
+- Update documentation with these diagrams for clearer understanding
 
-### Day 3-4: Voting & Finalization
-- Implement the commit-reveal voting mechanism
-- Create the finalization logic to determine submission acceptance
-- Implement token conversion (temporary → permanent) for accepted submissions
-- Implement slashing/burning for rejected submissions
+### Day 2: CLI Development & Devnet Deployment
+- Update CLI to support all protocol functions:
+  - Implement topic creation, submission, staking, voting, finalization
+  - Add explorer functionality for topics, submissions, users, stats
+- Deploy protocol to devnet for testing with updated CLI
 
-### Day 5: Testing & CLI
-- Write comprehensive tests for the entire protocol flow
-- Enhance CLI commands to support all implemented functionality
-- Test the complete flow from submission to finalization
-
-### Day 6: Documentation & Demo Preparation
-- Document the API and create user guides
-- Prepare a demo script for the hackathon presentation
-- Create a simple slide deck explaining the protocol
+### Day 3: Test Enhancement & Presentation
+- Update tests to include multiple contributors and validators
+- Implement scenarios described in the whitepaper
+- Prepare demo script and slides for presentation
+- Final testing and bug fixes
