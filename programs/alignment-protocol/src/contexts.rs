@@ -44,7 +44,7 @@ pub struct CreateTopic<'info> {
 /// Account constraints for submitting data to a specific topic
 #[derive(Accounts)]
 pub struct SubmitDataToTopic<'info> {
-    #[account(seeds = [b"state"], bump)]
+    #[account(mut, seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
     
     #[account(mut, constraint = topic.is_active == true)]
@@ -157,7 +157,7 @@ pub struct LinkSubmissionToTopic<'info> {
 pub struct CommitVote<'info> {
     pub state: Account<'info, State>,
     
-    #[account(constraint = submission_topic_link.status == SubmissionStatus::Pending)]
+    #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
     
     pub topic: Account<'info, Topic>,
@@ -335,6 +335,7 @@ pub struct FinalizeVote<'info> {
     pub submission: Account<'info, Submission>,
     
     #[account(
+        mut,
         constraint = vote_commit.revealed == true,
         constraint = vote_commit.validator == validator_profile.user,
         constraint = vote_commit.submission_topic_link == submission_topic_link.key()
