@@ -256,6 +256,29 @@ For testing, you can use the `vote set-phases` command to set arbitrary timestam
 alignment-protocol-cli vote set-phases 0 0 --commit-start $(date +%s) --commit-end $(($(date +%s) + 3600)) --reveal-start $(date +%s) --reveal-end $(($(date +%s) + 3600))
 ```
 
+## Code Structure
+
+The CLI is structured into logical modules:
+
+1. `main.rs` - Entry point that routes commands to the appropriate handlers
+2. `cli.rs` - CLI command structure and argument parsing
+3. `client.rs` - Client setup and program connection 
+4. `utils/` - Utility functions
+   - `pda.rs` - PDA derivation functions
+   - `time.rs` - Timestamp helper functions
+   - `vote.rs` - Vote-related helper functions
+5. `commands/` - Command implementations
+   - `init.rs` - Initialization commands
+   - `topic.rs` - Topic-related commands
+   - `user.rs` - User-related commands
+   - `submission.rs` - Submission-related commands
+   - `vote.rs` - Voting-related commands
+   - `token.rs` - Token-related commands
+   - `query.rs` - Query commands
+   - `debug.rs` - Debug commands
+
+This modular structure makes the codebase more maintainable and easier to extend.
+
 ## Contributing
 
 Contributions to the Alignment Protocol CLI are welcome! Please see our [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
