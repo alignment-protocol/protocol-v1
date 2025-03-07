@@ -108,11 +108,11 @@ The diagram illustrates how tokens flow through the Alignment Protocol's lifecyc
 - Contributors create submissions by providing data to a topic
 - Upon submission, 100 temporary ALIGN tokens (tempAlign) are minted
 - These tokens represent the potential economic value of the contribution
+- tempAlign can only be acquired by making submissions
 
 ### 2. Staking
-- Validators acquire tempAlign tokens (either by submitting data themselves or through other means)
-- Validators stake these tempAlign tokens to participate in the validation process
-- When staked, tempAlign tokens are burned and converted to temporary REP tokens (tempRep) at a 1:1 ratio
+- Anyone with tempAlign can stake these tempAlign tokens and earn temporary REP tokens to become a validator and participate in the validation process
+- When staked, tempAlign tokens are burned and converted to tempRep at a 1:1 ratio
 - tempRep represents validation rights and voting power
 
 ### 3. Voting
