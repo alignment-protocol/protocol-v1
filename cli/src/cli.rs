@@ -10,11 +10,11 @@ pub struct Cli {
     pub keypair: String,
 
     /// Choose the Solana cluster (devnet, mainnet, custom URL, etc.)
-    #[arg(long, default_value = "devnet")]
+    #[arg(long, default_value = "http://127.0.0.1:8899")]
     pub cluster: String,
 
     /// Program ID for the Alignment Protocol
-    #[arg(long, default_value = "BMYn8rtstaZhzFZtgMVMY9io1zhnqacr3yANZrgkv7DF")]
+    #[arg(long, default_value = "3NYwpp7xv6m35he2sbWTDKPyzepwQiJq5YkD2AzdHmRc")]
     pub program_id: String,
 
     #[command(subcommand)]

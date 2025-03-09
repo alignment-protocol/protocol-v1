@@ -86,7 +86,7 @@ pub fn cmd_init_temp_align_mint(program: &Program<Rc<Keypair>>) -> Result<()> {
         return Ok(());
     }
 
-    let (temp_align_mint_pda, _) = get_mint_pda(program, "temp-align");
+    let (temp_align_mint_pda, _) = get_mint_pda(program, "temp_align_mint");
 
     println!("Initializing temporary alignment token mint...");
 
@@ -133,7 +133,7 @@ pub fn cmd_init_align_mint(program: &Program<Rc<Keypair>>) -> Result<()> {
         return Ok(());
     }
 
-    let (align_mint_pda, _) = get_mint_pda(program, "align");
+    let (align_mint_pda, _) = get_mint_pda(program, "align_mint");
 
     println!("Initializing permanent alignment token mint...");
 
@@ -180,7 +180,7 @@ pub fn cmd_init_temp_rep_mint(program: &Program<Rc<Keypair>>) -> Result<()> {
         return Ok(());
     }
 
-    let (temp_rep_mint_pda, _) = get_mint_pda(program, "temp-rep");
+    let (temp_rep_mint_pda, _) = get_mint_pda(program, "temp_rep_mint");
 
     println!("Initializing temporary reputation token mint...");
 
@@ -227,7 +227,7 @@ pub fn cmd_init_rep_mint(program: &Program<Rc<Keypair>>) -> Result<()> {
         return Ok(());
     }
 
-    let (rep_mint_pda, _) = get_mint_pda(program, "rep");
+    let (rep_mint_pda, _) = get_mint_pda(program, "rep_mint");
 
     println!("Initializing permanent reputation token mint...");
 
@@ -268,13 +268,46 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>) -> Result<()> {
     }
 
     // Initialize state first
-    cmd_init_state(program)?;
+    match cmd_init_state(program) {
+        Ok(_) => println!("[DEBUG] State initialization successful"),
+        Err(e) => {
+            println!("[DEBUG] State initialization failed: {}", e);
+            return Err(e);
+        }
+    }
 
     // Then initialize all token mints
-    cmd_init_temp_align_mint(program)?;
-    cmd_init_align_mint(program)?;
-    cmd_init_temp_rep_mint(program)?;
-    cmd_init_rep_mint(program)?;
+    match cmd_init_temp_align_mint(program) {
+        Ok(_) => println!("[DEBUG] TempAlign mint initialization successful"),
+        Err(e) => {
+            println!("[DEBUG] TempAlign mint initialization failed: {}", e);
+            return Err(e);
+        }
+    }
+
+    match cmd_init_align_mint(program) {
+        Ok(_) => println!("[DEBUG] Align mint initialization successful"),
+        Err(e) => {
+            println!("[DEBUG] Align mint initialization failed: {}", e);
+            return Err(e);
+        }
+    }
+
+    match cmd_init_temp_rep_mint(program) {
+        Ok(_) => println!("[DEBUG] TempRep mint initialization successful"),
+        Err(e) => {
+            println!("[DEBUG] TempRep mint initialization failed: {}", e);
+            return Err(e);
+        }
+    }
+
+    match cmd_init_rep_mint(program) {
+        Ok(_) => println!("[DEBUG] Rep mint initialization successful"),
+        Err(e) => {
+            println!("[DEBUG] Rep mint initialization failed: {}", e);
+            return Err(e);
+        }
+    }
 
     println!("All protocol accounts initialized successfully!");
     Ok(())
