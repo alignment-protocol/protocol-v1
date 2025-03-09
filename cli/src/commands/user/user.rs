@@ -195,26 +195,60 @@ pub fn cmd_view_user_profile(
             let (state_pda, _) = get_state_pda(program);
             match program.account::<StateAccount>(state_pda) {
                 Ok(state_data) => {
-                    // Show token account addresses
+                    // Show token account addresses and balances
                     println!("\nToken Accounts:");
 
                     // Permanent align token account
                     let align_ata = get_token_ata(&user, &state_data.align_mint);
-                    println!("  Permanent Align Token ATA: {}", align_ata);
+                    let align_balance =
+                        match program.account::<anchor_spl::token::TokenAccount>(align_ata) {
+                            Ok(token_account) => token_account.amount,
+                            Err(_) => 0,
+                        };
+                    println!(
+                        "  Permanent Align Token ATA: {} (Balance: {})",
+                        align_ata, align_balance
+                    );
 
                     // Permanent rep token account
                     let rep_ata = get_token_ata(&user, &state_data.rep_mint);
-                    println!("  Permanent Rep Token ATA: {}", rep_ata);
+                    let rep_balance =
+                        match program.account::<anchor_spl::token::TokenAccount>(rep_ata) {
+                            Ok(token_account) => token_account.amount,
+                            Err(_) => 0,
+                        };
+                    println!(
+                        "  Permanent Rep Token ATA: {} (Balance: {})",
+                        rep_ata, rep_balance
+                    );
 
                     // Temporary align token account (protocol-owned)
                     let (temp_align_account_pda, _) =
                         get_user_temp_token_account_pda(program, &user, "user_temp_align");
-                    println!("  Temp Align Token PDA: {}", temp_align_account_pda);
+                    let temp_align_balance = match program
+                        .account::<anchor_spl::token::TokenAccount>(temp_align_account_pda)
+                    {
+                        Ok(token_account) => token_account.amount,
+                        Err(_) => 0,
+                    };
+                    println!(
+                        "  Temp Align Token PDA: {} (Balance: {})",
+                        temp_align_account_pda, temp_align_balance
+                    );
 
                     // Temporary rep token account (protocol-owned)
                     let (temp_rep_account_pda, _) =
                         get_user_temp_token_account_pda(program, &user, "user_temp_rep");
-                    println!("  Temp Rep Token PDA: {}", temp_rep_account_pda);
+                    let temp_rep_balance = match program
+                        .account::<anchor_spl::token::TokenAccount>(temp_rep_account_pda)
+                    {
+                        Ok(token_account) => token_account.amount,
+                        Err(_) => 0,
+                    };
+                    println!(
+                        "  Temp Rep Token PDA: {} (Balance: {})",
+                        temp_rep_account_pda, temp_rep_balance
+                    );
                 }
                 Err(e) => {
                     println!("Could not fetch protocol state: {}", e);
