@@ -1,10 +1,12 @@
+use crate::contexts::{
+    CreateUserAta, CreateUserTempAlignAccount, CreateUserTempRepAccount, StakeTopicSpecificTokens,
+};
+use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::{create, Create},
     token::{self, Burn, MintTo},
 };
-use crate::contexts::{CreateUserAta, CreateUserTempAlignAccount, CreateUserTempRepAccount, StakeTopicSpecificTokens};
-use crate::error::ErrorCode;
 
 pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
     // Build a CPI context for the associated token program
@@ -23,41 +25,44 @@ pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
     // If the ATA already exists, create(...) will throw an error
     create(cpi_ctx)?;
 
-    msg!("Created permanent token ATA for user {}", ctx.accounts.user.key());
+    msg!(
+        "Created permanent token ATA for user {}",
+        ctx.accounts.user.key()
+    );
     Ok(())
 }
 
 /// Creates a protocol-owned tempAlign token account for a user
-/// 
+///
 /// This creates a token account that:
 /// 1. Is owned by the protocol (state PDA) rather than the user
 /// 2. Has the state PDA as the authority, allowing burns without user signature
 /// 3. Uses PDA with seeds ["user_temp_align", user.key()]
 pub fn create_user_temp_align_account(ctx: Context<CreateUserTempAlignAccount>) -> Result<()> {
     // The token account is initialized in the context with proper ownership and authority
-    
+
     msg!(
         "Created protocol-owned tempAlign token account for user {}",
         ctx.accounts.user.key()
     );
-    
+
     Ok(())
 }
 
 /// Creates a protocol-owned tempRep token account for a user
-/// 
+///
 /// This creates a token account that:
 /// 1. Is owned by the protocol (state PDA) rather than the user
 /// 2. Has the state PDA as the authority, allowing burns without user signature
 /// 3. Uses PDA with seeds ["user_temp_rep", user.key()]
 pub fn create_user_temp_rep_account(ctx: Context<CreateUserTempRepAccount>) -> Result<()> {
     // The token account is initialized in the context with proper ownership and authority
-    
+
     msg!(
         "Created protocol-owned tempRep token account for user {}",
         ctx.accounts.user.key()
     );
-    
+
     Ok(())
 }
 
@@ -65,25 +70,28 @@ pub fn create_user_temp_rep_account(ctx: Context<CreateUserTempRepAccount>) -> R
 
 /// Stakes tempAlign tokens for a specific topic to earn topic-specific tempRep
 /// Uses protocol-owned token accounts where the state PDA is the authority
-pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amount: u64) -> Result<()> {
+pub fn stake_topic_specific_tokens(
+    ctx: Context<StakeTopicSpecificTokens>,
+    amount: u64,
+) -> Result<()> {
     // Validate the stake amount
     if amount == 0 {
         return Err(ErrorCode::ZeroStakeAmount.into());
     }
-    
+
     // Double-check user profile is properly initialized
     if ctx.accounts.user_profile.user != ctx.accounts.user.key() {
         return Err(ErrorCode::InvalidUserProfile.into());
     }
-    
+
     // Get the topic ID
     let topic_id = ctx.accounts.topic.id;
-    
+
     // Check if the user has enough topic-specific temp alignment tokens
     let user_profile = &mut ctx.accounts.user_profile;
     let mut found_topic = false;
     let mut topic_temp_align = 0;
-    
+
     // Find the topic in the user's topic_tokens collection
     for topic_pair in user_profile.topic_tokens.iter() {
         if topic_pair.topic_id == topic_id {
@@ -92,22 +100,22 @@ pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amoun
             break;
         }
     }
-    
+
     // Ensure the user has enough topic-specific tokens
     if !found_topic || topic_temp_align < amount {
         return Err(ErrorCode::InsufficientTopicTokens.into());
     }
-    
+
     // Check the global token balance
     if ctx.accounts.user_temp_align_account.amount < amount {
         return Err(ErrorCode::InsufficientTokenBalance.into());
     }
-    
+
     // Get the state PDA signer seeds
     let state_bump = ctx.accounts.state.bump;
     let seeds = &[b"state".as_ref(), &[state_bump]];
     let signer = &[&seeds[..]];
-    
+
     // Burn the temporary alignment tokens
     // Since these are protocol-owned, we need to use the state PDA as the authority
     let burn_cpi_ctx = CpiContext::new(
@@ -117,10 +125,11 @@ pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amoun
             from: ctx.accounts.user_temp_align_account.to_account_info(),
             authority: ctx.accounts.state.to_account_info(),
         },
-    ).with_signer(signer);
-    
+    )
+    .with_signer(signer);
+
     token::burn(burn_cpi_ctx, amount)?;
-    
+
     // Mint temporary reputation tokens
     // The target is also a protocol-owned account
     let mint_cpi_ctx = CpiContext::new(
@@ -130,27 +139,32 @@ pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amoun
             to: ctx.accounts.user_temp_rep_account.to_account_info(),
             authority: ctx.accounts.state.to_account_info(),
         },
-    ).with_signer(signer);
-    
+    )
+    .with_signer(signer);
+
     token::mint_to(mint_cpi_ctx, amount)?;
-    
+
     // Update the topic-specific token balances in the user profile
     for topic_pair in user_profile.topic_tokens.iter_mut() {
         if topic_pair.topic_id == topic_id {
             // Decrease tempAlign for this topic
-            topic_pair.token.temp_align_amount = topic_pair.token.temp_align_amount
+            topic_pair.token.temp_align_amount = topic_pair
+                .token
+                .temp_align_amount
                 .checked_sub(amount)
                 .ok_or(ErrorCode::Overflow)?;
-            
+
             // Increase tempRep for this topic
-            topic_pair.token.temp_rep_amount = topic_pair.token.temp_rep_amount
+            topic_pair.token.temp_rep_amount = topic_pair
+                .token
+                .temp_rep_amount
                 .checked_add(amount)
                 .ok_or(ErrorCode::Overflow)?;
-            
+
             break;
         }
     }
-    
+
     msg!(
         "Staked {} topic-specific tempAlign tokens for topic {} for {} tempRep tokens for user {}",
         amount,
@@ -158,6 +172,6 @@ pub fn stake_topic_specific_tokens(ctx: Context<StakeTopicSpecificTokens>, amoun
         amount,
         ctx.accounts.user.key()
     );
-    
+
     Ok(())
 }

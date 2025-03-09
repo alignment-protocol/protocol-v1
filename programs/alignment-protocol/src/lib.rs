@@ -67,7 +67,7 @@ pub mod alignment_protocol {
     pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
         instructions::tokens::create_user_ata(ctx)
     }
-    
+
     /// Instruction handler: create protocol-owned tempAlign token account for a user
     ///
     /// This creates a token account for tempAlign tokens that is owned by the protocol (state PDA)
@@ -75,7 +75,7 @@ pub mod alignment_protocol {
     pub fn create_user_temp_align_account(ctx: Context<CreateUserTempAlignAccount>) -> Result<()> {
         instructions::tokens::create_user_temp_align_account(ctx)
     }
-    
+
     /// Instruction handler: create protocol-owned tempRep token account for a user
     ///
     /// This creates a token account for tempRep tokens that is owned by the protocol (state PDA)
@@ -184,7 +184,7 @@ pub mod alignment_protocol {
     pub fn link_submission_to_topic(ctx: Context<LinkSubmissionToTopic>) -> Result<()> {
         instructions::submission::link_submission_to_topic(ctx)
     }
-    
+
     /// Instruction handler: Set voting phases for a submission-topic link
     ///
     /// This allows the protocol authority to manually set timestamps for the commit and reveal phases.
@@ -196,6 +196,12 @@ pub mod alignment_protocol {
         reveal_phase_start: Option<u64>,
         reveal_phase_end: Option<u64>,
     ) -> Result<()> {
-        instructions::votes::set_voting_phases(ctx, commit_phase_start, commit_phase_end, reveal_phase_start, reveal_phase_end)
+        instructions::votes::set_voting_phases(
+            ctx,
+            commit_phase_start,
+            commit_phase_end,
+            reveal_phase_start,
+            reveal_phase_end,
+        )
     }
 }
