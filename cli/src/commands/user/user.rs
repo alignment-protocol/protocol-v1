@@ -102,7 +102,7 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     println!("Step 4: Creating protocol-owned temporary alignment token account...");
     let temp_align_mint = state_data.temp_align_mint;
     let (temp_align_account_pda, _) =
-        get_user_temp_token_account_pda(program, &user, "temp_align_account");
+        get_user_temp_token_account_pda(program, &user, "user_temp_align");
 
     let accounts = AccountsAll::CreateUserTempAlignAccount {
         payer: user,
@@ -131,7 +131,7 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     println!("Step 5: Creating protocol-owned temporary reputation token account...");
     let temp_rep_mint = state_data.temp_rep_mint;
     let (temp_rep_account_pda, _) =
-        get_user_temp_token_account_pda(program, &user, "temp_rep_account");
+        get_user_temp_token_account_pda(program, &user, "user_temp_rep");
 
     let accounts = AccountsAll::CreateUserTempRepAccount {
         payer: user,
@@ -208,12 +208,12 @@ pub fn cmd_view_user_profile(
 
                     // Temporary align token account (protocol-owned)
                     let (temp_align_account_pda, _) =
-                        get_user_temp_token_account_pda(program, &user, "temp_align_account");
+                        get_user_temp_token_account_pda(program, &user, "user_temp_align");
                     println!("  Temp Align Token PDA: {}", temp_align_account_pda);
 
                     // Temporary rep token account (protocol-owned)
                     let (temp_rep_account_pda, _) =
-                        get_user_temp_token_account_pda(program, &user, "temp_rep_account");
+                        get_user_temp_token_account_pda(program, &user, "user_temp_rep");
                     println!("  Temp Rep Token PDA: {}", temp_rep_account_pda);
                 }
                 Err(e) => {
