@@ -1,6 +1,6 @@
 # Alignment Protocol CLI
 
-A command-line interface for interacting with the Alignment Protocol on Solana.
+A unified command-line interface for interacting with the Alignment Protocol on Solana. This CLI combines both user and admin functionality in a single tool, with admin commands clearly marked with an [ADMIN] prefix.
 
 The Alignment Protocol is a decentralized data quality validation system, enabling contributors to submit data and validators to vote on its quality. It uses a dual-token system with temporary and permanent alignment and reputation tokens.
 
@@ -268,11 +268,7 @@ The CLI is structured into logical modules:
 1. `main.rs` - Entry point that routes commands to the appropriate handlers
 2. `cli.rs` - CLI command structure and argument parsing
 3. `client.rs` - Client setup and program connection 
-4. `utils/` - Utility functions
-   - `pda.rs` - PDA derivation functions
-   - `time.rs` - Timestamp helper functions
-   - `vote.rs` - Vote-related helper functions
-5. `commands/` - Command implementations
+4. `commands/` - Command implementations and utilities
    - `user/` - User commands implementations
      - `topic.rs` - User topic-related commands
      - `user.rs` - User profile management commands
@@ -287,6 +283,10 @@ The CLI is structured into logical modules:
      - `topic.rs` - Topic creation commands
      - `token.rs` - Token minting commands
      - `vote.rs` - Admin vote phase commands
+   - `common/` - Shared utility functions
+     - `pda.rs` - PDA derivation functions
+     - `time.rs` - Timestamp helper functions
+     - `vote.rs` - Vote-related helper functions
 
 This modular structure makes the codebase more maintainable and easier to extend. Admin commands are clearly marked in the help text with an [ADMIN] prefix to indicate that they require admin privileges and will fail if executed by regular users.
 
