@@ -44,19 +44,20 @@ pub fn cmd_submit_data_to_topic(
     // Get user profile PDA
     let (contributor_profile_pda, _) = get_user_profile_pda(program, &contributor);
 
+    // Check if user profile exists
+    let profile_exists = program.rpc().get_account(&contributor_profile_pda).is_ok();
+
     // Check if temp align account exists
     let temp_align_account_exists = program
         .rpc()
         .get_account(&contributor_temp_align_account_pda)
         .is_ok();
 
-    if !temp_align_account_exists {
-        println!("Creating temp align account first...");
-        crate::commands::user::cmd_create_user_temp_account(program, "temp-align".to_string())?;
+    if !profile_exists || !temp_align_account_exists {
+        return Err(anyhow::anyhow!(
+            "User profile or token accounts not set up. Please run 'alignment-protocol-cli user create-profile' first."
+        ));
     }
-
-    // Check if user profile exists
-    let profile_exists = program.rpc().get_account(&contributor_profile_pda).is_ok();
 
     println!("Submitting data to topic #{}", topic_id);
     println!("Data reference: {}", data_reference);

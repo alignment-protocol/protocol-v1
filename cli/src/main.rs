@@ -6,7 +6,7 @@ mod utils;
 use anyhow::Result;
 use clap::Parser;
 use cli::{
-    Cli, Commands, DebugCommands, InitCommands, QueryCommands, SubmissionCommands, TokenCommands,
+    AdminCommands, Cli, Commands, DebugCommands, QueryCommands, SubmissionCommands, TokenCommands,
     TopicCommands, UserCommands, VoteCommands,
 };
 use commands::*;
@@ -19,14 +19,9 @@ fn main() -> Result<()> {
 
     // Handle commands
     match cli.command {
-        Commands::Init { subcommand } => match subcommand {
-            InitCommands::State => cmd_init_state(&program)?,
-            InitCommands::TempAlignMint => cmd_init_temp_align_mint(&program)?,
-            InitCommands::AlignMint => cmd_init_align_mint(&program)?,
-            InitCommands::TempRepMint => cmd_init_temp_rep_mint(&program)?,
-            InitCommands::RepMint => cmd_init_rep_mint(&program)?,
-            InitCommands::UpdateTokensToMint { tokens } => {
-                cmd_update_tokens_to_mint(&program, tokens)?
+        Commands::Admin { subcommand } => match subcommand {
+            AdminCommands::UpdateTokensToMint { tokens } => {
+                cmd_admin_update_tokens_to_mint(&program, tokens)?
             }
         },
         Commands::Topic { subcommand } => match subcommand {
@@ -47,10 +42,6 @@ fn main() -> Result<()> {
         },
         Commands::User { subcommand } => match subcommand {
             UserCommands::CreateProfile => cmd_create_user_profile(&program)?,
-            UserCommands::CreateAta { token_type } => cmd_create_user_ata(&program, token_type)?,
-            UserCommands::CreateTempAccount { token_type } => {
-                cmd_create_user_temp_account(&program, token_type)?
-            }
             UserCommands::Profile { user } => cmd_view_user_profile(&program, user)?,
         },
         Commands::Submission { subcommand } => match subcommand {

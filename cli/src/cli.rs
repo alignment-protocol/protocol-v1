@@ -23,10 +23,10 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Initialize protocol components
-    Init {
+    /// Admin operations (protocol configuration)
+    Admin {
         #[command(subcommand)]
-        subcommand: InitCommands,
+        subcommand: AdminCommands,
     },
 
     /// Topic-related commands
@@ -73,22 +73,7 @@ pub enum Commands {
 }
 
 #[derive(Subcommand)]
-pub enum InitCommands {
-    /// Initialize the protocol state
-    State,
-
-    /// Initialize temporary alignment token mint
-    TempAlignMint,
-
-    /// Initialize permanent alignment token mint
-    AlignMint,
-
-    /// Initialize temporary reputation token mint
-    TempRepMint,
-
-    /// Initialize permanent reputation token mint
-    RepMint,
-
+pub enum AdminCommands {
     /// Update tokens to mint per submission
     UpdateTokensToMint {
         /// New amount of tokens to mint per submission
@@ -131,22 +116,8 @@ pub enum TopicCommands {
 
 #[derive(Subcommand)]
 pub enum UserCommands {
-    /// Create a user profile
+    /// Create a user profile with all necessary token accounts
     CreateProfile,
-
-    /// Create associated token account for a specific token type
-    CreateAta {
-        /// Token type (temp-align, align, temp-rep, rep)
-        #[arg(index = 1)]
-        token_type: String,
-    },
-
-    /// Create temporary token account (protocol-owned)
-    CreateTempAccount {
-        /// Token type (temp-align, temp-rep)
-        #[arg(index = 1)]
-        token_type: String,
-    },
 
     /// View user profile information
     Profile {

@@ -16,15 +16,17 @@ use crate::utils::pda::{
     get_state_pda, get_token_ata, get_user_profile_pda, get_user_temp_token_account_pda,
 };
 
-/// Create a user profile
+/// Create a complete user profile with all necessary token accounts
 pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     let user = program.payer();
     let (user_profile_pda, _) = get_user_profile_pda(program, &user);
-
-    println!("Creating user profile for {}", user);
-
     let (state_pda, _) = get_state_pda(program);
 
+    println!("Creating complete user profile for {}", user);
+    println!("User profile PDA: {}", user_profile_pda);
+
+    // Step 1: Create user profile
+    println!("Step 1: Creating user profile...");
     let accounts = AccountsAll::CreateUserProfile {
         user,
         state: state_pda,
@@ -40,25 +42,133 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
         .send()?;
 
     println!("User profile created successfully (txSig: {})", tx_sig);
-    println!("User profile PDA: {}", user_profile_pda);
+
+    // Get state account data to access token mint addresses
+    let state_data: StateAccount = program.account(state_pda)?;
+
+    // Step 2: Create ATA for permanent alignment token
+    println!("Step 2: Creating permanent alignment token account...");
+    let align_mint = state_data.align_mint;
+    let align_ata = get_token_ata(&user, &align_mint);
+
+    let accounts = AccountsAll::CreateUserAta {
+        payer: user,
+        user,
+        state: state_pda,
+        mint: align_mint,
+        user_ata: align_ata,
+        system_program: system_program::ID,
+        token_program: anchor_spl::token::ID,
+        associated_token_program: anchor_spl::associated_token::ID,
+        rent: RENT_ID,
+    };
+
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::CreateUserAta {})
+        .send()?;
+
+    println!("Permanent alignment token account created: {}", align_ata);
+    println!("Transaction signature: {}", tx_sig);
+
+    // Step 3: Create ATA for permanent reputation token
+    println!("Step 3: Creating permanent reputation token account...");
+    let rep_mint = state_data.rep_mint;
+    let rep_ata = get_token_ata(&user, &rep_mint);
+
+    let accounts = AccountsAll::CreateUserAta {
+        payer: user,
+        user,
+        state: state_pda,
+        mint: rep_mint,
+        user_ata: rep_ata,
+        system_program: system_program::ID,
+        token_program: anchor_spl::token::ID,
+        associated_token_program: anchor_spl::associated_token::ID,
+        rent: RENT_ID,
+    };
+
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::CreateUserAta {})
+        .send()?;
+
+    println!("Permanent reputation token account created: {}", rep_ata);
+    println!("Transaction signature: {}", tx_sig);
+
+    // Step 4: Create protocol-owned temporary alignment token account
+    println!("Step 4: Creating protocol-owned temporary alignment token account...");
+    let temp_align_mint = state_data.temp_align_mint;
+    let (temp_align_account_pda, _) = 
+        get_user_temp_token_account_pda(program, &user, "temp_align_account");
+
+    let accounts = AccountsAll::CreateUserTempAlignAccount {
+        payer: user,
+        user,
+        state: state_pda,
+        mint: temp_align_mint,
+        token_account: temp_align_account_pda,
+        system_program: system_program::ID,
+        token_program: anchor_spl::token::ID,
+        rent: RENT_ID,
+    };
+
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::CreateUserTempAlignAccount {})
+        .send()?;
+
+    println!("Temporary alignment token account created: {}", temp_align_account_pda);
+    println!("Transaction signature: {}", tx_sig);
+
+    // Step 5: Create protocol-owned temporary reputation token account
+    println!("Step 5: Creating protocol-owned temporary reputation token account...");
+    let temp_rep_mint = state_data.temp_rep_mint;
+    let (temp_rep_account_pda, _) = 
+        get_user_temp_token_account_pda(program, &user, "temp_rep_account");
+
+    let accounts = AccountsAll::CreateUserTempRepAccount {
+        payer: user,
+        user,
+        state: state_pda,
+        mint: temp_rep_mint,
+        token_account: temp_rep_account_pda,
+        system_program: system_program::ID,
+        token_program: anchor_spl::token::ID,
+        rent: RENT_ID,
+    };
+
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::CreateUserTempRepAccount {})
+        .send()?;
+
+    println!("Temporary reputation token account created: {}", temp_rep_account_pda);
+    println!("Transaction signature: {}", tx_sig);
+
+    println!("\nUser profile setup completed successfully!");
+    println!("Use 'alignment-protocol-cli user profile' to view your profile details");
+    
     Ok(())
 }
 
-/// Create associated token account for a user
-pub fn cmd_create_user_ata(program: &Program<Rc<Keypair>>, token_type: String) -> Result<()> {
+/// Create associated token account for a user (internal helper function)
+fn cmd_create_user_ata(program: &Program<Rc<Keypair>>, token_type: String) -> Result<()> {
     let (state_pda, _) = get_state_pda(program);
     let user = program.payer();
 
     // Get the mint address based on token type
     let state_data: StateAccount = program.account(state_pda)?;
     let mint = match token_type.to_lowercase().as_str() {
-        "temp-align" => state_data.temp_align_mint,
         "align" => state_data.align_mint,
-        "temp-rep" => state_data.temp_rep_mint,
         "rep" => state_data.rep_mint,
         _ => {
             return Err(anyhow::anyhow!(
-                "Invalid token type. Use temp-align, align, temp-rep, or rep"
+                "Invalid token type. Only permanent token ATAs can be created manually. Use 'align' or 'rep'"
             ))
         }
     };
@@ -97,8 +207,8 @@ pub fn cmd_create_user_ata(program: &Program<Rc<Keypair>>, token_type: String) -
     Ok(())
 }
 
-/// Create temporary token account (protocol-owned)
-pub fn cmd_create_user_temp_account(
+/// Create temporary token account (protocol-owned, internal helper function)
+fn cmd_create_user_temp_account(
     program: &Program<Rc<Keypair>>,
     token_type: String,
 ) -> Result<()> {
@@ -210,11 +320,41 @@ pub fn cmd_view_user_profile(
                 }
             }
 
+            // Get state account to access mint addresses
+            let (state_pda, _) = get_state_pda(program);
+            match program.account::<StateAccount>(state_pda) {
+                Ok(state_data) => {
+                    // Show token account addresses
+                    println!("\nToken Accounts:");
+                    
+                    // Permanent align token account
+                    let align_ata = get_token_ata(&user, &state_data.align_mint);
+                    println!("  Permanent Align Token ATA: {}", align_ata);
+                    
+                    // Permanent rep token account
+                    let rep_ata = get_token_ata(&user, &state_data.rep_mint);
+                    println!("  Permanent Rep Token ATA: {}", rep_ata);
+                    
+                    // Temporary align token account (protocol-owned)
+                    let (temp_align_account_pda, _) = 
+                        get_user_temp_token_account_pda(program, &user, "temp_align_account");
+                    println!("  Temp Align Token PDA: {}", temp_align_account_pda);
+                    
+                    // Temporary rep token account (protocol-owned)
+                    let (temp_rep_account_pda, _) = 
+                        get_user_temp_token_account_pda(program, &user, "temp_rep_account");
+                    println!("  Temp Rep Token PDA: {}", temp_rep_account_pda);
+                },
+                Err(e) => {
+                    println!("Could not fetch protocol state: {}", e);
+                }
+            }
+
             Ok(())
         }
         Err(e) => {
             println!("User profile not found: {}", e);
-            println!("Create a profile with 'user create-profile'");
+            println!("Create a profile with 'alignment-protocol-cli user create-profile'");
             Ok(())
         }
     }

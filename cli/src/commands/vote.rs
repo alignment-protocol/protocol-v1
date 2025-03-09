@@ -40,6 +40,15 @@ pub fn cmd_commit_vote(
     // Generate vote hash
     let vote_hash =
         generate_vote_hash(&validator, &submission_topic_link_pda, &vote_choice, &nonce);
+        
+    // Check if user profile exists
+    let profile_exists = program.rpc().get_account(&user_profile_pda).is_ok();
+    
+    if !profile_exists {
+        return Err(anyhow::anyhow!(
+            "User profile not set up. Please run 'alignment-protocol-cli user create-profile' first."
+        ));
+    }
 
     println!(
         "Committing {} vote on submission #{} in topic #{}",
@@ -100,6 +109,15 @@ pub fn cmd_reveal_vote(
 
     // Parse vote choice
     let vote_choice = parse_vote_choice(&choice_str)?;
+    
+    // Check if vote commit account exists
+    let vote_commit_exists = program.rpc().get_account(&vote_commit_pda).is_ok();
+    
+    if !vote_commit_exists {
+        return Err(anyhow::anyhow!(
+            "Vote commit not found. Make sure you have committed a vote first."
+        ));
+    }
 
     println!(
         "Revealing {} vote on submission #{} in topic #{}",
