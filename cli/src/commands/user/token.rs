@@ -32,9 +32,9 @@ pub fn cmd_stake_topic_specific_tokens(
 
     // Get token accounts
     let (user_temp_align_account_pda, _) =
-        get_user_temp_token_account_pda(program, &user, "temp_align_account");
+        get_user_temp_token_account_pda(program, &user, "user_temp_align");
     let (user_temp_rep_account_pda, _) =
-        get_user_temp_token_account_pda(program, &user, "temp_rep_account");
+        get_user_temp_token_account_pda(program, &user, "user_temp_rep");
 
     // Check if user profile and token accounts exist
     let profile_exists = program.rpc().get_account(&user_profile_pda).is_ok();

@@ -33,7 +33,7 @@ pub fn cmd_debug_token_account(
         "temp-align" => {
             let mint = state_data.temp_align_mint;
             let (temp_account_pda, _) =
-                get_user_temp_token_account_pda(program, &user, "temp_align_account");
+                get_user_temp_token_account_pda(program, &user, "user_temp_align");
 
             println!("Token Type: Temporary Alignment (TempAlign)");
             println!("Mint: {}", mint);
@@ -106,7 +106,7 @@ pub fn cmd_debug_token_account(
         "temp-rep" => {
             let mint = state_data.temp_rep_mint;
             let (temp_account_pda, _) =
-                get_user_temp_token_account_pda(program, &user, "temp_rep_account");
+                get_user_temp_token_account_pda(program, &user, "user_temp_rep");
 
             println!("Token Type: Temporary Reputation (TempRep)");
             println!("Mint: {}", mint);

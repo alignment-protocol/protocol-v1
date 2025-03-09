@@ -171,7 +171,7 @@ pub fn cmd_finalize_vote(
 
     // Get token accounts
     let (validator_temp_rep_account_pda, _) =
-        get_user_temp_token_account_pda(program, &validator, "temp_rep_account");
+        get_user_temp_token_account_pda(program, &validator, "user_temp_rep");
     let validator_rep_ata = get_token_ata(&validator, &rep_mint);
 
     println!(

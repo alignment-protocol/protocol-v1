@@ -39,7 +39,7 @@ pub fn cmd_submit_data_to_topic(
 
     // Get user's temp align account
     let (contributor_temp_align_account_pda, _) =
-        get_user_temp_token_account_pda(program, &contributor, "temp_align_account");
+        get_user_temp_token_account_pda(program, &contributor, "user_temp_align");
 
     // Get user profile PDA
     let (contributor_profile_pda, _) = get_user_profile_pda(program, &contributor);
@@ -170,7 +170,7 @@ pub fn cmd_finalize_submission(
 
     // Get token accounts
     let (contributor_temp_align_account_pda, _) =
-        get_user_temp_token_account_pda(program, &contributor, "temp_align_account");
+        get_user_temp_token_account_pda(program, &contributor, "user_temp_align");
     let contributor_align_ata = get_token_ata(&contributor, &align_mint);
 
     println!(
