@@ -2,7 +2,25 @@ use clap::{Parser, Subcommand};
 
 /// Define CLI application structure
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(
+    author,
+    version,
+    about,
+    before_help = "
+     ▗▄▖ ▗▖   ▗▄▄▄▖ ▗▄▄▖▗▖  ▗▖▗▖  ▗▖▗▄▄▄▖▗▖  ▗▖▗▄▄▄▖
+    ▐▌ ▐▌▐▌     █  ▐▌   ▐▛▚▖▐▌▐▛▚▞▜▌▐▌   ▐▛▚▖▐▌  █
+    ▐▛▀▜▌▐▌     █  ▐▌▝▜▌▐▌ ▝▜▌▐▌  ▐▌▐▛▀▀▘▐▌ ▝▜▌  █
+    ▐▌ ▐▌▐▙▄▄▖▗▄█▄▖▝▚▄▞▘▐▌  ▐▌▐▌  ▐▌▐▙▄▄▖▐▌  ▐▌  █
+
+    ▗▄▄▖ ▗▄▄▖  ▗▄▖▗▄▄▄▖▗▄▖  ▗▄▄▖ ▗▄▖ ▗▖
+    ▐▌ ▐▌▐▌ ▐▌▐▌ ▐▌ █ ▐▌ ▐▌▐▌   ▐▌ ▐▌▐▌
+    ▐▛▀▘ ▐▛▀▚▖▐▌ ▐▌ █ ▐▌ ▐▌▐▌   ▐▌ ▐▌▐▌
+    ▐▌   ▐▌ ▐▌▝▚▄▞▘ █ ▝▚▄▞▘▝▚▄▄▖▝▚▄▞▘▐▙▄▄▖
+",
+    long_about = "The Alignment Protocol CLI provides tools to interact with the Alignment Protocol on Solana. \
+    It supports user operations like creating profiles, submitting data, voting, and staking tokens, \
+    as well as admin functions for protocol management."
+)]
 /// Alignment Protocol CLI: Tool to interact with the Alignment Protocol on Solana
 pub struct Cli {
     /// Path to the user's keypair file
