@@ -23,25 +23,17 @@ The binary will be located at `./target/debug/alignment-protocol-cli`.
 ## Quick Start
 
 1. Make sure you have a Solana keypair (default at `~/.config/solana/id.json`)
-2. Initialize the protocol (if not already initialized):
+2. (Admin only) Protocol administrators can update token minting parameters:
    ```bash
-   ./alignment-protocol-cli init state
-   ./alignment-protocol-cli init temp-align-mint
-   ./alignment-protocol-cli init align-mint
-   ./alignment-protocol-cli init temp-rep-mint
-   ./alignment-protocol-cli init rep-mint
+   ./alignment-protocol-cli admin update-tokens-to-mint 1000
    ```
 3. Create a topic:
    ```bash
    ./alignment-protocol-cli topic create "Climate Data" "Repository for validated climate datasets"
    ```
-4. Set up your user accounts:
+4. Set up your user profile (creates all required token accounts automatically):
    ```bash
    ./alignment-protocol-cli user create-profile
-   ./alignment-protocol-cli user create-temp-account temp-align
-   ./alignment-protocol-cli user create-temp-account temp-rep
-   ./alignment-protocol-cli user create-ata align
-   ./alignment-protocol-cli user create-ata rep
    ```
 5. Submit data to a topic:
    ```bash
@@ -54,18 +46,14 @@ The CLI is organized into logical command groups that mirror the protocol's func
 
 ### Main Command Groups
 
-1. Init - Protocol initialization commands
-   - State: Initialize the protocol state account
-   - TempAlignMint/AlignMint/TempRepMint/RepMint: Initialize token mints
+1. Admin - Protocol administration commands
    - UpdateTokensToMint: Update number of tokens to mint per submission
 2. Topic - Topic management
    - Create: Create a new topic with name, description, custom voting phases
    - List: View all topics in the protocol
    - View: View details of a specific topic
 3. User - User account setup
-   - CreateProfile: Create a user profile
-   - CreateAta: Create associated token accounts for each token type
-   - CreateTempAccount: Create temporary protocol-owned token accounts
+   - CreateProfile: Create a user profile with all necessary token accounts
    - Profile: View user profile details and token balances
 4. Submission - Data submission management
    - Submit: Submit data to a specific topic
@@ -93,20 +81,11 @@ The CLI is organized into logical command groups that mirror the protocol's func
 - `--cluster <URL>`: Solana cluster to use (default: devnet)
 - `--program-id <PUBKEY>`: Program ID for the Alignment Protocol
 
-### Protocol Initialization
+### Protocol Administration
 
 ```bash
-# Initialize state account
-alignment-protocol-cli init state
-
-# Initialize token mints
-alignment-protocol-cli init temp-align-mint
-alignment-protocol-cli init align-mint
-alignment-protocol-cli init temp-rep-mint
-alignment-protocol-cli init rep-mint
-
-# Update tokens to mint per submission
-alignment-protocol-cli init update-tokens-to-mint 1000
+# Update tokens to mint per submission (admin only)
+alignment-protocol-cli admin update-tokens-to-mint 1000
 ```
 
 ### Topic Management
@@ -125,23 +104,31 @@ alignment-protocol-cli topic view 0
 ### User Account Setup
 
 ```bash
-# Create a user profile
+# Create a user profile (all token accounts are created automatically)
 alignment-protocol-cli user create-profile
-
-# Create associated token account
-alignment-protocol-cli user create-ata temp-align
-alignment-protocol-cli user create-ata align
-alignment-protocol-cli user create-ata temp-rep
-alignment-protocol-cli user create-ata rep
-
-# Create temporary token account (protocol-owned)
-alignment-protocol-cli user create-temp-account temp-align
-alignment-protocol-cli user create-temp-account temp-rep
 
 # View user profile
 alignment-protocol-cli user profile
 alignment-protocol-cli user profile <PUBKEY>
 ```
+
+#### What Happens During User Profile Creation
+
+When you run `alignment-protocol-cli user create-profile`, the CLI performs several operations to set up everything you need to interact with the protocol:
+
+1. **User Profile PDA**: Creates a program-derived address (PDA) that stores your on-chain profile information, including balances of topic-specific tokens and permanent reputation.
+
+2. **Permanent Alignment Token Account**: Creates an Associated Token Account (ATA) linked to your wallet that can hold permanent Align tokens. These tokens are received when your submitted data is validated and accepted.
+
+3. **Permanent Reputation Token Account**: Creates an ATA for permanent Rep tokens. These tokens are earned when you vote correctly on submitted data.
+
+4. **Temporary Alignment Token Vault**: Creates a protocol-owned PDA (not an ATA) that holds temporary alignment tokens. This account is controlled by the protocol to ensure tokens can only be converted to permanent tokens when submissions are validated.
+
+5. **Temporary Reputation Token Vault**: Creates a protocol-owned PDA for temporary reputation tokens. These tokens are staked during voting and can be converted to permanent tokens based on voting outcomes.
+
+The CLI handles all of these steps in a single command, making it simple to get started with the protocol. All of these accounts are created for you automatically, so you don't need to manage token accounts manually.
+
+Additionally, commands like `submission submit`, `vote commit`, and `token stake` automatically check whether you have a profile set up. If you try to use these commands without first running `user create-profile`, the CLI will show an error message directing you to create a profile first.
 
 ### Data Submission
 
@@ -222,9 +209,9 @@ The protocol uses four types of tokens:
 
 ## Protocol Workflow
 
-1. **Initialization**: Set up state and token mints
+1. **Protocol Deployment**: Protocol is deployed and initialized by administrators
 2. **Topic Creation**: Create topics for data submissions 
-3. **User Setup**: Create user profiles and token accounts
+3. **User Setup**: Create user profile with all necessary token accounts
 4. **Data Submission**: Contributors submit data to topics and receive tempAlign tokens
 5. **Voting**:
    - **Commit Phase**: Validators commit hidden votes using a hash
@@ -268,7 +255,7 @@ The CLI is structured into logical modules:
    - `time.rs` - Timestamp helper functions
    - `vote.rs` - Vote-related helper functions
 5. `commands/` - Command implementations
-   - `init.rs` - Initialization commands
+   - `admin.rs` - Protocol administration commands
    - `topic.rs` - Topic-related commands
    - `user.rs` - User-related commands
    - `submission.rs` - Submission-related commands
