@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use alignment_protocol::State as StateAccount;
 
-use crate::utils::pda::{get_state_pda, get_token_ata, get_user_temp_token_account_pda};
+use crate::commands::common::pda::{get_state_pda, get_token_ata, get_user_temp_token_account_pda};
 
 /// Debug token account status
 pub fn cmd_debug_token_account(

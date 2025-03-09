@@ -10,7 +10,7 @@ use alignment_protocol::{
     accounts as AccountsAll, instruction as InstructionAll, State as StateAccount,
 };
 
-use crate::utils::pda::{
+use crate::commands::common::pda::{
     get_state_pda, get_topic_pda, get_user_profile_pda, get_user_temp_token_account_pda,
 };
 
@@ -35,7 +35,7 @@ pub fn cmd_stake_topic_specific_tokens(
         get_user_temp_token_account_pda(program, &user, "temp_align_account");
     let (user_temp_rep_account_pda, _) =
         get_user_temp_token_account_pda(program, &user, "temp_rep_account");
-        
+
     // Check if user profile and token accounts exist
     let profile_exists = program.rpc().get_account(&user_profile_pda).is_ok();
     let temp_align_account_exists = program

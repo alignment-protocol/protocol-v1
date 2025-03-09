@@ -23,12 +23,6 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Admin operations (protocol configuration)
-    Admin {
-        #[command(subcommand)]
-        subcommand: AdminCommands,
-    },
-
     /// Topic-related commands
     Topic {
         #[command(subcommand)]
@@ -70,21 +64,33 @@ pub enum Commands {
         #[command(subcommand)]
         subcommand: DebugCommands,
     },
-}
 
-#[derive(Subcommand)]
-pub enum AdminCommands {
-    /// Update tokens to mint per submission
-    UpdateTokensToMint {
-        /// New amount of tokens to mint per submission
-        #[arg(index = 1)]
-        tokens: u64,
+    /// [ADMIN] Protocol initialization functions
+    Init {
+        #[command(subcommand)]
+        subcommand: InitCommands,
+    },
+
+    /// [ADMIN] Protocol configuration
+    Config {
+        #[command(subcommand)]
+        subcommand: ConfigCommands,
     },
 }
 
 #[derive(Subcommand)]
 pub enum TopicCommands {
-    /// Create a new topic
+    /// List all topics
+    List,
+
+    /// View a specific topic
+    View {
+        /// Topic ID
+        #[arg(index = 1)]
+        id: u64,
+    },
+
+    /// [ADMIN] Create a new topic
     Create {
         /// Topic name
         #[arg(index = 1)]
@@ -101,16 +107,6 @@ pub enum TopicCommands {
         /// Reveal phase duration in seconds (optional)
         #[arg(long)]
         reveal_duration: Option<u64>,
-    },
-
-    /// List all topics
-    List,
-
-    /// View a specific topic
-    View {
-        /// Topic ID
-        #[arg(index = 1)]
-        id: u64,
     },
 }
 
@@ -222,7 +218,7 @@ pub enum VoteCommands {
         topic_id: u64,
     },
 
-    /// Set arbitrary timestamps for voting phases (admin function)
+    /// [ADMIN] Set arbitrary timestamps for voting phases
     SetPhases {
         /// Submission ID
         #[arg(index = 1)]
@@ -260,6 +256,21 @@ pub enum TokenCommands {
 
         /// Amount of tokens to stake
         #[arg(index = 2)]
+        amount: u64,
+    },
+
+    /// [ADMIN] Mint tokens to a user
+    Mint {
+        /// Token type (temp-align, align, temp-rep, rep)
+        #[arg(index = 1)]
+        token_type: String,
+
+        /// Receiver's public key
+        #[arg(index = 2)]
+        to: String,
+
+        /// Amount to mint
+        #[arg(index = 3)]
         amount: u64,
     },
 }
@@ -332,5 +343,36 @@ pub enum DebugCommands {
         /// Transaction signature
         #[arg(index = 1)]
         signature: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum InitCommands {
+    /// [ADMIN] Initialize protocol state account
+    State,
+
+    /// [ADMIN] Initialize temporary alignment token mint
+    TempAlignMint,
+
+    /// [ADMIN] Initialize permanent alignment token mint
+    AlignMint,
+
+    /// [ADMIN] Initialize temporary reputation token mint
+    TempRepMint,
+
+    /// [ADMIN] Initialize permanent reputation token mint
+    RepMint,
+
+    /// [ADMIN] Initialize all accounts (state and all token mints)
+    All,
+}
+
+#[derive(Subcommand)]
+pub enum ConfigCommands {
+    /// [ADMIN] Update tokens to mint per submission
+    UpdateTokensToMint {
+        /// New amount of tokens to mint per submission
+        #[arg(index = 1)]
+        tokens: u64,
     },
 }

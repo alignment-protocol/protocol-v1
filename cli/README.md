@@ -23,57 +23,62 @@ The binary will be located at `./target/debug/alignment-protocol-cli`.
 ## Quick Start
 
 1. Make sure you have a Solana keypair (default at `~/.config/solana/id.json`)
-2. (Admin only) Protocol administrators can update token minting parameters:
-   ```bash
-   ./alignment-protocol-cli admin update-tokens-to-mint 1000
-   ```
-3. Create a topic:
-   ```bash
-   ./alignment-protocol-cli topic create "Climate Data" "Repository for validated climate datasets"
-   ```
-4. Set up your user profile (creates all required token accounts automatically):
+2. Set up your user profile (creates all required token accounts automatically):
    ```bash
    ./alignment-protocol-cli user create-profile
    ```
-5. Submit data to a topic:
+3. Submit data to a topic:
    ```bash
    ./alignment-protocol-cli submission submit 0 "ipfs://QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn"
+   ```
+4. (Admin only) Create a new topic:
+   ```bash
+   ./alignment-protocol-cli topic create "Climate Data" "Repository for validated climate datasets"
+   ```
+5. (Admin only) Update token minting parameters:
+   ```bash
+   ./alignment-protocol-cli config update-tokens-to-mint 1000
    ```
 
 ## Command Reference
 
-The CLI is organized into logical command groups that mirror the protocol's functionality.
+The CLI is organized into logical command groups that mirror the protocol's functionality. Admin commands are clearly marked with **[ADMIN]**.
 
 ### Main Command Groups
 
-1. Admin - Protocol administration commands
-   - UpdateTokensToMint: Update number of tokens to mint per submission
-2. Topic - Topic management
-   - Create: Create a new topic with name, description, custom voting phases
+1. Topic - Topic management
    - List: View all topics in the protocol
    - View: View details of a specific topic
-3. User - User account setup
+   - **[ADMIN]** Create: Create a new topic with name, description, custom voting phases
+2. User - User account setup
    - CreateProfile: Create a user profile with all necessary token accounts
    - Profile: View user profile details and token balances
-4. Submission - Data submission management
+3. Submission - Data submission management
    - Submit: Submit data to a specific topic
    - Link: Link existing submission to another topic
    - Finalize: Finalize a submission after voting to handle token conversion
-5. Vote - Voting operations
+4. Vote - Voting operations
    - Commit: First phase of voting (commit a hidden vote)
    - Reveal: Second phase of voting (reveal previously committed vote)
    - Finalize: Finalize a vote to handle token conversion
-   - SetPhases: Admin function to set custom voting phase timestamps
-6. Token - Token operations
+   - **[ADMIN]** SetPhases: Set custom voting phase timestamps
+5. Token - Token operations
    - Stake: Stake temp alignment tokens for a topic to earn reputation
-7. Query - Data query and exploration
+   - **[ADMIN]** Mint: Mint tokens to a specific user
+6. Query - Data query and exploration
    - State: View protocol state
    - Submission/Submissions: View specific or all submissions
    - SubmissionTopic: Check submission status in a specific topic
    - Vote: Check vote details
-8. Debug - Debugging helpers
+7. Debug - Debugging helpers
    - TokenAccount: Debug token account status
    - Tx: View detailed transaction logs
+8. **[ADMIN]** Init - Protocol initialization
+   - State: Initialize protocol state
+   - TempAlignMint/AlignMint/TempRepMint/RepMint: Initialize specific token mints
+   - All: Initialize all accounts at once
+9. **[ADMIN]** Config - Protocol configuration
+   - UpdateTokensToMint: Update number of tokens to mint per submission
 
 ### Global Options
 
@@ -81,24 +86,17 @@ The CLI is organized into logical command groups that mirror the protocol's func
 - `--cluster <URL>`: Solana cluster to use (default: devnet)
 - `--program-id <PUBKEY>`: Program ID for the Alignment Protocol
 
-### Protocol Administration
-
-```bash
-# Update tokens to mint per submission (admin only)
-alignment-protocol-cli admin update-tokens-to-mint 1000
-```
-
 ### Topic Management
 
 ```bash
-# Create a new topic
-alignment-protocol-cli topic create "Topic Name" "Topic Description" --commit-duration 86400 --reveal-duration 86400
-
 # List all topics
 alignment-protocol-cli topic list
 
 # View a specific topic
 alignment-protocol-cli topic view 0
+
+# [ADMIN] Create a new topic
+alignment-protocol-cli topic create "Topic Name" "Topic Description" --commit-duration 86400 --reveal-duration 86400
 ```
 
 ### User Account Setup
@@ -155,7 +153,7 @@ alignment-protocol-cli vote reveal 0 0 yes "secret-nonce"
 # Finalize a vote
 alignment-protocol-cli vote finalize 0 0
 
-# Set voting phases (admin function)
+# [ADMIN] Set voting phases
 alignment-protocol-cli vote set-phases 0 0 --commit-start 1715000000 --commit-end 1715086400 --reveal-start 1715086400 --reveal-end 1715172800
 ```
 
@@ -164,6 +162,26 @@ alignment-protocol-cli vote set-phases 0 0 --commit-start 1715000000 --commit-en
 ```bash
 # Stake temporary alignment tokens for a topic
 alignment-protocol-cli token stake 0 500
+
+# [ADMIN] Mint tokens to a user
+alignment-protocol-cli token mint temp-align Gn5Wz88RK2qCsJAPUyE9gThvFWjUTvXXYCdjfvJZk5Ge 1000
+```
+
+### Protocol Initialization (Admin)
+
+```bash
+# [ADMIN] Initialize protocol state
+alignment-protocol-cli init state
+
+# [ADMIN] Initialize all accounts (state and all token mints)
+alignment-protocol-cli init all
+```
+
+### Protocol Configuration (Admin)
+
+```bash
+# [ADMIN] Update tokens to mint per submission
+alignment-protocol-cli config update-tokens-to-mint 1000
 ```
 
 ### Querying Data
@@ -255,16 +273,22 @@ The CLI is structured into logical modules:
    - `time.rs` - Timestamp helper functions
    - `vote.rs` - Vote-related helper functions
 5. `commands/` - Command implementations
-   - `admin.rs` - Protocol administration commands
-   - `topic.rs` - Topic-related commands
-   - `user.rs` - User-related commands
-   - `submission.rs` - Submission-related commands
-   - `vote.rs` - Voting-related commands
-   - `token.rs` - Token-related commands
-   - `query.rs` - Query commands
-   - `debug.rs` - Debug commands
+   - `user/` - User commands implementations
+     - `topic.rs` - User topic-related commands
+     - `user.rs` - User profile management commands
+     - `submission.rs` - Submission-related commands
+     - `vote.rs` - Voting-related commands
+     - `token.rs` - Token staking commands
+     - `query.rs` - Query commands
+     - `debug.rs` - Debug commands
+   - `admin/` - Admin commands implementations
+     - `init.rs` - Protocol initialization commands
+     - `config.rs` - Protocol configuration commands
+     - `topic.rs` - Topic creation commands
+     - `token.rs` - Token minting commands
+     - `vote.rs` - Admin vote phase commands
 
-This modular structure makes the codebase more maintainable and easier to extend.
+This modular structure makes the codebase more maintainable and easier to extend. Admin commands are clearly marked in the help text with an [ADMIN] prefix to indicate that they require admin privileges and will fail if executed by regular users.
 
 ## Contributing
 

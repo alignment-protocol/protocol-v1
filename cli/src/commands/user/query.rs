@@ -9,11 +9,11 @@ use alignment_protocol::{
     SubmissionTopicLink as SubmissionTopicLinkAccount, VoteCommit as VoteCommitAccount,
 };
 
-use crate::utils::pda::{
+use crate::commands::common::pda::{
     get_state_pda, get_submission_pda, get_submission_topic_link_pda, get_topic_pda,
     get_vote_commit_pda,
 };
-use crate::utils::time::get_current_timestamp;
+use crate::commands::common::time::get_current_timestamp;
 
 /// Query state account
 pub fn cmd_query_state(program: &Program<Rc<Keypair>>) -> Result<()> {

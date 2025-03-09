@@ -10,11 +10,11 @@ use alignment_protocol::{
     accounts as AccountsAll, instruction as InstructionAll, State as StateAccount,
 };
 
-use crate::utils::pda::{
+use crate::commands::common::pda::{
     get_state_pda, get_submission_pda, get_submission_topic_link_pda, get_token_ata, get_topic_pda,
     get_user_profile_pda, get_user_temp_token_account_pda, get_vote_commit_pda,
 };
-use crate::utils::vote::{generate_vote_hash, parse_vote_choice};
+use crate::commands::common::vote::{generate_vote_hash, parse_vote_choice};
 
 /// Commit a vote (first phase)
 pub fn cmd_commit_vote(
@@ -40,10 +40,10 @@ pub fn cmd_commit_vote(
     // Generate vote hash
     let vote_hash =
         generate_vote_hash(&validator, &submission_topic_link_pda, &vote_choice, &nonce);
-        
+
     // Check if user profile exists
     let profile_exists = program.rpc().get_account(&user_profile_pda).is_ok();
-    
+
     if !profile_exists {
         return Err(anyhow::anyhow!(
             "User profile not set up. Please run 'alignment-protocol-cli user create-profile' first."
@@ -109,10 +109,10 @@ pub fn cmd_reveal_vote(
 
     // Parse vote choice
     let vote_choice = parse_vote_choice(&choice_str)?;
-    
+
     // Check if vote commit account exists
     let vote_commit_exists = program.rpc().get_account(&vote_commit_pda).is_ok();
-    
+
     if !vote_commit_exists {
         return Err(anyhow::anyhow!(
             "Vote commit not found. Make sure you have committed a vote first."
@@ -202,62 +202,5 @@ pub fn cmd_finalize_vote(
         .send()?;
 
     println!("Vote finalized successfully (txSig: {})", tx_sig);
-    Ok(())
-}
-
-/// Set arbitrary timestamps for voting phases (admin function)
-pub fn cmd_set_voting_phases(
-    program: &Program<Rc<Keypair>>,
-    submission_id: u64,
-    topic_id: u64,
-    commit_start: Option<u64>,
-    commit_end: Option<u64>,
-    reveal_start: Option<u64>,
-    reveal_end: Option<u64>,
-) -> Result<()> {
-    let (state_pda, _) = get_state_pda(program);
-    let (submission_pda, _) = get_submission_pda(program, submission_id);
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
-    let (submission_topic_link_pda, _) =
-        get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
-
-    println!(
-        "Setting voting phases for submission #{} in topic #{}",
-        submission_id, topic_id
-    );
-    if let Some(ts) = commit_start {
-        println!("Commit phase start: {}", ts);
-    }
-    if let Some(ts) = commit_end {
-        println!("Commit phase end: {}", ts);
-    }
-    if let Some(ts) = reveal_start {
-        println!("Reveal phase start: {}", ts);
-    }
-    if let Some(ts) = reveal_end {
-        println!("Reveal phase end: {}", ts);
-    }
-
-    let accounts = AccountsAll::SetVotingPhases {
-        authority: program.payer(),
-        state: state_pda,
-        submission: submission_pda,
-        submission_topic_link: submission_topic_link_pda,
-        topic: topic_pda,
-        system_program: system_program::ID,
-    };
-
-    let tx_sig = program
-        .request()
-        .accounts(accounts)
-        .args(InstructionAll::SetVotingPhases {
-            commit_phase_start: commit_start,
-            commit_phase_end: commit_end,
-            reveal_phase_start: reveal_start,
-            reveal_phase_end: reveal_end,
-        })
-        .send()?;
-
-    println!("Voting phases set successfully (txSig: {})", tx_sig);
     Ok(())
 }

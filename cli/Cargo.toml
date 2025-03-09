@@ -3,6 +3,10 @@ name = "alignment-protocol-cli"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "alignment-protocol-cli"
+path = "src/main.rs"
+
 [dependencies]
 alignment-protocol = { path = "../programs/alignment-protocol", version = "0.1.0" }
 anchor-client = "0.30.1"

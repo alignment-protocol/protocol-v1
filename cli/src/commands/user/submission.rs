@@ -11,7 +11,7 @@ use alignment_protocol::{
     Submission as SubmissionAccount,
 };
 
-use crate::utils::pda::{
+use crate::commands::common::pda::{
     get_state_pda, get_submission_pda, get_submission_topic_link_pda, get_token_ata, get_topic_pda,
     get_user_profile_pda, get_user_temp_token_account_pda,
 };
