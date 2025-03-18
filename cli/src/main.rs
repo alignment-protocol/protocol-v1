@@ -40,7 +40,7 @@ fn main() -> Result<()> {
                 commit_duration,
                 reveal_duration,
             } => {
-                println!("[ADMIN COMMAND] Creating new topic...");
+                println!("[ADMIN] Creating new topic...");
                 admin::topic::cmd_create_topic(
                     &program,
                     name,
@@ -103,7 +103,7 @@ fn main() -> Result<()> {
                 reveal_start,
                 reveal_end,
             } => {
-                println!("[ADMIN COMMAND] Setting voting phases...");
+                println!("[ADMIN] Setting voting phases...");
                 admin::vote::cmd_set_voting_phases(
                     &program,
                     submission_id,
@@ -124,7 +124,7 @@ fn main() -> Result<()> {
                 to,
                 amount,
             } => {
-                println!("[ADMIN COMMAND] Minting tokens...");
+                println!("[ADMIN] Minting tokens...");
                 admin::token::cmd_admin_mint_tokens(&program, &token_type, &to, amount)?
             }
         },
@@ -151,7 +151,7 @@ fn main() -> Result<()> {
             DebugCommands::Tx { signature } => user::debug::cmd_get_tx_logs(&program, signature)?,
         },
         Commands::Init { subcommand } => {
-            println!("[ADMIN COMMAND] Running initialization...");
+            println!("[ADMIN] Running initialization...");
             match subcommand {
                 InitCommands::State => admin::init::cmd_init_state(&program)?,
                 InitCommands::TempAlignMint => admin::init::cmd_init_temp_align_mint(&program)?,
@@ -163,15 +163,15 @@ fn main() -> Result<()> {
         }
         Commands::Config { subcommand } => match subcommand {
             ConfigCommands::UpdateTokensToMint { tokens } => {
-                println!("[ADMIN COMMAND] Updating token configuration...");
+                println!("[ADMIN] Updating token configuration...");
                 admin::config::cmd_admin_update_tokens_to_mint(&program, tokens)?
             }
             ConfigCommands::SetCluster { cluster } => {
-                println!("[ADMIN COMMAND] Setting cluster configuration...");
+                println!("[ADMIN] Setting cluster configuration...");
                 admin::config::cmd_admin_set_cluster(cluster)?
             }
             ConfigCommands::GetCluster => {
-                println!("[ADMIN COMMAND] Retrieving cluster configuration...");
+                println!("[ADMIN] Retrieving cluster configuration...");
                 admin::config::cmd_admin_get_cluster()?
             }
         },

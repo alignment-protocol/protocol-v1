@@ -134,8 +134,6 @@ pub fn cmd_admin_get_cluster() -> Result<()> {
     let cluster = read_cluster_config()?;
 
     println!("Current saved cluster configuration: {}", cluster);
-    println!("The CLI will automatically use this cluster setting.");
-    println!("You can override it with --cluster if needed.");
     println!("\nTip: Run 'align config set-cluster' (without arguments) to see available cluster options");
 
     Ok(())
