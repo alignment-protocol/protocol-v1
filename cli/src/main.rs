@@ -13,8 +13,21 @@ use commands::{admin, user};
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Determine which cluster to use
+    let cluster = match &cli.cluster {
+        // If --cluster parameter is provided, use it (overrides saved config)
+        Some(specified_cluster) => specified_cluster.clone(),
+
+        // Otherwise, try to use the saved configuration
+        None => {
+            // Read saved cluster configuration
+            let saved_cluster = commands::admin::config::read_cluster_config()?;
+            saved_cluster
+        }
+    };
+
     // Setup client using our client module
-    let program = client::setup_client(&cli.keypair, &cli.cluster, &cli.program_id)?;
+    let program = client::setup_client(&cli.keypair, &cluster, &cli.program_id)?;
 
     // Handle commands
     match cli.command {
@@ -148,14 +161,20 @@ fn main() -> Result<()> {
                 InitCommands::All => admin::init::cmd_init_all(&program)?,
             }
         }
-        Commands::Config { subcommand } => {
-            println!("[ADMIN COMMAND] Updating configuration...");
-            match subcommand {
-                ConfigCommands::UpdateTokensToMint { tokens } => {
-                    admin::config::cmd_admin_update_tokens_to_mint(&program, tokens)?
-                }
+        Commands::Config { subcommand } => match subcommand {
+            ConfigCommands::UpdateTokensToMint { tokens } => {
+                println!("[ADMIN COMMAND] Updating token configuration...");
+                admin::config::cmd_admin_update_tokens_to_mint(&program, tokens)?
             }
-        }
+            ConfigCommands::SetCluster { cluster } => {
+                println!("[ADMIN COMMAND] Setting cluster configuration...");
+                admin::config::cmd_admin_set_cluster(cluster)?
+            }
+            ConfigCommands::GetCluster => {
+                println!("[ADMIN COMMAND] Retrieving cluster configuration...");
+                admin::config::cmd_admin_get_cluster()?
+            }
+        },
     }
 
     Ok(())

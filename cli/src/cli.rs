@@ -27,9 +27,10 @@ pub struct Cli {
     #[arg(long, default_value = "~/.config/solana/id.json")]
     pub keypair: String,
 
-    /// Choose the Solana cluster (devnet, mainnet, custom URL, etc.)
-    #[arg(long, default_value = "http://127.0.0.1:8899")]
-    pub cluster: String,
+    /// Choose the Solana cluster (localnet, devnet, testnet, mainnet-beta, or custom URL)
+    /// Overrides any saved cluster configuration
+    #[arg(long)]
+    pub cluster: Option<String>,
 
     /// Program ID for the Alignment Protocol
     #[arg(long, default_value = "3NYwpp7xv6m35he2sbWTDKPyzepwQiJq5YkD2AzdHmRc")]
@@ -393,4 +394,14 @@ pub enum ConfigCommands {
         #[arg(index = 1)]
         tokens: u64,
     },
+
+    /// [ADMIN] Set and save the Solana cluster configuration
+    SetCluster {
+        /// Cluster name or URL (localnet, devnet, testnet, mainnet-beta, or custom URL)
+        #[arg(index = 1)]
+        cluster: Option<String>,
+    },
+
+    /// [ADMIN] Get current Solana cluster configuration
+    GetCluster,
 }
