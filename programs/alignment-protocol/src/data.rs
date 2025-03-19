@@ -71,14 +71,17 @@ pub enum SubmissionStatus {
     Rejected,
 }
 
-/// Structure to track token balances for a specific topic
+/// Structure to track a user's token balances for a specific topic
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, Debug)]
-pub struct TopicToken {
+pub struct UserTopicBalance {
     /// Amount of temporary alignment tokens for this topic
     pub temp_align_amount: u64,
 
-    /// Amount of temporary reputation tokens staked for this topic
+    /// Amount of temporary reputation tokens staked for this topic (available for voting)
     pub temp_rep_amount: u64,
+    
+    /// Amount of temporary reputation tokens locked in votes (committed but not finalized)
+    pub locked_temp_rep_amount: u64,
 }
 
 /// Structure to pair a topic ID with its token balance
@@ -88,7 +91,7 @@ pub struct TopicTokenPair {
     pub topic_id: u64,
 
     /// Token balances for this topic
-    pub token: TopicToken,
+    pub token: UserTopicBalance,
 }
 
 /// User profile account to track reputation
