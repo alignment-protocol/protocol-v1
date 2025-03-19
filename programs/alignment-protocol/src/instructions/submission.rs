@@ -96,9 +96,10 @@ pub fn submit_data_to_topic(ctx: Context<SubmitDataToTopic>, data_reference: Str
             if !found {
                 topic_tokens.push(crate::data::TopicTokenPair {
                     topic_id,
-                    token: crate::data::TopicToken {
+                    token: crate::data::UserTopicBalance {
                         temp_align_amount: ctx.accounts.state.tokens_to_mint,
                         temp_rep_amount: 0,
+                        locked_temp_rep_amount: 0,
                     },
                 });
             }
