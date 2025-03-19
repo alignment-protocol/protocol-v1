@@ -299,13 +299,9 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
             for topic_pair in validator_profile.topic_tokens.iter_mut() {
                 if topic_pair.topic_id == topic_id {
                     found_topic = true;
-
-                    // Decrease tempRep for this topic
-                    topic_pair.token.temp_rep_amount = topic_pair
-                        .token
-                        .temp_rep_amount
-                        .checked_sub(vote_amount)
-                        .ok_or(ErrorCode::Overflow)?;
+                    // We don't need to decrease tempRepAmount here
+                    // It was already decreased during commit_vote when we moved tokens
+                    // from tempRepAmount to lockedTempRepAmount
 
                     break;
                 }
@@ -363,13 +359,9 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
             for topic_pair in validator_profile.topic_tokens.iter_mut() {
                 if topic_pair.topic_id == topic_id {
                     found_topic = true;
-
-                    // Decrease tempRep for this topic
-                    topic_pair.token.temp_rep_amount = topic_pair
-                        .token
-                        .temp_rep_amount
-                        .checked_sub(vote_amount)
-                        .ok_or(ErrorCode::Overflow)?;
+                    // We don't need to decrease tempRepAmount here
+                    // It was already decreased during commit_vote when we moved tokens
+                    // from tempRepAmount to lockedTempRepAmount
 
                     break;
                 }

@@ -181,9 +181,17 @@ export function runFinalizationTests(ctx: TestContext): void {
 
       // Since we voted yes and the submission was accepted (vote with consensus),
       // 25 tempRep tokens should be converted to 25 permanent Rep tokens
-      // Validator originally had 50 tempRep, used 25 for voting, so 25 should remain
-      expect(Number(tempRepData.amount)).to.equal(25); // Only voted amount converted
+      // With our token locking implementation, the tokens used for voting
+      // are moved to lockedTempRepAmount and then fully converted
+      console.log("Validator tempRep amount:", Number(tempRepData.amount));
+      console.log("Validator permanent Rep amount:", Number(repData.amount));
+
+      // Verify the permanent Rep tokens were minted - exactly 25 tokens from the locked tokens
       expect(Number(repData.amount)).to.equal(25);
+
+      // With our token locking implementation, the 25 locked tokens are burned
+      // during finalization, but the initial available amount remains at 25
+      expect(Number(tempRepData.amount)).to.equal(25);
 
       // Verify that the validator's profile was updated
       const validatorProfile = await ctx.program.account.userProfile.fetch(
@@ -198,8 +206,14 @@ export function runFinalizationTests(ctx: TestContext): void {
 
       if (topicTokenEntry) {
         expect(topicTokenEntry.topicId.toNumber()).to.equal(0);
-        // Should still have 25 tempRep tokens left (50 initial - 25 used for voting)
-        expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(25); // Only voted amount converted
+        // After our fix, temporary reputation amount should remain at 25
+        // (since we moved tokens to lockedTempRepAmount during commit_vote, not deducted directly)
+        expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(25);
+
+        // With token locking implementation, ensure locked tokens are released after finalization
+        expect(
+          topicTokenEntry.token.lockedTempRepAmount?.toNumber() || 0
+        ).to.equal(0);
       }
     });
   });
