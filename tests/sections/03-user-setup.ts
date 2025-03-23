@@ -122,18 +122,12 @@ export function runUserSetupTests(ctx: TestContext): void {
       );
 
       [ctx.user3TempAlignAccount] = web3.PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("user_temp_align"),
-          ctx.user3Keypair.publicKey.toBuffer(),
-        ],
+        [Buffer.from("user_temp_align"), ctx.user3Keypair.publicKey.toBuffer()],
         ctx.program.programId
       );
 
       [ctx.user3TempRepAccount] = web3.PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("user_temp_rep"),
-          ctx.user3Keypair.publicKey.toBuffer(),
-        ],
+        [Buffer.from("user_temp_rep"), ctx.user3Keypair.publicKey.toBuffer()],
         ctx.program.programId
       );
 
@@ -552,9 +546,7 @@ export function runUserSetupTests(ctx: TestContext): void {
         ctx.provider.connection,
         ctx.user3RepAta
       );
-      expect(user3RepData.mint.toString()).to.equal(
-        ctx.repMintPda.toString()
-      );
+      expect(user3RepData.mint.toString()).to.equal(ctx.repMintPda.toString());
       expect(user3RepData.owner.toString()).to.equal(
         ctx.user3Keypair.publicKey.toString()
       );

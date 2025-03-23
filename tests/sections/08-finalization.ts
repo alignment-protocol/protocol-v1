@@ -95,7 +95,10 @@ export function runFinalizationTests(ctx: TestContext): void {
         ctx.contributorRepAta
       );
 
-      console.log("Contributor tempAlign amount:", Number(tempAlignData.amount));
+      console.log(
+        "Contributor tempAlign amount:",
+        Number(tempAlignData.amount)
+      );
       console.log("Contributor align amount:", Number(alignData.amount));
       console.log("Contributor tempRep amount:", Number(tempRepData.amount));
       console.log("Contributor Rep amount:", Number(repData.amount));
