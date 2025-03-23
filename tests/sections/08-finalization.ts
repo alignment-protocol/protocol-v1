@@ -86,6 +86,19 @@ export function runFinalizationTests(ctx: TestContext): void {
         ctx.provider.connection,
         ctx.contributorAlignAta
       );
+      const tempRepData = await getAccount(
+        ctx.provider.connection,
+        ctx.contributorTempRepAccount
+      );
+      const repData = await getAccount(
+        ctx.provider.connection,
+        ctx.contributorRepAta
+      );
+
+      console.log("Contributor tempAlign amount:", Number(tempAlignData.amount));
+      console.log("Contributor align amount:", Number(alignData.amount));
+      console.log("Contributor tempRep amount:", Number(tempRepData.amount));
+      console.log("Contributor Rep amount:", Number(repData.amount));
 
       // The tokens_to_mint is 100, we've already burned 50 for staking, so there's 50 left
       // All 50 remaining should have been burned and converted to Align
@@ -170,6 +183,14 @@ export function runFinalizationTests(ctx: TestContext): void {
       expect(voteCommitAcc.finalized).to.be.true;
 
       // Verify the validator's tempRep tokens were converted to permanent Rep
+      const tempAlignData = await getAccount(
+        ctx.provider.connection,
+        ctx.validatorTempAlignAccount
+      );
+      const alignData = await getAccount(
+        ctx.provider.connection,
+        ctx.validatorAlignAta
+      );
       const tempRepData = await getAccount(
         ctx.provider.connection,
         ctx.validatorTempRepAccount
@@ -183,6 +204,8 @@ export function runFinalizationTests(ctx: TestContext): void {
       // 25 tempRep tokens should be converted to 25 permanent Rep tokens
       // With our token locking implementation, the tokens used for voting
       // are moved to lockedTempRepAmount and then fully converted
+      console.log("Validator tempAlign amount:", Number(tempAlignData.amount));
+      console.log("Validator align amount:", Number(alignData.amount));
       console.log("Validator tempRep amount:", Number(tempRepData.amount));
       console.log("Validator permanent Rep amount:", Number(repData.amount));
 
