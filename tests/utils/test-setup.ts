@@ -25,19 +25,26 @@ export interface TestContext {
   topic2Pda: web3.PublicKey;
 
   // User token accounts
+  // Temporary Token PDAs
   contributorTempAlignAccount: web3.PublicKey;
   contributorTempRepAccount: web3.PublicKey;
   validatorTempAlignAccount: web3.PublicKey;
   validatorTempRepAccount: web3.PublicKey;
+  user3TempAlignAccount: web3.PublicKey;
+  user3TempRepAccount: web3.PublicKey;
+
+  // Permanent Token ATAs
   contributorAlignAta: web3.PublicKey;
   contributorRepAta: web3.PublicKey;
   validatorAlignAta: web3.PublicKey;
   validatorRepAta: web3.PublicKey;
+  user3AlignAta: web3.PublicKey;
+  user3RepAta: web3.PublicKey;
 
   // User profiles
   contributorProfilePda: web3.PublicKey;
   validatorProfilePda: web3.PublicKey;
-
+  user3ProfilePda: web3.PublicKey;
   // Submission tracking
   submissionPda: web3.PublicKey;
   submissionTopicLinkPda: web3.PublicKey;

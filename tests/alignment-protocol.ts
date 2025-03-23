@@ -11,6 +11,8 @@ import { runCrossTopicLinkingTests } from "./sections/05-cross-topic-linking";
 import { runStakingTests } from "./sections/06-staking";
 import { runVotingTests } from "./sections/07-voting";
 import { runFinalizationTests } from "./sections/08-finalization";
+import { runTokenLockingTests } from "./sections/09-token-locking-tests";
+import { runValidationTests } from "./sections/10-validation-tests";
 
 // Import test context type
 import { TestContext } from "./utils/test-setup";
@@ -51,12 +53,17 @@ describe("Alignment Protocol Tests", () => {
     contributorTempRepAccount: null,
     validatorTempAlignAccount: null,
     validatorTempRepAccount: null,
+    user3TempAlignAccount: null,
+    user3TempRepAccount: null,
     contributorAlignAta: null,
     contributorRepAta: null,
     validatorAlignAta: null,
     validatorRepAta: null,
+    user3AlignAta: null,
+    user3RepAta: null,
     contributorProfilePda: null,
     validatorProfilePda: null,
+    user3ProfilePda: null,
     submissionPda: null,
     submissionTopicLinkPda: null,
     crossTopicLinkPda: null,
@@ -97,6 +104,7 @@ describe("Alignment Protocol Tests", () => {
     console.log("Authority:", ctx.authorityKeypair.publicKey.toBase58());
     console.log("Contributor:", ctx.contributorKeypair.publicKey.toBase58());
     console.log("Validator:", ctx.validatorKeypair.publicKey.toBase58());
+    console.log("User3:", ctx.user3Keypair.publicKey.toBase58());
   });
 
   before("Derive program PDAs", () => {
@@ -140,6 +148,11 @@ describe("Alignment Protocol Tests", () => {
       [Buffer.from("user_profile"), ctx.validatorKeypair.publicKey.toBuffer()],
       ctx.program.programId
     );
+
+    [ctx.user3ProfilePda] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("user_profile"), ctx.user3Keypair.publicKey.toBuffer()],
+      ctx.program.programId
+    );
   });
 
   // Run all test sections in sequence
@@ -151,4 +164,6 @@ describe("Alignment Protocol Tests", () => {
   runStakingTests(ctx);
   runVotingTests(ctx);
   runFinalizationTests(ctx);
+  // runTokenLockingTests(ctx);
+  // runValidationTests(ctx);
 });

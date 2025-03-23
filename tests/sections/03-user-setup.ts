@@ -5,6 +5,7 @@ import {
   getAccount,
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
+import { ASSOCIATED_TOKEN_PROGRAM_ID } from "../utils/constants";
 import { TestContext } from "../utils/test-setup";
 
 export function runUserSetupTests(ctx: TestContext): void {
@@ -40,6 +41,21 @@ export function runUserSetupTests(ctx: TestContext): void {
 
       console.log("Create validator profile transaction signature:", tx);
 
+      // Create a profile for the user3
+      tx = await ctx.program.methods
+        .createUserProfile()
+        .accounts({
+          state: ctx.statePda,
+          userProfile: ctx.user3ProfilePda,
+          user: ctx.user3Keypair.publicKey,
+          systemProgram: web3.SystemProgram.programId,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([ctx.user3Keypair])
+        .rpc();
+
+      console.log("Create user3 profile transaction signature:", tx);
+
       // Verify the contributor profile was created correctly
       const contributorProfile = await ctx.program.account.userProfile.fetch(
         ctx.contributorProfilePda
@@ -59,6 +75,16 @@ export function runUserSetupTests(ctx: TestContext): void {
       );
       expect(validatorProfile.permanentRepAmount.toNumber()).to.equal(0);
       expect(validatorProfile.topicTokens.length).to.equal(0);
+
+      // Verify the user3 profile was created correctly
+      const user3Profile = await ctx.program.account.userProfile.fetch(
+        ctx.user3ProfilePda
+      );
+      expect(user3Profile.user.toString()).to.equal(
+        ctx.user3Keypair.publicKey.toString()
+      );
+      expect(user3Profile.permanentRepAmount.toNumber()).to.equal(0);
+      expect(user3Profile.topicTokens.length).to.equal(0);
     });
 
     it("Creates token accounts for all users and token types", async () => {
@@ -95,6 +121,22 @@ export function runUserSetupTests(ctx: TestContext): void {
         ctx.program.programId
       );
 
+      [ctx.user3TempAlignAccount] = web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("user_temp_align"),
+          ctx.user3Keypair.publicKey.toBuffer(),
+        ],
+        ctx.program.programId
+      );
+
+      [ctx.user3TempRepAccount] = web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("user_temp_rep"),
+          ctx.user3Keypair.publicKey.toBuffer(),
+        ],
+        ctx.program.programId
+      );
+
       // Calculate ATAs for permanent tokens (user-owned)
       ctx.contributorAlignAta = await getAssociatedTokenAddress(
         ctx.alignMintPda,
@@ -114,6 +156,16 @@ export function runUserSetupTests(ctx: TestContext): void {
       ctx.validatorRepAta = await getAssociatedTokenAddress(
         ctx.repMintPda,
         ctx.validatorKeypair.publicKey
+      );
+
+      ctx.user3AlignAta = await getAssociatedTokenAddress(
+        ctx.alignMintPda,
+        ctx.user3Keypair.publicKey
+      );
+
+      ctx.user3RepAta = await getAssociatedTokenAddress(
+        ctx.repMintPda,
+        ctx.user3Keypair.publicKey
       );
 
       // Create protocol-owned tempAlign account for contributor
@@ -200,6 +252,48 @@ export function runUserSetupTests(ctx: TestContext): void {
         tx
       );
 
+      // Create protocol-owned tempAlign account for user3
+      tx = await ctx.program.methods
+        .createUserTempAlignAccount()
+        .accounts({
+          state: ctx.statePda,
+          payer: ctx.authorityKeypair.publicKey,
+          user: ctx.user3Keypair.publicKey,
+          mint: ctx.tempAlignMintPda,
+          tokenAccount: ctx.user3TempAlignAccount,
+          systemProgram: web3.SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .rpc();
+
+      console.log(
+        "Create user3's protocol-owned tempAlign account transaction signature:",
+        tx
+      );
+
+      // Create protocol-owned tempRep account for user3
+      tx = await ctx.program.methods
+        .createUserTempRepAccount()
+        .accounts({
+          state: ctx.statePda,
+          payer: ctx.authorityKeypair.publicKey,
+          user: ctx.user3Keypair.publicKey,
+          mint: ctx.tempRepMintPda,
+          tokenAccount: ctx.user3TempRepAccount,
+          systemProgram: web3.SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .rpc();
+
+      console.log(
+        "Create user3's protocol-owned tempRep account transaction signature:",
+        tx
+      );
+
       // Create ATA for contributor's permanent Align
       tx = await ctx.program.methods
         .createUserAta()
@@ -211,7 +305,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           userAta: ctx.contributorAlignAta,
           systemProgram: web3.SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: web3.ASSOCIATED_TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.authorityKeypair, ctx.contributorKeypair])
@@ -230,7 +324,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           userAta: ctx.contributorRepAta,
           systemProgram: web3.SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: web3.ASSOCIATED_TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.authorityKeypair, ctx.contributorKeypair])
@@ -275,6 +369,44 @@ export function runUserSetupTests(ctx: TestContext): void {
         .rpc();
 
       console.log("Create validator's Rep ATA transaction signature:", tx);
+
+      // Create ATA for user3's permanent Align
+      tx = await ctx.program.methods
+        .createUserAta()
+        .accounts({
+          state: ctx.statePda,
+          payer: ctx.authorityKeypair.publicKey,
+          user: ctx.user3Keypair.publicKey,
+          mint: ctx.alignMintPda,
+          userAta: ctx.user3AlignAta,
+          systemProgram: web3.SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .rpc();
+
+      console.log("Create user3's Align ATA transaction signature:", tx);
+
+      // Create ATA for user3's permanent Rep
+      tx = await ctx.program.methods
+        .createUserAta()
+        .accounts({
+          state: ctx.statePda,
+          payer: ctx.authorityKeypair.publicKey,
+          user: ctx.user3Keypair.publicKey,
+          mint: ctx.repMintPda,
+          userAta: ctx.user3RepAta,
+          systemProgram: web3.SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+        })
+        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .rpc();
+
+      console.log("Create user3's Rep ATA transaction signature:", tx);
 
       // Verify temporary token accounts (protocol-owned)
       // Contributor's temporary token accounts
@@ -327,6 +459,31 @@ export function runUserSetupTests(ctx: TestContext): void {
       ); // State PDA owns account
       expect(Number(validatorTempRepData.amount)).to.equal(0);
 
+      // User3's temporary token accounts
+      const user3TempAlignData = await getAccount(
+        ctx.provider.connection,
+        ctx.user3TempAlignAccount
+      );
+      expect(user3TempAlignData.mint.toString()).to.equal(
+        ctx.tempAlignMintPda.toString()
+      );
+      expect(user3TempAlignData.owner.toString()).to.equal(
+        ctx.statePda.toString()
+      ); // State PDA owns account
+      expect(Number(user3TempAlignData.amount)).to.equal(0);
+
+      const user3TempRepData = await getAccount(
+        ctx.provider.connection,
+        ctx.user3TempRepAccount
+      );
+      expect(user3TempRepData.mint.toString()).to.equal(
+        ctx.tempRepMintPda.toString()
+      );
+      expect(user3TempRepData.owner.toString()).to.equal(
+        ctx.statePda.toString()
+      ); // State PDA owns account
+      expect(Number(user3TempRepData.amount)).to.equal(0);
+
       // Verify permanent token accounts (user-owned ATAs)
       // Contributor's permanent token ATAs
       const contributorAlignData = await getAccount(
@@ -377,6 +534,31 @@ export function runUserSetupTests(ctx: TestContext): void {
         ctx.validatorKeypair.publicKey.toString()
       );
       expect(Number(validatorRepData.amount)).to.equal(0);
+
+      // User3's permanent token ATAs
+      const user3AlignData = await getAccount(
+        ctx.provider.connection,
+        ctx.user3AlignAta
+      );
+      expect(user3AlignData.mint.toString()).to.equal(
+        ctx.alignMintPda.toString()
+      );
+      expect(user3AlignData.owner.toString()).to.equal(
+        ctx.user3Keypair.publicKey.toString()
+      );
+      expect(Number(user3AlignData.amount)).to.equal(0);
+
+      const user3RepData = await getAccount(
+        ctx.provider.connection,
+        ctx.user3RepAta
+      );
+      expect(user3RepData.mint.toString()).to.equal(
+        ctx.repMintPda.toString()
+      );
+      expect(user3RepData.owner.toString()).to.equal(
+        ctx.user3Keypair.publicKey.toString()
+      );
+      expect(Number(user3RepData.amount)).to.equal(0);
     });
   });
 }
