@@ -681,6 +681,38 @@ pub struct CreateUserProfile<'info> {
 
 // Removed legacy StakeAlignmentTokens context
 
+/// Account constraints for initializing a user's balance account for a specific topic
+#[derive(Accounts)]
+pub struct InitializeUserTopicBalance<'info> {
+    /// The user initializing this balance account
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    /// The user's profile (needed for constraint check, maybe not mutation)
+    #[account(
+        seeds = [b"user_profile", user.key().as_ref()],
+        bump,
+        constraint = user_profile.user == user.key()
+    )]
+    pub user_profile: Account<'info, UserProfile>,
+
+    /// The topic this balance is associated with
+    pub topic: Account<'info, Topic>,
+
+    /// The user's topic-specific balance account to be initialized.
+    #[account(
+        init,
+        payer = user,
+        space = 8 + 32 + 32 + 8 + 8 + 8 + 1, // Space: Discriminator + user + topic + 3*u64 + bump
+        seeds = [b"user_topic_balance", user.key().as_ref(), topic.key().as_ref()],
+        bump,
+    )]
+    pub user_topic_balance: Account<'info, UserTopicBalance>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
 /// Account constraints for staking temporary alignment tokens for a specific topic
 #[derive(Accounts)]
 pub struct StakeTopicSpecificTokens<'info> {
