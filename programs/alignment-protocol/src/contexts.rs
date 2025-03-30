@@ -653,33 +653,29 @@ pub struct CreateUserTempRepAccount<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// Removed legacy SubmitData context
-
 /// Account constraints for creating a user profile
 #[derive(Accounts)]
 pub struct CreateUserProfile<'info> {
-    /// The state account containing protocol configuration
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
-    
-    /// The user profile to be created (PDA)
+
+    /// The user profile account to be initialized.
     #[account(
         init,
         payer = user,
+        space = 8 + 32 + 8 + 32 + 32 + 32 + 32 + 1, // New calculated space: 177 bytes
         seeds = [b"user_profile", user.key().as_ref()],
-        bump,
-        space = 8 + 32 + 8 + 4 + 200 + 1  // Discriminator + user pubkey + permanent_rep_amount + vector length + topic tokens (initially space for ~10 topics) + bump
+        bump
     )]
     pub user_profile: Account<'info, UserProfile>,
-    
-    /// The user creating the profile and paying for the account
+
+    /// The user creating the profile (payer and owner)
     #[account(mut)]
     pub user: Signer<'info>,
-    
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
-}
 
-// Removed legacy StakeAlignmentTokens context
+    /// System program - required for account initialization
+    pub system_program: Program<'info, System>,
+}
 
 /// Account constraints for initializing a user's balance account for a specific topic
 #[derive(Accounts)]
