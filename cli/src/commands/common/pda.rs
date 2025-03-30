@@ -76,3 +76,15 @@ pub fn get_user_temp_token_account_pda(
 pub fn get_token_ata(user: &Pubkey, mint: &Pubkey) -> Pubkey {
     get_associated_token_address(user, mint)
 }
+
+/// Get the PDA for a user's topic balance account
+pub fn get_user_topic_balance_pda(
+    program: &Program<Rc<Keypair>>,
+    user: &Pubkey,
+    topic: &Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[b"user_topic_balance", user.as_ref(), topic.as_ref()],
+        &program.id(),
+    )
+}
