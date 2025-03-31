@@ -71,24 +71,6 @@ pub enum SubmissionStatus {
     Rejected,
 }
 
-/// Structure to track a user's token balances for a specific topic
-/// DEPRECATED: This structure is being replaced by the UserTopicBalance account.
-/// It might be removed in future cleanup.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, Debug)]
-pub struct UserTopicBalanceData {
-    /// Amount of temporary alignment tokens for this topic
-    pub temp_align_amount: u64,
-
-    /// Amount of temporary reputation tokens staked for this topic (available for voting)
-    pub temp_rep_amount: u64,
-
-    /// Amount of temporary reputation tokens locked in votes (committed but not finalized)
-    pub locked_temp_rep_amount: u64,
-}
-
-// REMOVE the old UserTopicBalance struct (now UserTopicBalanceData) - Kept for now with DEPRECATED comment
-// REMOVE the TopicTokenPair struct - Done
-
 /// User profile account to track reputation and submissions
 #[account]
 pub struct UserProfile {
