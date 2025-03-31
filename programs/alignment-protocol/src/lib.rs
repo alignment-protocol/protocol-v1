@@ -88,7 +88,7 @@ pub mod alignment_protocol {
     ///
     /// This creates a new PDA account to store the user's reputation metrics
     pub fn create_user_profile(ctx: Context<CreateUserProfile>) -> Result<()> {
-        instructions::topics::create_user_profile(ctx)
+        instructions::users::create_user_profile(ctx)
     }
 
     /// Instruction handler: Create a new topic
@@ -109,6 +109,11 @@ pub mod alignment_protocol {
             commit_phase_duration,
             reveal_phase_duration,
         )
+    }
+
+    /// Instruction handler: Initialize a user's topic-specific balance account
+    pub fn initialize_user_topic_balance(ctx: Context<InitializeUserTopicBalance>) -> Result<()> {
+        instructions::users::initialize_user_topic_balance(ctx)
     }
 
     /// Instruction handler: Submit data to a specific topic
