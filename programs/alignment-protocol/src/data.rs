@@ -26,9 +26,6 @@ pub struct State {
     /// Bump seed for the state PDA
     pub bump: u8,
 
-    /// Counts how many submissions have been made
-    pub submission_count: u64,
-
     /// Counts how many topics have been created
     pub topic_count: u64,
 

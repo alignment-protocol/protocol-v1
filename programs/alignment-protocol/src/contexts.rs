@@ -44,17 +44,18 @@ pub struct CreateTopic<'info> {
 
 /// Account constraints for submitting data to a specific topic
 #[derive(Accounts)]
+#[instruction(data_reference: String, current_submission_index: u64)]
 pub struct SubmitDataToTopic<'info> {
-    #[account(mut, seeds = [b"state"], bump)]
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
     
-    #[account(mut, constraint = topic.is_active == true)]
+    #[account(mut, constraint = topic.is_active == true @ ErrorCode::TopicInactive)]
     pub topic: Account<'info, Topic>,
     
     /// The temporary alignment token mint, must be mutable for minting
     #[account(
         mut,
-        constraint = *temp_align_mint.to_account_info().key == state.temp_align_mint
+        constraint = temp_align_mint.key() == state.temp_align_mint @ ErrorCode::TokenMintMismatch
     )]
     pub temp_align_mint: Account<'info, Mint>,
     
@@ -63,19 +64,19 @@ pub struct SubmitDataToTopic<'info> {
         mut,
         seeds = [b"user_temp_align", contributor.key().as_ref()],
         bump,
-        constraint = contributor_temp_align_account.mint == state.temp_align_mint,
-        constraint = contributor_temp_align_account.owner == state.key()
+        constraint = contributor_temp_align_account.mint == temp_align_mint.key() @ ErrorCode::TokenMintMismatch,
+        constraint = contributor_temp_align_account.owner == state.key() @ ErrorCode::InvalidTokenAccount
     )]
     pub contributor_temp_align_account: Account<'info, TokenAccount>,
     
-    /// The new Submission account
+    /// The new Submission account - Seeds now use user key + user counter index
     #[account(
         init,
         payer = contributor,
-        // Use seeds to ensure uniqueness
         seeds = [
             b"submission",
-            state.submission_count.to_le_bytes().as_ref(),
+            contributor.key().as_ref(),
+            current_submission_index.to_le_bytes().as_ref(),
         ],
         bump,
         // Discriminator + contributor pubkey + timestamp + data field + submission PDA bump
@@ -83,7 +84,7 @@ pub struct SubmitDataToTopic<'info> {
     )]
     pub submission: Account<'info, Submission>,
     
-    /// The link between submission and topic
+    /// The link between submission and topic - Seeds use the derived submission key
     #[account(
         init,
         payer = contributor,
@@ -98,14 +99,25 @@ pub struct SubmitDataToTopic<'info> {
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
     
-    /// The contributor's user profile (optional)
+    /// The contributor's user profile (must exist)
     #[account(
-        mut, 
+        mut, // Keep mut for incrementing user_submission_count
         seeds = [b"user_profile", contributor.key().as_ref()],
-        bump,
-        constraint = contributor_profile.user == contributor.key()
+        bump = contributor_profile.bump,
+        constraint = contributor_profile.user == contributor.key() @ ErrorCode::UserAccountMismatch
     )]
-    pub contributor_profile: Option<Account<'info, UserProfile>>,
+    pub contributor_profile: Account<'info, UserProfile>,
+    
+    /// The UserTopicBalance account for this contributor and topic.
+    /// MUST be initialized separately via `initialize_user_topic_balance` first.
+    #[account(
+        mut,
+        seeds = [b"user_topic_balance", contributor.key().as_ref(), topic.key().as_ref()],
+        bump = user_topic_balance.bump,
+        constraint = user_topic_balance.user == contributor.key() @ ErrorCode::UserAccountMismatch,
+        constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic
+    )]
+    pub user_topic_balance: Account<'info, UserTopicBalance>,
     
     /// The user making the submission
     #[account(mut)]
@@ -115,7 +127,6 @@ pub struct SubmitDataToTopic<'info> {
     pub token_program: Program<'info, Token>,
     
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 }
 
 /// Account constraints for linking an existing submission to a topic

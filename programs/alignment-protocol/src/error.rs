@@ -103,4 +103,13 @@ pub enum ErrorCode {
 
     #[msg("The provided topic account does not match the expected topic.")]
     InvalidTopic,
+
+    #[msg("The provided submission index does not match the user's current submission count.")]
+    IncorrectSubmissionIndex,
+
+    #[msg("The data reference exceeds the maximum allowed length")]
+    DataReferenceTooLong,
+
+    #[msg("The data reference cannot be empty")]
+    EmptyDataReference,
 }

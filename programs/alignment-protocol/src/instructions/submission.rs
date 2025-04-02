@@ -6,55 +6,76 @@ use anchor_spl::token::{self, Burn, MintTo};
 
 // Removed legacy submit_data function
 
-pub fn submit_data_to_topic(ctx: Context<SubmitDataToTopic>, data_reference: String) -> Result<()> {
+/// Submit data to a specific topic, earn tempAlign, and update UserTopicBalance
+pub fn submit_data_to_topic(
+    ctx: Context<SubmitDataToTopic>,
+    data_reference: String,
+    current_submission_index: u64,
+) -> Result<()> {
     // Validate inputs
     if data_reference.len() > MAX_DATA_REFERENCE_LENGTH {
-        return Err(error!(ErrorCode::TopicDescriptionTooLong));
+        return Err(ErrorCode::DataReferenceTooLong.into());
+    }
+    if data_reference.is_empty() {
+        return Err(ErrorCode::EmptyDataReference.into());
     }
 
-    // Get current time
-    let current_time = Clock::get()?.unix_timestamp as u64;
-
-    // Fill out the Submission account
+    let state = &ctx.accounts.state;
+    let topic = &mut ctx.accounts.topic;
     let submission = &mut ctx.accounts.submission;
+    let submission_topic_link = &mut ctx.accounts.submission_topic_link;
+    let contributor_profile = &mut ctx.accounts.contributor_profile;
+    let user_topic_balance = &mut ctx.accounts.user_topic_balance;
+    let clock = Clock::get()?;
+
+    // Verify Submission Index
+    require_eq!(
+        contributor_profile.user_submission_count,
+        current_submission_index,
+        ErrorCode::IncorrectSubmissionIndex
+    );
+
+    // Check if topic is active
+    if !topic.is_active {
+        return Err(ErrorCode::TopicInactive.into());
+    }
+
+    // --- Initialize Submission Account ---
     submission.contributor = ctx.accounts.contributor.key();
-    submission.timestamp = current_time;
-    submission.data_reference = data_reference.clone();
+    submission.timestamp = clock.unix_timestamp as u64;
+    submission.data_reference = data_reference;
     submission.bump = ctx.bumps.submission;
 
-    // Fill out the SubmissionTopicLink account
-    let link = &mut ctx.accounts.submission_topic_link;
-
-    link.submission = ctx.accounts.submission.key();
-    link.topic = ctx.accounts.topic.key();
-    link.status = SubmissionStatus::Pending;
-    link.bump = ctx.bumps.submission_topic_link;
-
-    // Set up voting phases based on topic durations
-    link.commit_phase_start = current_time;
-    link.commit_phase_end = current_time
-        .checked_add(ctx.accounts.topic.commit_phase_duration)
+    // --- Initialize SubmissionTopicLink Account ---
+    submission_topic_link.submission = submission.key();
+    submission_topic_link.topic = topic.key();
+    submission_topic_link.status = SubmissionStatus::Pending;
+    // Set phase start/end times based on topic defaults and current time
+    submission_topic_link.commit_phase_start = clock.unix_timestamp as u64;
+    submission_topic_link.commit_phase_end = submission_topic_link
+        .commit_phase_start
+        .checked_add(topic.commit_phase_duration)
         .ok_or(ErrorCode::Overflow)?;
-    link.reveal_phase_start = link.commit_phase_end;
-    link.reveal_phase_end = link
+    submission_topic_link.reveal_phase_start = submission_topic_link.commit_phase_end;
+    submission_topic_link.reveal_phase_end = submission_topic_link
         .reveal_phase_start
-        .checked_add(ctx.accounts.topic.reveal_phase_duration)
+        .checked_add(topic.reveal_phase_duration)
         .ok_or(ErrorCode::Overflow)?;
+    // Initialize counters CORRECTLY based on data.rs definition
+    submission_topic_link.yes_voting_power = 0;
+    submission_topic_link.no_voting_power = 0;
+    submission_topic_link.total_committed_votes = 0; // Correct field name
+    submission_topic_link.total_revealed_votes = 0; // Correct field name
+    submission_topic_link.bump = ctx.bumps.submission_topic_link;
 
-    // Initialize vote counts
-    link.yes_voting_power = 0;
-    link.no_voting_power = 0;
-    link.total_committed_votes = 0;
-    link.total_revealed_votes = 0;
-
-    // Mint temporary alignment tokens to the contributor if configured
-    if ctx.accounts.state.tokens_to_mint > 0 {
-        let state_bump = ctx.accounts.state.bump;
+    // --- Mint Temporary Alignment Tokens ---
+    let tokens_to_mint = state.tokens_to_mint; // Ensure correct field name used if changed from tokens_to_mint_per_submission
+    if tokens_to_mint > 0 {
+        let state_bump = state.bump;
         let seeds = &[b"state".as_ref(), &[state_bump]];
         let signer = &[&seeds[..]];
 
-        // CPI to the Token Program's 'mint_to'
-        let cpi_ctx = CpiContext::new(
+        let mint_to_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             MintTo {
                 mint: ctx.accounts.temp_align_mint.to_account_info(),
@@ -62,87 +83,45 @@ pub fn submit_data_to_topic(ctx: Context<SubmitDataToTopic>, data_reference: Str
                     .accounts
                     .contributor_temp_align_account
                     .to_account_info(),
-                authority: ctx.accounts.state.to_account_info(),
+                authority: state.to_account_info(),
             },
-        )
-        .with_signer(signer);
-
-        token::mint_to(cpi_ctx, ctx.accounts.state.tokens_to_mint)?;
-
-        // If contributor has a user profile, update their topic-specific token balance
-        if let Some(contributor_profile) = ctx.accounts.contributor_profile.as_mut() {
-            // Get the topic ID
-            let topic_id = ctx.accounts.topic.id;
-
-            // Find or create the topic token entry
-            let topic_tokens = &mut contributor_profile.topic_tokens;
-
-            // Try to find the topic in the user's topic_tokens map
-            let mut found = false;
-            for topic_pair in topic_tokens.iter_mut() {
-                if topic_pair.topic_id == topic_id {
-                    // Topic found, add to its temp_align_amount
-                    topic_pair.token.temp_align_amount = topic_pair
-                        .token
-                        .temp_align_amount
-                        .checked_add(ctx.accounts.state.tokens_to_mint)
-                        .ok_or(ErrorCode::Overflow)?;
-                    found = true;
-                    break;
-                }
-            }
-
-            // If not found, create a new entry
-            if !found {
-                topic_tokens.push(crate::data::TopicTokenPair {
-                    topic_id,
-                    token: crate::data::UserTopicBalance {
-                        temp_align_amount: ctx.accounts.state.tokens_to_mint,
-                        temp_rep_amount: 0,
-                        locked_temp_rep_amount: 0,
-                    },
-                });
-            }
-
-            msg!(
-                "Updated topic-specific token balance for topic {} (+{} tempAlign)",
-                topic_id,
-                ctx.accounts.state.tokens_to_mint
-            );
-        }
-
-        msg!(
-            "Minted {} tempAlign tokens to {} (protocol-owned account for user {})",
-            ctx.accounts.state.tokens_to_mint,
-            ctx.accounts.contributor_temp_align_account.key(),
-            ctx.accounts.contributor.key()
+            signer,
         );
+        token::mint_to(mint_to_ctx, tokens_to_mint)?;
     }
 
-    // Increment submission counts
-    let state = &mut ctx.accounts.state;
-    state.submission_count = state
-        .submission_count
-        .checked_add(1)
+    // --- Update UserTopicBalance ---
+    user_topic_balance.temp_align_amount = user_topic_balance
+        .temp_align_amount
+        .checked_add(tokens_to_mint)
         .ok_or(ErrorCode::Overflow)?;
 
-    let topic = &mut ctx.accounts.topic;
+    // --- Update Topic Counter ---
     topic.submission_count = topic
         .submission_count
         .checked_add(1)
         .ok_or(ErrorCode::Overflow)?;
 
-    msg!("New submission added to topic '{}'", topic.name);
-    msg!("Data reference: {}", data_reference);
+    // --- Update User Submission Count ---
+    contributor_profile.user_submission_count = contributor_profile
+        .user_submission_count
+        .checked_add(1)
+        .ok_or(ErrorCode::Overflow)?;
+
     msg!(
-        "Commit phase: {} to {}",
-        link.commit_phase_start,
-        link.commit_phase_end
+        "User {} submitted data (index {}) to topic {}. Earned {} tempAlign.",
+        ctx.accounts.contributor.key(),
+        current_submission_index,
+        topic.key(),
+        tokens_to_mint
     );
     msg!(
-        "Reveal phase: {} to {}",
-        link.reveal_phase_start,
-        link.reveal_phase_end
+        "Updated UserTopicBalance: tempAlign = {}",
+        user_topic_balance.temp_align_amount
+    );
+    msg!(
+        "User Profile Submission Count NOW: {}",
+        contributor_profile.user_submission_count
     );
 
     Ok(())
