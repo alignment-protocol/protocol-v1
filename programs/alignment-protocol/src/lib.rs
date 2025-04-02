@@ -122,8 +122,13 @@ pub mod alignment_protocol {
     pub fn submit_data_to_topic(
         ctx: Context<SubmitDataToTopic>,
         data_reference: String,
+        current_submission_index: u64,
     ) -> Result<()> {
-        instructions::submission::submit_data_to_topic(ctx, data_reference)
+        instructions::submission::submit_data_to_topic(
+            ctx,
+            data_reference,
+            current_submission_index,
+        )
     }
 
     /// Instruction handler: Stake topic-specific temporary alignment tokens
