@@ -97,4 +97,10 @@ pub enum ErrorCode {
     
     #[msg("You have already committed a vote for this submission-topic pair")]
     DuplicateVoteCommitment,
+
+    #[msg("The user account in the provided data does not match the expected user.")]
+    UserAccountMismatch,
+
+    #[msg("The provided topic account does not match the expected topic.")]
+    InvalidTopic,
 }
