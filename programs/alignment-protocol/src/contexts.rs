@@ -4,6 +4,7 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount},
 };
 use crate::data::*;
+use crate::error::ErrorCode;
 
 // Removed legacy context structures
 
@@ -712,62 +713,75 @@ pub struct InitializeUserTopicBalance<'info> {
 /// Account constraints for staking temporary alignment tokens for a specific topic
 #[derive(Accounts)]
 pub struct StakeTopicSpecificTokens<'info> {
-    #[account(seeds = [b"state"], bump)]
+    #[account(seeds = [b"state"], bump = state.bump)]
     pub state: Account<'info, State>,
-    
+
     /// The topic for which tokens are being staked
     pub topic: Account<'info, Topic>,
-    
-    /// The user's profile that must already exist
+
+    /// The user's profile, contains references to token accounts
     #[account(
-        mut,
+        // No mut needed if just reading keys
         seeds = [b"user_profile", user.key().as_ref()],
-        bump,
-        constraint = user_profile.user == user.key()
+        bump = user_profile.bump,
+        // Use the new error code for user mismatch
+        constraint = user_profile.user == user.key() @ ErrorCode::UserAccountMismatch
     )]
     pub user_profile: Account<'info, UserProfile>,
-    
+
+    /// The user's topic-specific balance account for this topic.
+    /// MUST be initialized separately via `initialize_user_topic_balance` first.
+    #[account(
+        mut,
+        seeds = [b"user_topic_balance", user.key().as_ref(), topic.key().as_ref()],
+        bump = user_topic_balance.bump,
+        // Use the new error code for user mismatch
+        constraint = user_topic_balance.user == user.key() @ ErrorCode::UserAccountMismatch,
+        // Use the new error code for topic mismatch
+        constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic
+    )]
+    pub user_topic_balance: Account<'info, UserTopicBalance>,
+
     /// The temporary alignment token mint (source tokens to burn)
     #[account(
         mut,
-        constraint = *temp_align_mint.to_account_info().key == state.temp_align_mint
+        constraint = temp_align_mint.key() == state.temp_align_mint @ ErrorCode::TokenMintMismatch
     )]
     pub temp_align_mint: Account<'info, Mint>,
-    
+
     /// The temporary reputation token mint (target tokens to mint)
     #[account(
         mut,
-        constraint = *temp_rep_mint.to_account_info().key == state.temp_rep_mint
+        constraint = temp_rep_mint.key() == state.temp_rep_mint @ ErrorCode::TokenMintMismatch
     )]
     pub temp_rep_mint: Account<'info, Mint>,
-    
-    /// The protocol-owned tempAlign token account for this user (source)
+
+    /// The protocol-owned tempAlign token account for this user (source for burn)
     #[account(
         mut,
         seeds = [b"user_temp_align", user.key().as_ref()],
         bump,
-        constraint = user_temp_align_account.mint == state.temp_align_mint,
-        constraint = user_temp_align_account.owner == state.key()
+        constraint = user_temp_align_account.key() == user_profile.user_temp_align_account @ ErrorCode::InvalidTokenAccount,
+        constraint = user_temp_align_account.mint == temp_align_mint.key() @ ErrorCode::TokenMintMismatch,
+        constraint = user_temp_align_account.owner == state.key() @ ErrorCode::InvalidTokenAccount
     )]
     pub user_temp_align_account: Account<'info, TokenAccount>,
-    
-    /// The protocol-owned tempRep token account for this user (target)
+
+    /// The protocol-owned tempRep token account for this user (target for mint)
     #[account(
         mut,
         seeds = [b"user_temp_rep", user.key().as_ref()],
         bump,
-        constraint = user_temp_rep_account.mint == state.temp_rep_mint,
-        constraint = user_temp_rep_account.owner == state.key()
+        constraint = user_temp_rep_account.key() == user_profile.user_temp_rep_account @ ErrorCode::InvalidTokenAccount,
+        constraint = user_temp_rep_account.mint == temp_rep_mint.key() @ ErrorCode::TokenMintMismatch,
+        constraint = user_temp_rep_account.owner == state.key() @ ErrorCode::InvalidTokenAccount
     )]
     pub user_temp_rep_account: Account<'info, TokenAccount>,
-    
-    /// The user associated with these tokens (not the token account owner)
+
+    /// The user associated with these tokens, signing the transaction.
     #[account(mut)]
     pub user: Signer<'info>,
-    
-    #[account(address = anchor_spl::token::ID)]
+
+    /// Token program for CPI calls
     pub token_program: Program<'info, Token>,
-    
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 }

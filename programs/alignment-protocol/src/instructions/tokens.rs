@@ -5,7 +5,7 @@ use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::{create, Create},
-    token::{self, Burn, MintTo},
+    token::{self, Burn, MintTo, Token},
 };
 
 pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
@@ -69,109 +69,94 @@ pub fn create_user_temp_rep_account(ctx: Context<CreateUserTempRepAccount>) -> R
 // Removed legacy stake_alignment_tokens function
 
 /// Stakes tempAlign tokens for a specific topic to earn topic-specific tempRep
-/// Uses protocol-owned token accounts where the state PDA is the authority
+/// Burns from the protocol-owned tempAlign PDA and Mints to the protocol-owned tempRep PDA.
+/// Updates the balances tracked in the UserTopicBalance account.
 pub fn stake_topic_specific_tokens(
     ctx: Context<StakeTopicSpecificTokens>,
     amount: u64,
 ) -> Result<()> {
     // Validate the stake amount
     if amount == 0 {
+        // Use existing error code from error.rs
         return Err(ErrorCode::ZeroStakeAmount.into());
     }
 
-    // Double-check user profile is properly initialized
-    if ctx.accounts.user_profile.user != ctx.accounts.user.key() {
-        return Err(ErrorCode::InvalidUserProfile.into());
-    }
+    let user_topic_balance = &mut ctx.accounts.user_topic_balance;
+    let state = &ctx.accounts.state;
+    let user = &ctx.accounts.user;
+    let topic = &ctx.accounts.topic; // Needed for logging/events
 
-    // Get the topic ID
-    let topic_id = ctx.accounts.topic.id;
-
-    // Check if the user has enough topic-specific temp alignment tokens
-    let user_profile = &mut ctx.accounts.user_profile;
-    let mut found_topic = false;
-    let mut topic_temp_align = 0;
-
-    // Find the topic in the user's topic_tokens collection
-    for topic_pair in user_profile.topic_tokens.iter() {
-        if topic_pair.topic_id == topic_id {
-            found_topic = true;
-            topic_temp_align = topic_pair.token.temp_align_amount;
-            break;
-        }
-    }
-
-    // Ensure the user has enough topic-specific tokens
-    if !found_topic || topic_temp_align < amount {
+    // 1. Check if the user has enough *allocated* tempAlign in UserTopicBalance for this topic
+    // Although the global tempAlign PDA might have tokens, this checks the topic-specific assignment.
+    // NOTE: This check assumes tempAlign is *consumed* during staking. If tempAlign should remain
+    // in UserTopicBalance and only tempRep increases, this check needs adjustment.
+    // Based on the variable names, consuming tempAlign to produce tempRep seems intended.
+    if user_topic_balance.temp_align_amount < amount {
+        // Use existing error code from error.rs
         return Err(ErrorCode::InsufficientTopicTokens.into());
     }
 
-    // Check the global token balance
+    // 2. Check if the global protocol-owned tempAlign account has enough tokens to burn
+    // This is a sanity check; usually the UserTopicBalance check above should suffice if balances are synced.
     if ctx.accounts.user_temp_align_account.amount < amount {
+        // Use existing error code from error.rs
         return Err(ErrorCode::InsufficientTokenBalance.into());
     }
 
-    // Get the state PDA signer seeds
-    let state_bump = ctx.accounts.state.bump;
-    let seeds = &[b"state".as_ref(), &[state_bump]];
-    let signer = &[&seeds[..]];
+    // Get the state PDA signer seeds for CPI calls (authority is the state PDA)
+    let state_bump = state.bump;
+    let state_seeds = &[b"state".as_ref(), &[state_bump]];
+    let signer = &[&state_seeds[..]];
 
-    // Burn the temporary alignment tokens
-    // Since these are protocol-owned, we need to use the state PDA as the authority
-    let burn_cpi_ctx = CpiContext::new(
+    // 3. Burn the temporary alignment tokens from the protocol-owned PDA
+    let burn_cpi_ctx = CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
         Burn {
             mint: ctx.accounts.temp_align_mint.to_account_info(),
             from: ctx.accounts.user_temp_align_account.to_account_info(),
-            authority: ctx.accounts.state.to_account_info(),
+            authority: state.to_account_info(), // State PDA is the authority
         },
-    )
-    .with_signer(signer);
-
+        signer, // Provide state PDA seeds as signer
+    );
     token::burn(burn_cpi_ctx, amount)?;
 
-    // Mint temporary reputation tokens
-    // The target is also a protocol-owned account
-    let mint_cpi_ctx = CpiContext::new(
+    // 4. Mint temporary reputation tokens into the protocol-owned PDA
+    let mint_cpi_ctx = CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
         MintTo {
             mint: ctx.accounts.temp_rep_mint.to_account_info(),
             to: ctx.accounts.user_temp_rep_account.to_account_info(),
-            authority: ctx.accounts.state.to_account_info(),
+            authority: state.to_account_info(), // State PDA is the authority
         },
-    )
-    .with_signer(signer);
-
+        signer, // Provide state PDA seeds as signer
+    );
     token::mint_to(mint_cpi_ctx, amount)?;
 
-    // Update the topic-specific token balances in the user profile
-    for topic_pair in user_profile.topic_tokens.iter_mut() {
-        if topic_pair.topic_id == topic_id {
-            // Decrease tempAlign for this topic
-            topic_pair.token.temp_align_amount = topic_pair
-                .token
-                .temp_align_amount
-                .checked_sub(amount)
-                .ok_or(ErrorCode::Overflow)?;
+    // 5. Update the topic-specific balances in the UserTopicBalance account
+    // Decrease tempAlign for this topic
+    user_topic_balance.temp_align_amount = user_topic_balance
+        .temp_align_amount
+        .checked_sub(amount)
+        .ok_or(ErrorCode::Overflow)?;
 
-            // Increase tempRep for this topic
-            topic_pair.token.temp_rep_amount = topic_pair
-                .token
-                .temp_rep_amount
-                .checked_add(amount)
-                .ok_or(ErrorCode::Overflow)?;
-
-            break;
-        }
-    }
+    // Increase tempRep for this topic
+    user_topic_balance.temp_rep_amount = user_topic_balance
+        .temp_rep_amount
+        .checked_add(amount)
+        .ok_or(ErrorCode::Overflow)?;
 
     msg!(
-        "Staked {} topic-specific tempAlign tokens for topic {} for {} tempRep tokens for user {}",
+        "User {} staked {} tempAlign for topic {}, received {} tempRep. New topic balances: Align={}, Rep={}",
+        user.key(),
         amount,
-        topic_id,
+        topic.key(), // Using topic key for clarity, could use topic.id
         amount,
-        ctx.accounts.user.key()
+        user_topic_balance.temp_align_amount,
+        user_topic_balance.temp_rep_amount
     );
+
+    // (Optional) Emit event
+    // emit!(TokensStaked { ... });
 
     Ok(())
 }
