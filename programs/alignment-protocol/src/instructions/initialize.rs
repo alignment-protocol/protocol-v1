@@ -10,7 +10,6 @@ pub fn initialize_state(ctx: Context<InitializeState>) -> Result<()> {
     // Set state properties
     state_acc.authority = ctx.accounts.authority.key();
     state_acc.bump = ctx.bumps.state;
-    state_acc.submission_count = 0;
     state_acc.topic_count = 0;
     state_acc.tokens_to_mint = 0;
 
