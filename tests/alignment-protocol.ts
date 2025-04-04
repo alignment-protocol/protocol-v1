@@ -163,7 +163,7 @@ describe("Alignment Protocol Tests", () => {
   runCrossTopicLinkingTests(ctx);
   runStakingTests(ctx);
   runVotingTests(ctx);
-  // runFinalizationTests(ctx);
+  runFinalizationTests(ctx);
   // runTokenLockingTests(ctx);
   // runValidationTests(ctx);
 });
