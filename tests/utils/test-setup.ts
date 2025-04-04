@@ -45,6 +45,10 @@ export interface TestContext {
   contributorProfilePda: web3.PublicKey;
   validatorProfilePda: web3.PublicKey;
   user3ProfilePda: web3.PublicKey;
+
+  // User Topic Balances
+  contributorTopic1BalancePda: web3.PublicKey;
+
   // Submission tracking
   submissionPda: web3.PublicKey;
   submissionTopicLinkPda: web3.PublicKey;
