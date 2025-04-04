@@ -134,7 +134,7 @@ pub struct LinkSubmissionToTopic<'info> {
     #[account(mut)]
     pub state: Account<'info, State>,
 
-    #[account(mut, constraint = topic.is_active == true)]
+    #[account(mut, constraint = topic.is_active)]
     pub topic: Account<'info, Topic>,
 
     /// The existing submission to link to the topic
@@ -249,7 +249,7 @@ pub struct RevealVote<'info> {
             validator.key().as_ref(),
         ],
         bump = vote_commit.bump,
-        constraint = vote_commit.revealed == false,
+        constraint = !vote_commit.revealed,
         constraint = vote_commit.validator == validator.key(),
         constraint = vote_commit.submission_topic_link == submission_topic_link.key()
     )]
@@ -394,7 +394,7 @@ pub struct FinalizeVote<'info> {
 
     #[account(
         mut,
-        constraint = vote_commit.revealed == true,
+        constraint = vote_commit.revealed,
         constraint = vote_commit.validator == validator_profile.user,
         constraint = vote_commit.submission_topic_link == submission_topic_link.key()
     )]

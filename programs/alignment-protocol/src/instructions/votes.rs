@@ -163,7 +163,7 @@ pub fn reveal_vote(ctx: Context<RevealVote>, vote_choice: VoteChoice, nonce: Str
     let mut hasher = Sha256::new();
     hasher.update(ctx.accounts.validator.key().as_ref());
     hasher.update(ctx.accounts.submission_topic_link.key().as_ref());
-    hasher.update(&[vote_choice as u8]);
+    hasher.update([vote_choice as u8]);
     hasher.update(nonce.as_bytes());
 
     let reconstructed_hash: [u8; 32] = hasher.finalize().into();
