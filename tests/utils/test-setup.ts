@@ -49,17 +49,26 @@ export interface TestContext {
   // User Topic Balances
   contributorTopic1BalancePda: web3.PublicKey;
   validatorTopic1BalancePda: web3.PublicKey;
+  user3Topic1BalancePda: web3.PublicKey;
 
   // Submission tracking
   submissionPda: web3.PublicKey;
   validatorSubmissionPda: web3.PublicKey;
+  testSubmissionPda: web3.PublicKey;
+  user3SubmissionPda: web3.PublicKey;
   submissionTopicLinkPda: web3.PublicKey;
   validatorSubmissionTopicLinkPda: web3.PublicKey;
+  testSubmissionTopicLinkPda: web3.PublicKey;
+  user3SubmissionTopicLinkPda: web3.PublicKey;
   crossTopicLinkPda: web3.PublicKey;
 
   // Vote tracking
   voteCommitPda: web3.PublicKey;
+  testVoteCommitPda: web3.PublicKey;
+  user3VoteCommitPda: web3.PublicKey;
   voteHash: number[];
+  testVoteHash: number[];
+  user3VoteHash: number[];
 
   // Constants
   TOPIC1_NAME: string;
