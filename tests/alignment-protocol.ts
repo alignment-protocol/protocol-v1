@@ -165,5 +165,5 @@ describe("Alignment Protocol Tests", () => {
   runVotingTests(ctx);
   runFinalizationTests(ctx);
   runTokenLockingTests(ctx);
-  // runValidationTests(ctx);
+  runValidationTests(ctx);
 });

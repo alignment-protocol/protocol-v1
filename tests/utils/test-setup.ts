@@ -56,19 +56,24 @@ export interface TestContext {
   validatorSubmissionPda: web3.PublicKey;
   testSubmissionPda: web3.PublicKey;
   user3SubmissionPda: web3.PublicKey;
+  validationSubmissionPda: web3.PublicKey;
   submissionTopicLinkPda: web3.PublicKey;
   validatorSubmissionTopicLinkPda: web3.PublicKey;
   testSubmissionTopicLinkPda: web3.PublicKey;
   user3SubmissionTopicLinkPda: web3.PublicKey;
+  validationSubmissionTopicLinkPda: web3.PublicKey;
   crossTopicLinkPda: web3.PublicKey;
 
   // Vote tracking
   voteCommitPda: web3.PublicKey;
   testVoteCommitPda: web3.PublicKey;
   user3VoteCommitPda: web3.PublicKey;
+  validationVoteCommitPda: web3.PublicKey;
+
   voteHash: number[];
   testVoteHash: number[];
   user3VoteHash: number[];
+  validationVoteHash: number[];
 
   // Constants
   TOPIC1_NAME: string;
@@ -78,4 +83,6 @@ export interface TestContext {
   SUBMISSION_DATA: string;
   VOTE_NONCE: string;
   VOTE_CHOICE_YES: any;
+  VOTE_CHOICE_NO: any;
+  VOTE_NONCE_VALIDATION: string;
 }
