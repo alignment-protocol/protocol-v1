@@ -16,7 +16,7 @@ export function runValidationTests(ctx: TestContext): void {
       voter: web3.Keypair,
       submissionTopicLink: web3.PublicKey,
       choice: number,
-      nonce: string
+      nonce: string,
     ) {
       const message = Buffer.concat([
         voter.publicKey.toBuffer(),
@@ -31,7 +31,7 @@ export function runValidationTests(ctx: TestContext): void {
     // Setup helper function to create voting phases for testing
     async function setupVotingPhase(
       phase: "commit" | "reveal" | "finalized",
-      submissionTopicLinkPda: web3.PublicKey
+      submissionTopicLinkPda: web3.PublicKey,
     ) {
       const now = Math.floor(Date.now() / 1000);
       let commitPhaseStart, commitPhaseEnd, revealPhaseStart, revealPhaseEnd;
@@ -62,7 +62,7 @@ export function runValidationTests(ctx: TestContext): void {
           new anchor.BN(commitPhaseStart),
           new anchor.BN(commitPhaseEnd),
           new anchor.BN(revealPhaseStart),
-          new anchor.BN(revealPhaseEnd)
+          new anchor.BN(revealPhaseEnd),
         )
         .accounts({
           state: ctx.statePda,
@@ -93,7 +93,7 @@ export function runValidationTests(ctx: TestContext): void {
       const currentSubmissionCount = stateAcc.submissionCount.toNumber();
       console.log(
         "Current submission count for validation tests:",
-        currentSubmissionCount
+        currentSubmissionCount,
       );
 
       // Derive the PDAs for the new submission
@@ -102,7 +102,7 @@ export function runValidationTests(ctx: TestContext): void {
           Buffer.from("submission"),
           new anchor.BN(currentSubmissionCount).toBuffer("le", 8),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       [testSubmissionTopicLinkPda] = web3.PublicKey.findProgramAddressSync(
@@ -111,7 +111,7 @@ export function runValidationTests(ctx: TestContext): void {
           testSubmissionPda.toBuffer(),
           ctx.topic1Pda.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Create a test submission from the contributor
@@ -135,7 +135,7 @@ export function runValidationTests(ctx: TestContext): void {
 
       console.log(
         "Created submission for validation tests:",
-        createSubmissionTx
+        createSubmissionTx,
       );
 
       // Set up for commit phase
@@ -150,14 +150,14 @@ export function runValidationTests(ctx: TestContext): void {
           fromPubkey: ctx.authorityKeypair.publicKey,
           toPubkey: noTokensKeypair.publicKey,
           lamports: 0.1 * web3.LAMPORTS_PER_SOL,
-        })
+        }),
       );
       await ctx.provider.sendAndConfirm(fundTx, [ctx.authorityKeypair]);
 
       // Create a user profile for this account
       [userWithNoTokensPda] = web3.PublicKey.findProgramAddressSync(
         [Buffer.from("user_profile"), noTokensKeypair.publicKey.toBuffer()],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       try {
@@ -175,7 +175,7 @@ export function runValidationTests(ctx: TestContext): void {
 
         console.log(
           "Created profile for user with no tokens:",
-          createProfileTx
+          createProfileTx,
         );
       } catch (error) {
         console.log("Error creating profile for no-tokens user:", error);
@@ -188,7 +188,7 @@ export function runValidationTests(ctx: TestContext): void {
         ctx.contributorKeypair,
         testSubmissionTopicLinkPda,
         0, // Yes vote
-        "self-vote-nonce"
+        "self-vote-nonce",
       );
 
       // Derive the vote commit PDA for self-vote
@@ -198,7 +198,7 @@ export function runValidationTests(ctx: TestContext): void {
           testSubmissionTopicLinkPda.toBuffer(),
           ctx.contributorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Try to commit the self-vote
@@ -233,7 +233,7 @@ export function runValidationTests(ctx: TestContext): void {
         ctx.validatorKeypair,
         testSubmissionTopicLinkPda,
         0, // Yes vote
-        "insufficient-tokens-nonce"
+        "insufficient-tokens-nonce",
       );
 
       // Derive the vote commit PDA
@@ -243,16 +243,16 @@ export function runValidationTests(ctx: TestContext): void {
           testSubmissionTopicLinkPda.toBuffer(),
           ctx.validatorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Find out how many tokens the validator has
       const validatorProfile = await ctx.program.account.userProfile.fetch(
-        ctx.validatorProfilePda
+        ctx.validatorProfilePda,
       );
 
       const topicTokenEntry = validatorProfile.topicTokens.find(
-        (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
+        (pair) => pair.topicId.toNumber() === 0, // Topic ID 0
       );
 
       const availableTokens = topicTokenEntry.token.tempRepAmount.toNumber();
@@ -295,7 +295,7 @@ export function runValidationTests(ctx: TestContext): void {
         ctx.validatorKeypair,
         testSubmissionTopicLinkPda,
         0, // Yes vote
-        "wrong-phase-nonce"
+        "wrong-phase-nonce",
       );
 
       // Derive the vote commit PDA
@@ -305,7 +305,7 @@ export function runValidationTests(ctx: TestContext): void {
           testSubmissionTopicLinkPda.toBuffer(),
           ctx.validatorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       try {
@@ -342,7 +342,7 @@ export function runValidationTests(ctx: TestContext): void {
         ctx.validatorKeypair,
         testSubmissionTopicLinkPda,
         0, // Yes vote
-        "reveal-test-nonce"
+        "reveal-test-nonce",
       );
 
       // Derive the vote commit PDA
@@ -352,7 +352,7 @@ export function runValidationTests(ctx: TestContext): void {
           testSubmissionTopicLinkPda.toBuffer(),
           ctx.validatorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Commit the vote
@@ -379,7 +379,7 @@ export function runValidationTests(ctx: TestContext): void {
         const revealTx = await ctx.program.methods
           .revealVote(
             ctx.VOTE_CHOICE_YES, // Yes vote
-            "reveal-test-nonce" // Nonce used in commit
+            "reveal-test-nonce", // Nonce used in commit
           )
           .accounts({
             state: ctx.statePda,
@@ -408,7 +408,7 @@ export function runValidationTests(ctx: TestContext): void {
         ctx.validatorKeypair,
         testSubmissionTopicLinkPda,
         1, // No vote this time
-        "different-nonce"
+        "different-nonce",
       );
 
       // Use the same vote commit PDA
@@ -418,7 +418,7 @@ export function runValidationTests(ctx: TestContext): void {
           testSubmissionTopicLinkPda.toBuffer(),
           ctx.validatorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Try to commit the duplicate vote
@@ -458,7 +458,7 @@ export function runValidationTests(ctx: TestContext): void {
           testSubmissionTopicLinkPda.toBuffer(),
           ctx.validatorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Try to reveal with incorrect nonce
@@ -466,7 +466,7 @@ export function runValidationTests(ctx: TestContext): void {
         const revealTx = await ctx.program.methods
           .revealVote(
             ctx.VOTE_CHOICE_YES, // Yes vote
-            "incorrect-nonce" // Wrong nonce!
+            "incorrect-nonce", // Wrong nonce!
           )
           .accounts({
             state: ctx.statePda,
@@ -492,7 +492,7 @@ export function runValidationTests(ctx: TestContext): void {
       const correctRevealTx = await ctx.program.methods
         .revealVote(
           ctx.VOTE_CHOICE_YES, // Yes vote
-          "reveal-test-nonce" // Correct nonce
+          "reveal-test-nonce", // Correct nonce
         )
         .accounts({
           state: ctx.statePda,
@@ -509,7 +509,7 @@ export function runValidationTests(ctx: TestContext): void {
 
       console.log(
         "Successfully revealed vote with correct nonce:",
-        correctRevealTx
+        correctRevealTx,
       );
     });
 
@@ -524,7 +524,7 @@ export function runValidationTests(ctx: TestContext): void {
           testSubmissionTopicLinkPda.toBuffer(),
           ctx.validatorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Try to finalize vote before finalizing submission
@@ -551,7 +551,7 @@ export function runValidationTests(ctx: TestContext): void {
 
         // If we reach here, the test failed
         expect.fail(
-          "Finalizing vote before submission is finalized should be rejected"
+          "Finalizing vote before submission is finalized should be rejected",
         );
       } catch (error) {
         // Expect an error about submission not being finalized

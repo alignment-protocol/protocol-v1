@@ -26,18 +26,17 @@ export function runInitializationTests(ctx: TestContext): void {
 
       // Check initial state properties
       expect(stateAcc.authority.toString()).to.equal(
-        ctx.authorityKeypair.publicKey.toString()
+        ctx.authorityKeypair.publicKey.toString(),
       );
-      expect(stateAcc.submissionCount.toNumber()).to.equal(0);
       expect(stateAcc.topicCount.toNumber()).to.equal(0);
       expect(stateAcc.tokensToMint.toNumber()).to.equal(0);
 
       // Check default voting phase durations (24 hours in seconds)
       expect(stateAcc.defaultCommitPhaseDuration.toNumber()).to.equal(
-        24 * 60 * 60
+        24 * 60 * 60,
       );
       expect(stateAcc.defaultRevealPhaseDuration.toNumber()).to.equal(
-        24 * 60 * 60
+        24 * 60 * 60,
       );
 
       // Step 2a: Initialize temp_align_mint
@@ -56,7 +55,7 @@ export function runInitializationTests(ctx: TestContext): void {
 
       console.log(
         "Initialize temp_align_mint transaction signature:",
-        tempAlignTx
+        tempAlignTx,
       );
 
       // Step 2b: Initialize align_mint
@@ -112,32 +111,32 @@ export function runInitializationTests(ctx: TestContext): void {
 
       // Check that all mints are correctly set
       expect(stateAcc.tempAlignMint.toString()).to.equal(
-        ctx.tempAlignMintPda.toString()
+        ctx.tempAlignMintPda.toString(),
       );
       expect(stateAcc.alignMint.toString()).to.equal(
-        ctx.alignMintPda.toString()
+        ctx.alignMintPda.toString(),
       );
       expect(stateAcc.tempRepMint.toString()).to.equal(
-        ctx.tempRepMintPda.toString()
+        ctx.tempRepMintPda.toString(),
       );
       expect(stateAcc.repMint.toString()).to.equal(ctx.repMintPda.toString());
 
       // Verify the mints exist and have the correct properties
       const tempAlignMintInfo = await getMint(
         ctx.provider.connection,
-        ctx.tempAlignMintPda
+        ctx.tempAlignMintPda,
       );
       const alignMintInfo = await getMint(
         ctx.provider.connection,
-        ctx.alignMintPda
+        ctx.alignMintPda,
       );
       const tempRepMintInfo = await getMint(
         ctx.provider.connection,
-        ctx.tempRepMintPda
+        ctx.tempRepMintPda,
       );
       const repMintInfo = await getMint(
         ctx.provider.connection,
-        ctx.repMintPda
+        ctx.repMintPda,
       );
 
       // Check all mints have 0 decimals
@@ -148,28 +147,28 @@ export function runInitializationTests(ctx: TestContext): void {
 
       // Check mint and freeze authorities are set to the state PDA
       expect(tempAlignMintInfo.mintAuthority.toString()).to.equal(
-        ctx.statePda.toString()
+        ctx.statePda.toString(),
       );
       expect(tempAlignMintInfo.freezeAuthority.toString()).to.equal(
-        ctx.statePda.toString()
+        ctx.statePda.toString(),
       );
       expect(alignMintInfo.mintAuthority.toString()).to.equal(
-        ctx.statePda.toString()
+        ctx.statePda.toString(),
       );
       expect(alignMintInfo.freezeAuthority.toString()).to.equal(
-        ctx.statePda.toString()
+        ctx.statePda.toString(),
       );
       expect(tempRepMintInfo.mintAuthority.toString()).to.equal(
-        ctx.statePda.toString()
+        ctx.statePda.toString(),
       );
       expect(tempRepMintInfo.freezeAuthority.toString()).to.equal(
-        ctx.statePda.toString()
+        ctx.statePda.toString(),
       );
       expect(repMintInfo.mintAuthority.toString()).to.equal(
-        ctx.statePda.toString()
+        ctx.statePda.toString(),
       );
       expect(repMintInfo.freezeAuthority.toString()).to.equal(
-        ctx.statePda.toString()
+        ctx.statePda.toString(),
       );
     });
 

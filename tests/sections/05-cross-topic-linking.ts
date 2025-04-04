@@ -12,7 +12,7 @@ export function runCrossTopicLinkingTests(ctx: TestContext): void {
           ctx.submissionPda.toBuffer(),
           ctx.topic2Pda.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Link the submission to the second topic
@@ -34,10 +34,10 @@ export function runCrossTopicLinkingTests(ctx: TestContext): void {
 
       // Verify the cross-topic link was created correctly
       const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
-        ctx.crossTopicLinkPda
+        ctx.crossTopicLinkPda,
       );
       expect(linkAcc.submission.toString()).to.equal(
-        ctx.submissionPda.toString()
+        ctx.submissionPda.toString(),
       );
       expect(linkAcc.topic.toString()).to.equal(ctx.topic2Pda.toString());
       expect(linkAcc.status.pending).to.not.be.undefined; // Check that status is Pending

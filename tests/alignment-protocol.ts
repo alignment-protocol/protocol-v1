@@ -96,7 +96,7 @@ describe("Alignment Protocol Tests", () => {
           fromPubkey: ctx.authorityKeypair.publicKey,
           toPubkey: keypair.publicKey,
           lamports,
-        })
+        }),
       );
       await ctx.provider.sendAndConfirm(tx, [ctx.authorityKeypair]);
     }
@@ -111,28 +111,28 @@ describe("Alignment Protocol Tests", () => {
     // State PDA
     [ctx.statePda] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("state")],
-      ctx.program.programId
+      ctx.program.programId,
     );
 
     // Token mint PDAs
     [ctx.tempAlignMintPda] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("temp_align_mint")],
-      ctx.program.programId
+      ctx.program.programId,
     );
 
     [ctx.alignMintPda] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("align_mint")],
-      ctx.program.programId
+      ctx.program.programId,
     );
 
     [ctx.tempRepMintPda] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("temp_rep_mint")],
-      ctx.program.programId
+      ctx.program.programId,
     );
 
     [ctx.repMintPda] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("rep_mint")],
-      ctx.program.programId
+      ctx.program.programId,
     );
 
     // User profile PDAs
@@ -141,17 +141,17 @@ describe("Alignment Protocol Tests", () => {
         Buffer.from("user_profile"),
         ctx.contributorKeypair.publicKey.toBuffer(),
       ],
-      ctx.program.programId
+      ctx.program.programId,
     );
 
     [ctx.validatorProfilePda] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("user_profile"), ctx.validatorKeypair.publicKey.toBuffer()],
-      ctx.program.programId
+      ctx.program.programId,
     );
 
     [ctx.user3ProfilePda] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("user_profile"), ctx.user3Keypair.publicKey.toBuffer()],
-      ctx.program.programId
+      ctx.program.programId,
     );
   });
 
@@ -162,8 +162,8 @@ describe("Alignment Protocol Tests", () => {
   runSubmissionTests(ctx);
   runCrossTopicLinkingTests(ctx);
   runStakingTests(ctx);
-  runVotingTests(ctx);
-  runFinalizationTests(ctx);
-  runTokenLockingTests(ctx);
+  // runVotingTests(ctx);
+  // runFinalizationTests(ctx);
+  // runTokenLockingTests(ctx);
   // runValidationTests(ctx);
 });

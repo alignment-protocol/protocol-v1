@@ -7,10 +7,12 @@ This directory contains tests for the Alignment Protocol.
 The tests are organized into sections to make them more maintainable:
 
 - `utils/` - Utility functions and test setup
+
   - `test-setup.ts` - Common setup and context for all tests
   - `constants.ts` - Shared constants
 
 - `sections/` - Individual test sections
+
   - `01-initialization.ts` - Protocol initialization tests
   - `02-topic-management.ts` - Topic creation and management
   - `03-user-setup.ts` - User profile and token account creation
@@ -42,6 +44,7 @@ Note: The tests are sequential and depend on each other, so they must be run in 
 The tests simulate the complete protocol workflow, focusing on two user types (contributors and validators) and their interactions:
 
 1. **Protocol Initialization** (01-initialization.ts)
+
    - **Protocol Authority** initializes the base protocol:
      - Creates the state account (PDA) with default 24-hour commit/reveal phases
      - Initializes four token mints as PDAs:
@@ -53,6 +56,7 @@ The tests simulate the complete protocol workflow, focusing on two user types (c
      - Sets state PDA as mint and freeze authority for all tokens
 
 2. **Topic Management** (02-topic-management.ts)
+
    - **Protocol Authority** creates topic infrastructure:
      - Creates topic accounts using the create_topic instruction
      - Configures topic-specific commit and reveal phase durations
@@ -60,6 +64,7 @@ The tests simulate the complete protocol workflow, focusing on two user types (c
      - Each topic serves as a category for submissions and voting
 
 3. **User Setup** (03-user-setup.ts)
+
    - Both **Contributors** and **Validators** create their profiles:
      - User profile PDAs store participation history and token balances
    - For each user type, protocol establishes:
@@ -71,14 +76,16 @@ The tests simulate the complete protocol workflow, focusing on two user types (c
        - For **Validators**: To receive permanent REP for correct votes
 
 4. **Submission Creation** (04-submission.ts)
+
    - **Contributors** submit data to topics:
-     - Create submissions through the create_submission instruction 
+     - Create submissions through the create_submission instruction
      - Submission data is stored in submission PDAs
      - Submission-topic links are created to categorize submissions
      - **Contributors** receive temporary ALIGN tokens in protocol-owned accounts
      - Token amounts (100 per submission) are tracked in user profiles
 
 5. **Cross-Topic Linking** (05-cross-topic-linking.ts)
+
    - **Contributors** link their existing submissions to additional topics:
      - Create additional submission-topic link PDAs
      - This allows submissions to appear in multiple topic categories
@@ -86,6 +93,7 @@ The tests simulate the complete protocol workflow, focusing on two user types (c
      - No additional tokens are minted for cross-topic links
 
 6. **Token Staking** (06-staking.ts)
+
    - **Validators** stake temporary ALIGN tokens to participate in voting:
      - Acquire temporary ALIGN tokens (simulation gives them some)
      - Stake temp ALIGN through the stake_temp_align instruction
@@ -95,6 +103,7 @@ The tests simulate the complete protocol workflow, focusing on two user types (c
      - Staking prepares validators to participate in the voting process
 
 7. **Voting** (07-voting.ts)
+
    - **Validators** participate in two-phase voting:
      - Commit phase:
        - Submit encrypted vote commitments (hash of choice + secret nonce)

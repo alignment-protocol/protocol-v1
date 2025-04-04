@@ -13,7 +13,7 @@ export function runStakingTests(ctx: TestContext): void {
       const preStakeState = await ctx.program.account.state.fetch(ctx.statePda);
       console.log(
         "State submission count before staking:",
-        preStakeState.submissionCount.toNumber()
+        preStakeState.submissionCount.toNumber(),
       );
 
       // Define the staking amount - stake half of the earned tempAlign tokens
@@ -43,33 +43,33 @@ export function runStakingTests(ctx: TestContext): void {
       // Verify that tempAlign tokens were burned
       const tempAlignAccount = await getAccount(
         ctx.provider.connection,
-        ctx.contributorTempAlignAccount
+        ctx.contributorTempAlignAccount,
       );
       expect(Number(tempAlignAccount.amount)).to.equal(100 - stakeAmount); // 50 burned
 
       // Verify that tempRep tokens were minted
       const tempRepAccount = await getAccount(
         ctx.provider.connection,
-        ctx.contributorTempRepAccount
+        ctx.contributorTempRepAccount,
       );
       expect(Number(tempRepAccount.amount)).to.equal(stakeAmount); // 50 minted
 
       // Verify that the user profile's topic-specific token balances were updated
       const contributorProfile = await ctx.program.account.userProfile.fetch(
-        ctx.contributorProfilePda
+        ctx.contributorProfilePda,
       );
       const topicTokenEntry = contributorProfile.topicTokens.find(
-        (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
+        (pair) => pair.topicId.toNumber() === 0, // Topic ID 0
       );
       expect(topicTokenEntry).to.not.be.undefined;
 
       // Now that we've already checked that topicTokenEntry exists
       expect(topicTokenEntry.topicId.toNumber()).to.equal(0);
       expect(topicTokenEntry.token.tempAlignAmount.toNumber()).to.equal(
-        100 - stakeAmount
+        100 - stakeAmount,
       ); // 50 remaining
       expect(topicTokenEntry.token.tempRepAmount.toNumber()).to.equal(
-        stakeAmount
+        stakeAmount,
       ); // 50 earned
 
       // Now, have the validator also submit data to get tempAlign tokens
@@ -78,32 +78,32 @@ export function runStakingTests(ctx: TestContext): void {
       // The program uses the state's submission_count as the seed for each new submission
       // Let's fetch the state account again to get the fresh submission count
       const updatedStateAcc = await ctx.program.account.state.fetch(
-        ctx.statePda
+        ctx.statePda,
       );
       const currentSubCount = updatedStateAcc.submissionCount.toNumber();
 
       console.log(
         "Current submission count for validator submission:",
-        currentSubCount
+        currentSubCount,
       );
 
       // Derive a new submission PDA for validator submission using the current count
       const submissionCountBuffer = new anchor.BN(currentSubCount).toBuffer(
         "le",
-        8
+        8,
       );
       const [validatorSubmissionPda] = web3.PublicKey.findProgramAddressSync(
         [Buffer.from("submission"), submissionCountBuffer],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       console.log(
         "Validator submission PDA:",
-        validatorSubmissionPda.toBase58()
+        validatorSubmissionPda.toBase58(),
       );
       console.log(
         "Submission count buffer:",
-        Array.from(submissionCountBuffer)
+        Array.from(submissionCountBuffer),
       );
 
       // Derive a new submission-topic link PDA for validator submission
@@ -114,7 +114,7 @@ export function runStakingTests(ctx: TestContext): void {
             validatorSubmissionPda.toBuffer(),
             ctx.topic1Pda.toBuffer(),
           ],
-          ctx.program.programId
+          ctx.program.programId,
         );
 
       // Have validator submit data to earn tokens
@@ -138,7 +138,7 @@ export function runStakingTests(ctx: TestContext): void {
 
       console.log(
         "Validator submission transaction signature:",
-        validatorSubmissionTx
+        validatorSubmissionTx,
       );
 
       // Check the state again after validator's submission
@@ -146,13 +146,13 @@ export function runStakingTests(ctx: TestContext): void {
         await ctx.program.account.state.fetch(ctx.statePda);
       console.log(
         "Submission count AFTER validator submission:",
-        stateAfterValidatorSubmission.submissionCount.toNumber()
+        stateAfterValidatorSubmission.submissionCount.toNumber(),
       );
 
       // Verify validator received tempAlign tokens
       const validatorTempAlignData = await getAccount(
         ctx.provider.connection,
-        ctx.validatorTempAlignAccount
+        ctx.validatorTempAlignAccount,
       );
       expect(Number(validatorTempAlignData.amount)).to.equal(100); // tokens_to_mint value
 
@@ -186,34 +186,34 @@ export function runStakingTests(ctx: TestContext): void {
       // Verify validator's tempAlign tokens were burned and tempRep tokens were minted
       const updatedValidatorTempAlignData = await getAccount(
         ctx.provider.connection,
-        ctx.validatorTempAlignAccount
+        ctx.validatorTempAlignAccount,
       );
       expect(Number(updatedValidatorTempAlignData.amount)).to.equal(
-        100 - validatorStakeAmount
+        100 - validatorStakeAmount,
       );
 
       const validatorTempRepData = await getAccount(
         ctx.provider.connection,
-        ctx.validatorTempRepAccount
+        ctx.validatorTempRepAccount,
       );
       expect(Number(validatorTempRepData.amount)).to.equal(
-        validatorStakeAmount
+        validatorStakeAmount,
       );
 
       // Verify validator's user profile was updated with the topic tokens
       const validatorProfile = await ctx.program.account.userProfile.fetch(
-        ctx.validatorProfilePda
+        ctx.validatorProfilePda,
       );
       const validatorTopicTokenEntry = validatorProfile.topicTokens.find(
-        (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
+        (pair) => pair.topicId.toNumber() === 0, // Topic ID 0
       );
       expect(validatorTopicTokenEntry).to.not.be.undefined;
       expect(validatorTopicTokenEntry.topicId.toNumber()).to.equal(0);
       expect(
-        validatorTopicTokenEntry.token.tempAlignAmount.toNumber()
+        validatorTopicTokenEntry.token.tempAlignAmount.toNumber(),
       ).to.equal(100 - validatorStakeAmount);
       expect(validatorTopicTokenEntry.token.tempRepAmount.toNumber()).to.equal(
-        validatorStakeAmount
+        validatorStakeAmount,
       );
     });
   });

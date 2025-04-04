@@ -9,12 +9,12 @@ export function runSubmissionTests(ctx: TestContext): void {
     it("Submits data to the first topic", async () => {
       // Get the current submission count from state before submission
       const stateAccBefore = await ctx.program.account.state.fetch(
-        ctx.statePda
+        ctx.statePda,
       );
       const currentSubmissionCount = stateAccBefore.submissionCount.toNumber();
       console.log(
         "Current submission count BEFORE first submission:",
-        currentSubmissionCount
+        currentSubmissionCount,
       );
 
       // Derive the submission PDA using the current submission count
@@ -23,7 +23,7 @@ export function runSubmissionTests(ctx: TestContext): void {
           Buffer.from("submission"),
           new anchor.BN(currentSubmissionCount).toBuffer("le", 8),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Derive the submission-topic link PDA
@@ -33,7 +33,7 @@ export function runSubmissionTests(ctx: TestContext): void {
           ctx.submissionPda.toBuffer(),
           ctx.topic1Pda.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Submit data to the first topic
@@ -57,30 +57,30 @@ export function runSubmissionTests(ctx: TestContext): void {
 
       // Get the submission count after the first submission
       const afterSubmitState = await ctx.program.account.state.fetch(
-        ctx.statePda
+        ctx.statePda,
       );
       console.log(
         "Submission count after first submission:",
-        afterSubmitState.submissionCount.toNumber()
+        afterSubmitState.submissionCount.toNumber(),
       );
 
       console.log("Submit data transaction signature:", tx);
 
       // Verify the submission was created correctly
       const submissionAcc = await ctx.program.account.submission.fetch(
-        ctx.submissionPda
+        ctx.submissionPda,
       );
       expect(submissionAcc.contributor.toString()).to.equal(
-        ctx.contributorKeypair.publicKey.toString()
+        ctx.contributorKeypair.publicKey.toString(),
       );
       expect(submissionAcc.dataReference).to.equal(ctx.SUBMISSION_DATA);
 
       // Verify the submission-topic link was created correctly
       const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
-        ctx.submissionTopicLinkPda
+        ctx.submissionTopicLinkPda,
       );
       expect(linkAcc.submission.toString()).to.equal(
-        ctx.submissionPda.toString()
+        ctx.submissionPda.toString(),
       );
       expect(linkAcc.topic.toString()).to.equal(ctx.topic1Pda.toString());
       expect(linkAcc.status.pending).to.not.be.undefined; // Check that status is Pending
@@ -92,7 +92,7 @@ export function runSubmissionTests(ctx: TestContext): void {
       // Verify that tempAlign tokens were minted to the contributor's protocol-owned account
       const contributorTempAlignData = await getAccount(
         ctx.provider.connection,
-        ctx.contributorTempAlignAccount
+        ctx.contributorTempAlignAccount,
       );
       expect(Number(contributorTempAlignData.amount)).to.equal(100); // Should match tokensToMint = 100
 
@@ -106,10 +106,10 @@ export function runSubmissionTests(ctx: TestContext): void {
 
       // Verify the contributor's topic-specific token balance was updated
       const contributorProfile = await ctx.program.account.userProfile.fetch(
-        ctx.contributorProfilePda
+        ctx.contributorProfilePda,
       );
       const topicTokenEntry = contributorProfile.topicTokens.find(
-        (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
+        (pair) => pair.topicId.toNumber() === 0, // Topic ID 0
       );
       expect(topicTokenEntry).to.not.be.undefined;
 

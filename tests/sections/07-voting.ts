@@ -18,7 +18,7 @@ export function runVotingTests(ctx: TestContext): void {
           new anchor.BN(now - 60), // Start 1 minute ago
           new anchor.BN(commitPhaseEnd),
           new anchor.BN(commitPhaseEnd),
-          new anchor.BN(revealPhaseEnd)
+          new anchor.BN(revealPhaseEnd),
         )
         .accounts({
           state: ctx.statePda,
@@ -43,7 +43,7 @@ export function runVotingTests(ctx: TestContext): void {
 
       // Using node's crypto module for hashing
       const voteHash = Array.from(
-        crypto.createHash("sha256").update(message).digest()
+        crypto.createHash("sha256").update(message).digest(),
       );
       ctx.voteHash = voteHash;
 
@@ -54,7 +54,7 @@ export function runVotingTests(ctx: TestContext): void {
           ctx.submissionTopicLinkPda.toBuffer(),
           ctx.validatorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Define vote amount
@@ -82,13 +82,13 @@ export function runVotingTests(ctx: TestContext): void {
 
       // Verify the vote commit was created correctly
       const voteCommitAcc = await ctx.program.account.voteCommit.fetch(
-        ctx.voteCommitPda
+        ctx.voteCommitPda,
       );
       expect(voteCommitAcc.submissionTopicLink.toString()).to.equal(
-        ctx.submissionTopicLinkPda.toString()
+        ctx.submissionTopicLinkPda.toString(),
       );
       expect(voteCommitAcc.validator.toString()).to.equal(
-        ctx.validatorKeypair.publicKey.toString()
+        ctx.validatorKeypair.publicKey.toString(),
       );
 
       // Compare vote hash
@@ -103,7 +103,7 @@ export function runVotingTests(ctx: TestContext): void {
 
       // Verify the submission-topic link vote count was incremented
       const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
-        ctx.submissionTopicLinkPda
+        ctx.submissionTopicLinkPda,
       );
       expect(linkAcc.totalCommittedVotes.toNumber()).to.equal(1);
       expect(linkAcc.totalRevealedVotes.toNumber()).to.equal(0);
@@ -123,7 +123,7 @@ export function runVotingTests(ctx: TestContext): void {
           new anchor.BN(commitPhaseStart),
           new anchor.BN(commitPhaseEnd),
           new anchor.BN(revealPhaseStart),
-          new anchor.BN(revealPhaseEnd)
+          new anchor.BN(revealPhaseEnd),
         )
         .accounts({
           state: ctx.statePda,
@@ -138,14 +138,14 @@ export function runVotingTests(ctx: TestContext): void {
 
       console.log(
         "Set voting phases for reveal transaction signature:",
-        setPhasesTx
+        setPhasesTx,
       );
 
       // Reveal the vote with the same choice and nonce used in the commit
       const tx = await ctx.program.methods
         .revealVote(
           ctx.VOTE_CHOICE_YES, // The Yes vote choice
-          ctx.VOTE_NONCE // The nonce used in the commit
+          ctx.VOTE_NONCE, // The nonce used in the commit
         )
         .accounts({
           state: ctx.statePda,
@@ -164,7 +164,7 @@ export function runVotingTests(ctx: TestContext): void {
 
       // Verify the vote commit was updated correctly
       const voteCommitAcc = await ctx.program.account.voteCommit.fetch(
-        ctx.voteCommitPda
+        ctx.voteCommitPda,
       );
       expect(voteCommitAcc.revealed).to.be.true;
       expect(voteCommitAcc.voteChoice).to.not.be.null;
@@ -172,7 +172,7 @@ export function runVotingTests(ctx: TestContext): void {
 
       // Verify the submission-topic link vote counts were updated
       const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
-        ctx.submissionTopicLinkPda
+        ctx.submissionTopicLinkPda,
       );
       expect(linkAcc.totalRevealedVotes.toNumber()).to.equal(1);
 

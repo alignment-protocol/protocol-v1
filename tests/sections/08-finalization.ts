@@ -23,7 +23,7 @@ export function runFinalizationTests(ctx: TestContext): void {
           new anchor.BN(commitPhaseStart),
           new anchor.BN(commitPhaseEnd),
           new anchor.BN(revealPhaseStart),
-          new anchor.BN(revealPhaseEnd)
+          new anchor.BN(revealPhaseEnd),
         )
         .accounts({
           state: ctx.statePda,
@@ -38,10 +38,10 @@ export function runFinalizationTests(ctx: TestContext): void {
 
       console.log(
         "Set voting phases for finalization transaction signature:",
-        setPhasesTx
+        setPhasesTx,
       );
       console.log(
-        "Note: In a production environment, we would need to wait for the reveal phase to end"
+        "Note: In a production environment, we would need to wait for the reveal phase to end",
       );
 
       // Finalize the submission
@@ -68,36 +68,36 @@ export function runFinalizationTests(ctx: TestContext): void {
 
       // Verify the submission-topic link status changed from Pending to either Accepted or Rejected
       const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
-        ctx.submissionTopicLinkPda
+        ctx.submissionTopicLinkPda,
       );
       expect(linkAcc.status.pending).to.be.undefined; // Should no longer be pending
       // It could be either accepted or rejected depending on voting
       expect(
         linkAcc.status.accepted !== undefined ||
-          linkAcc.status.rejected !== undefined
+          linkAcc.status.rejected !== undefined,
       ).to.be.true;
 
       // Verify that tempAlign tokens were converted to Align tokens
       const tempAlignData = await getAccount(
         ctx.provider.connection,
-        ctx.contributorTempAlignAccount
+        ctx.contributorTempAlignAccount,
       );
       const alignData = await getAccount(
         ctx.provider.connection,
-        ctx.contributorAlignAta
+        ctx.contributorAlignAta,
       );
       const tempRepData = await getAccount(
         ctx.provider.connection,
-        ctx.contributorTempRepAccount
+        ctx.contributorTempRepAccount,
       );
       const repData = await getAccount(
         ctx.provider.connection,
-        ctx.contributorRepAta
+        ctx.contributorRepAta,
       );
 
       console.log(
         "Contributor tempAlign amount:",
-        Number(tempAlignData.amount)
+        Number(tempAlignData.amount),
       );
       console.log("Contributor align amount:", Number(alignData.amount));
       console.log("Contributor tempRep amount:", Number(tempRepData.amount));
@@ -110,10 +110,10 @@ export function runFinalizationTests(ctx: TestContext): void {
 
       // Verify the contributor's topic-specific token balances were updated
       const contributorProfile = await ctx.program.account.userProfile.fetch(
-        ctx.contributorProfilePda
+        ctx.contributorProfilePda,
       );
       const topicTokenEntry = contributorProfile.topicTokens.find(
-        (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
+        (pair) => pair.topicId.toNumber() === 0, // Topic ID 0
       );
       expect(topicTokenEntry).to.not.be.undefined;
 
@@ -126,7 +126,7 @@ export function runFinalizationTests(ctx: TestContext): void {
       // Create ATA for validator's permanent Rep tokens if it doesn't already exist
       const validatorRep = await getAccount(
         ctx.provider.connection,
-        ctx.validatorRepAta
+        ctx.validatorRepAta,
       ).catch(() => null);
 
       if (!validatorRep) {
@@ -152,7 +152,7 @@ export function runFinalizationTests(ctx: TestContext): void {
       // By now, the submission should be finalized (Accepted or Rejected status)
       // Verify the status of the submission-topic link
       const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
-        ctx.submissionTopicLinkPda
+        ctx.submissionTopicLinkPda,
       );
       console.log("Submission-topic link status:", linkAcc.status);
 
@@ -181,26 +181,26 @@ export function runFinalizationTests(ctx: TestContext): void {
 
       // Verify the vote was finalized
       const voteCommitAcc = await ctx.program.account.voteCommit.fetch(
-        ctx.voteCommitPda
+        ctx.voteCommitPda,
       );
       expect(voteCommitAcc.finalized).to.be.true;
 
       // Verify the validator's tempRep tokens were converted to permanent Rep
       const tempAlignData = await getAccount(
         ctx.provider.connection,
-        ctx.validatorTempAlignAccount
+        ctx.validatorTempAlignAccount,
       );
       const alignData = await getAccount(
         ctx.provider.connection,
-        ctx.validatorAlignAta
+        ctx.validatorAlignAta,
       );
       const tempRepData = await getAccount(
         ctx.provider.connection,
-        ctx.validatorTempRepAccount
+        ctx.validatorTempRepAccount,
       );
       const repData = await getAccount(
         ctx.provider.connection,
-        ctx.validatorRepAta
+        ctx.validatorRepAta,
       );
 
       // Since we voted yes and the submission was accepted (vote with consensus),
@@ -221,13 +221,13 @@ export function runFinalizationTests(ctx: TestContext): void {
 
       // Verify that the validator's profile was updated
       const validatorProfile = await ctx.program.account.userProfile.fetch(
-        ctx.validatorProfilePda
+        ctx.validatorProfilePda,
       );
       expect(validatorProfile.permanentRepAmount.toNumber()).to.equal(25);
 
       // Verify the validator's topic-specific token balances were updated
       const topicTokenEntry = validatorProfile.topicTokens.find(
-        (pair) => pair.topicId.toNumber() === 0 // Topic ID 0
+        (pair) => pair.topicId.toNumber() === 0, // Topic ID 0
       );
 
       if (topicTokenEntry) {
@@ -238,7 +238,7 @@ export function runFinalizationTests(ctx: TestContext): void {
 
         // With token locking implementation, ensure locked tokens are released after finalization
         expect(
-          topicTokenEntry.token.lockedTempRepAmount?.toNumber() || 0
+          topicTokenEntry.token.lockedTempRepAmount?.toNumber() || 0,
         ).to.equal(0);
       }
     });
