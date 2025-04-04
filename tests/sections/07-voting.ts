@@ -1,51 +1,93 @@
 import * as anchor from "@coral-xyz/anchor";
 import { expect } from "chai";
-import { web3 } from "@coral-xyz/anchor";
+import { web3, BN } from "@coral-xyz/anchor";
 import { TestContext } from "../utils/test-setup";
 import * as crypto from "crypto";
 
 export function runVotingTests(ctx: TestContext): void {
   describe("Voting", () => {
     it("Commits a vote on the submission", async () => {
-      // Need to adjust voting phases for testing purposes, since we're not waiting for real time in tests
-      const now = Math.floor(Date.now() / 1000); // Current time in seconds
-      const commitPhaseEnd = now + 600; // 10 minutes from now
-      const revealPhaseEnd = commitPhaseEnd + 600; // 10 minutes after commit phase
+      // Fetch the link account to check its state before setting phases
+      let linkAccBefore = await ctx.program.account.submissionTopicLink.fetch(
+        ctx.submissionTopicLinkPda,
+      );
+      console.log(
+        "Link account status before setting phases:",
+        linkAccBefore.status,
+      );
+      console.log(
+        " -> Commit phase:",
+        linkAccBefore.commitPhaseStart.toNumber(),
+        "to",
+        linkAccBefore.commitPhaseEnd.toNumber(),
+      );
+      console.log(
+        " -> Reveal phase:",
+        linkAccBefore.revealPhaseStart.toNumber(),
+        "to",
+        linkAccBefore.revealPhaseEnd.toNumber(),
+      );
 
-      // Set the voting phases to make sure we're within the commit phase
+      // Adjust voting phases for testing - ensure we are within the commit window
+      const now = Math.floor(Date.now() / 1000);
+      const commitStart = now - 60; // Start 1 minute ago to be safe
+      const commitEnd = now + 600; // 10 minutes from now
+      const revealStart = commitEnd;
+      const revealEnd = revealStart + 600; // 10 minutes after commit phase
+
+      console.log(
+        `Setting phases: Commit ${commitStart}-${commitEnd}, Reveal ${revealStart}-${revealEnd}`,
+      );
       const setPhasesTx = await ctx.program.methods
         .setVotingPhases(
-          new anchor.BN(now - 60), // Start 1 minute ago
-          new anchor.BN(commitPhaseEnd),
-          new anchor.BN(commitPhaseEnd),
-          new anchor.BN(revealPhaseEnd),
+          new anchor.BN(commitStart),
+          new anchor.BN(commitEnd),
+          new anchor.BN(revealStart),
+          new anchor.BN(revealEnd),
         )
         .accounts({
           state: ctx.statePda,
           submissionTopicLink: ctx.submissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: ctx.submissionPda,
+          submission: ctx.submissionPda, // Submission associated with the link
           authority: ctx.authorityKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
         })
         .signers([ctx.authorityKeypair])
         .rpc();
-
       console.log("Set voting phases transaction signature:", setPhasesTx);
 
-      // Calculate vote hash from vote choice, nonce, validator and submission-topic link
+      // Verify phases were set
+      linkAccBefore = await ctx.program.account.submissionTopicLink.fetch(
+        ctx.submissionTopicLinkPda,
+      );
+      expect(linkAccBefore.commitPhaseStart.toNumber()).to.equal(commitStart);
+      expect(linkAccBefore.commitPhaseEnd.toNumber()).to.equal(commitEnd);
+      expect(linkAccBefore.revealPhaseStart.toNumber()).to.equal(revealStart);
+      expect(linkAccBefore.revealPhaseEnd.toNumber()).to.equal(revealEnd);
+
+      // Calculate vote hash
+      const voteChoice = ctx.VOTE_CHOICE_YES; // Using { yes: {} }
+      const voteNonce = ctx.VOTE_NONCE; // Using "test-nonce"
+
+      // Ensure voteChoice is represented correctly for hashing (e.g., 0 for Yes, 1 for No)
+      // This depends on how VOTE_CHOICE_YES is defined in test-setup. For now, assume 0.
+      const voteChoiceByte = Buffer.from([0]); // Assuming 0 represents Yes
+
       const message = Buffer.concat([
         ctx.validatorKeypair.publicKey.toBuffer(),
         ctx.submissionTopicLinkPda.toBuffer(),
-        Buffer.from([0]), // Yes vote is 0
-        Buffer.from(ctx.VOTE_NONCE),
+        voteChoiceByte,
+        Buffer.from(voteNonce),
       ]);
-
-      // Using node's crypto module for hashing
       const voteHash = Array.from(
         crypto.createHash("sha256").update(message).digest(),
       );
-      ctx.voteHash = voteHash;
+      ctx.voteHash = voteHash; // Store for reveal test
+      console.log(
+        "Calculated Vote Hash:",
+        Buffer.from(voteHash).toString("hex"),
+      );
 
       // Derive the vote commit PDA
       [ctx.voteCommitPda] = web3.PublicKey.findProgramAddressSync(
@@ -56,14 +98,25 @@ export function runVotingTests(ctx: TestContext): void {
         ],
         ctx.program.programId,
       );
+      console.log("Derived VoteCommit PDA:", ctx.voteCommitPda.toBase58());
 
-      // Define vote amount
-      const voteAmount = 25; // Half of the staked tempRep from earlier
-      const isPermanentRep = false; // Use temporary reputation
+      // Define vote amount and type
+      const validatorBalance = await ctx.program.account.userTopicBalance.fetch(
+        ctx.validatorTopic1BalancePda,
+      );
+      const availableTempRep = validatorBalance.tempRepAmount.toNumber();
+      const voteAmount = new BN(availableTempRep / 2); // Vote with half the available tempRep (25)
+      const isPermanentRep = false; // Using temporary reputation
+      console.log(
+        `Validator ${ctx.validatorKeypair.publicKey.toBase58()} committing vote:`,
+      );
+      console.log(` -> Amount: ${voteAmount.toNumber()} (Temp Rep)`);
+      console.log(` -> Hash: ${Buffer.from(voteHash).toString("hex")}`);
+      console.log(` -> On Link: ${ctx.submissionTopicLinkPda.toBase58()}`);
 
-      // Commit the vote
+      // Commit the vote - *** ADDED userTopicBalance and validatorRepAta ***
       const tx = await ctx.program.methods
-        .commitVote(voteHash, new anchor.BN(voteAmount), isPermanentRep)
+        .commitVote(voteHash, voteAmount, isPermanentRep)
         .accounts({
           state: ctx.statePda,
           submissionTopicLink: ctx.submissionTopicLinkPda,
@@ -71,59 +124,107 @@ export function runVotingTests(ctx: TestContext): void {
           submission: ctx.submissionPda,
           voteCommit: ctx.voteCommitPda,
           userProfile: ctx.validatorProfilePda,
+          userTopicBalance: ctx.validatorTopic1BalancePda, // ADDED
+          validatorRepAta: ctx.validatorRepAta, // ADDED
           validator: ctx.validatorKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
+          // rent: web3.SYSVAR_RENT_PUBKEY, // Implicit
         })
         .signers([ctx.validatorKeypair])
         .rpc();
 
       console.log("Vote commit transaction signature:", tx);
 
-      // Verify the vote commit was created correctly
+      // --- Verification ---
+      // Verify the vote commit account was created
       const voteCommitAcc = await ctx.program.account.voteCommit.fetch(
         ctx.voteCommitPda,
       );
+      console.log("Fetched VoteCommit account:", voteCommitAcc);
       expect(voteCommitAcc.submissionTopicLink.toString()).to.equal(
         ctx.submissionTopicLinkPda.toString(),
       );
       expect(voteCommitAcc.validator.toString()).to.equal(
         ctx.validatorKeypair.publicKey.toString(),
       );
-
-      // Compare vote hash
-      const fetchedHashArray = Array.from(voteCommitAcc.voteHash);
-      expect(fetchedHashArray).to.deep.equal(voteHash);
-
+      expect(Array.from(voteCommitAcc.voteHash)).to.deep.equal(voteHash); // Compare arrays
       expect(voteCommitAcc.revealed).to.be.false;
       expect(voteCommitAcc.finalized).to.be.false;
       expect(voteCommitAcc.voteChoice).to.be.null;
-      expect(voteCommitAcc.voteAmount.toNumber()).to.equal(voteAmount);
+      expect(voteCommitAcc.voteAmount.toNumber()).to.equal(
+        voteAmount.toNumber(),
+      );
       expect(voteCommitAcc.isPermanentRep).to.equal(isPermanentRep);
+      expect(voteCommitAcc.commitTimestamp.toNumber()).to.be.closeTo(now, 60); // Check commit time
 
-      // Verify the submission-topic link vote count was incremented
-      const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
+      // Verify the submission-topic link vote count was updated
+      const linkAccAfter = await ctx.program.account.submissionTopicLink.fetch(
         ctx.submissionTopicLinkPda,
       );
-      expect(linkAcc.totalCommittedVotes.toNumber()).to.equal(1);
-      expect(linkAcc.totalRevealedVotes.toNumber()).to.equal(0);
+      console.log("Link account after commit:", linkAccAfter);
+      expect(linkAccAfter.totalCommittedVotes.toNumber()).to.equal(
+        linkAccBefore.totalCommittedVotes.toNumber() + 1,
+      );
+      expect(linkAccAfter.totalRevealedVotes.toNumber()).to.equal(
+        linkAccBefore.totalRevealedVotes.toNumber(),
+      ); // Should not change yet
+
+      // Verify the validator's UserTopicBalance locked amount was updated
+      const balanceAfter = await ctx.program.account.userTopicBalance.fetch(
+        ctx.validatorTopic1BalancePda,
+      );
+      console.log("Validator UserTopicBalance after commit:", balanceAfter);
+      // Lock amount should increase if using temp rep
+      const expectedLockedAmount = isPermanentRep
+        ? validatorBalance.lockedTempRepAmount.toNumber()
+        : validatorBalance.lockedTempRepAmount.toNumber() +
+          voteAmount.toNumber();
+      expect(balanceAfter.lockedTempRepAmount.toNumber()).to.equal(
+        expectedLockedAmount,
+      );
+      // Available tempRep should decrease if using temp rep
+      const expectedTempRepAmount = isPermanentRep
+        ? validatorBalance.tempRepAmount.toNumber()
+        : validatorBalance.tempRepAmount.toNumber() - voteAmount.toNumber();
+      expect(balanceAfter.tempRepAmount.toNumber()).to.equal(
+        expectedTempRepAmount,
+      );
     });
 
     it("Reveals the committed vote", async () => {
-      // Need to adjust voting phases to make sure we're in the reveal phase
-      const now = Math.floor(Date.now() / 1000); // Current time in seconds
-      const commitPhaseStart = now - 1200; // 20 minutes ago
-      const commitPhaseEnd = now - 600; // 10 minutes ago
-      const revealPhaseStart = commitPhaseEnd; // Reveal phase starts when commit phase ends
-      const revealPhaseEnd = now + 600; // 10 minutes from now
+      // Fetch state before setting phases
+      let linkAccBeforeReveal =
+        await ctx.program.account.submissionTopicLink.fetch(
+          ctx.submissionTopicLinkPda,
+        );
+      let voteCommitBeforeReveal = await ctx.program.account.voteCommit.fetch(
+        ctx.voteCommitPda,
+      );
+      console.log(
+        "Link account status before setting phases for reveal:",
+        linkAccBeforeReveal.status,
+      );
+      console.log(
+        "VoteCommit status before setting phases for reveal:",
+        voteCommitBeforeReveal.revealed,
+      );
 
-      // Set the voting phases to make sure we're within the reveal phase
+      // Adjust voting phases - ensure we are within the reveal window
+      const now = Math.floor(Date.now() / 1000);
+      const commitStart = now - 1200; // 20 minutes ago
+      const commitEnd = now - 600; // 10 minutes ago
+      const revealStart = commitEnd; // Starts immediately after commit ends
+      const revealEnd = now + 600; // 10 minutes from now
+
+      console.log(
+        `Setting phases for reveal: Commit ${commitStart}-${commitEnd}, Reveal ${revealStart}-${revealEnd}`,
+      );
       const setPhasesTx = await ctx.program.methods
         .setVotingPhases(
-          new anchor.BN(commitPhaseStart),
-          new anchor.BN(commitPhaseEnd),
-          new anchor.BN(revealPhaseStart),
-          new anchor.BN(revealPhaseEnd),
+          new anchor.BN(commitStart),
+          new anchor.BN(commitEnd),
+          new anchor.BN(revealStart),
+          new anchor.BN(revealEnd),
         )
         .accounts({
           state: ctx.statePda,
@@ -135,25 +236,40 @@ export function runVotingTests(ctx: TestContext): void {
         })
         .signers([ctx.authorityKeypair])
         .rpc();
-
       console.log(
         "Set voting phases for reveal transaction signature:",
         setPhasesTx,
       );
 
-      // Reveal the vote with the same choice and nonce used in the commit
+      // Verify phases were set correctly
+      linkAccBeforeReveal = await ctx.program.account.submissionTopicLink.fetch(
+        ctx.submissionTopicLinkPda,
+      );
+      expect(linkAccBeforeReveal.revealPhaseStart.toNumber()).to.equal(
+        revealStart,
+      );
+      expect(linkAccBeforeReveal.revealPhaseEnd.toNumber()).to.equal(revealEnd);
+
+      // Use the same choice and nonce from the commit test
+      const voteChoice = ctx.VOTE_CHOICE_YES; // { yes: {} }
+      const voteNonce = ctx.VOTE_NONCE; // "test-nonce"
+      console.log(
+        `Validator ${ctx.validatorKeypair.publicKey.toBase58()} revealing vote:`,
+      );
+      console.log(` -> Choice: ${voteChoice}`);
+      console.log(` -> Nonce: ${voteNonce}`);
+      console.log(` -> For VoteCommit: ${ctx.voteCommitPda.toBase58()}`);
+
+      // Reveal the vote
       const tx = await ctx.program.methods
-        .revealVote(
-          ctx.VOTE_CHOICE_YES, // The Yes vote choice
-          ctx.VOTE_NONCE, // The nonce used in the commit
-        )
+        .revealVote(voteChoice, voteNonce)
         .accounts({
           state: ctx.statePda,
           submissionTopicLink: ctx.submissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.submissionPda,
           voteCommit: ctx.voteCommitPda,
-          userProfile: ctx.validatorProfilePda,
+          userProfile: ctx.validatorProfilePda, // Needed for constraint check
           validator: ctx.validatorKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
         })
@@ -162,24 +278,39 @@ export function runVotingTests(ctx: TestContext): void {
 
       console.log("Vote reveal transaction signature:", tx);
 
-      // Verify the vote commit was updated correctly
-      const voteCommitAcc = await ctx.program.account.voteCommit.fetch(
+      // --- Verification ---
+      // Verify the vote commit account was updated
+      const voteCommitAccAfter = await ctx.program.account.voteCommit.fetch(
         ctx.voteCommitPda,
       );
-      expect(voteCommitAcc.revealed).to.be.true;
-      expect(voteCommitAcc.voteChoice).to.not.be.null;
-      expect(voteCommitAcc.voteChoice.yes).to.not.be.undefined;
+      console.log("VoteCommit account after reveal:", voteCommitAccAfter);
+      expect(voteCommitAccAfter.revealed).to.be.true;
+      expect(voteCommitAccAfter.voteChoice).to.not.be.null;
+      expect(voteCommitAccAfter.voteChoice.yes).to.not.be.undefined; // Check specifically for 'yes'
 
       // Verify the submission-topic link vote counts were updated
-      const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
+      const linkAccAfter = await ctx.program.account.submissionTopicLink.fetch(
         ctx.submissionTopicLinkPda,
       );
-      expect(linkAcc.totalRevealedVotes.toNumber()).to.equal(1);
+      console.log("Link account after reveal:", linkAccAfter);
+      expect(linkAccAfter.totalRevealedVotes.toNumber()).to.equal(
+        linkAccBeforeReveal.totalRevealedVotes.toNumber() + 1,
+      );
 
-      // The vote amount was 25, and the quadratic voting power is sqrt(25) = 5
-      const expectedVotingPower = 5;
-      expect(linkAcc.yesVotingPower.toNumber()).to.equal(expectedVotingPower);
-      expect(linkAcc.noVotingPower.toNumber()).to.equal(0);
+      // Calculate expected voting power (sqrt of vote amount)
+      // Using the amount from the fetched voteCommit account before reveal
+      const voteAmount = voteCommitBeforeReveal.voteAmount.toNumber();
+      const expectedVotingPower = Math.floor(Math.sqrt(voteAmount)); // Use floor for integer sqrt
+      console.log(
+        ` -> Vote Amount: ${voteAmount}, Expected Voting Power (sqrt): ${expectedVotingPower}`,
+      );
+
+      expect(linkAccAfter.yesVotingPower.toNumber()).to.equal(
+        linkAccBeforeReveal.yesVotingPower.toNumber() + expectedVotingPower,
+      );
+      expect(linkAccAfter.noVotingPower.toNumber()).to.equal(
+        linkAccBeforeReveal.noVotingPower.toNumber(),
+      ); // No vote hasn't changed
     });
   });
 }

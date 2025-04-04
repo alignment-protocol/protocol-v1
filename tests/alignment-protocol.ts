@@ -162,7 +162,7 @@ describe("Alignment Protocol Tests", () => {
   runSubmissionTests(ctx);
   runCrossTopicLinkingTests(ctx);
   runStakingTests(ctx);
-  // runVotingTests(ctx);
+  runVotingTests(ctx);
   // runFinalizationTests(ctx);
   // runTokenLockingTests(ctx);
   // runValidationTests(ctx);
