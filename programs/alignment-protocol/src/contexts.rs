@@ -191,11 +191,27 @@ pub struct CommitVote<'info> {
     )]
     pub vote_commit: Account<'info, VoteCommit>,
     
-    #[account(mut)]
+    /// Validator's profile (needed for constraints, maybe not mut unless other fields change)
+    #[account(
+        seeds = [b"user_profile", validator.key().as_ref()],
+        bump,
+        constraint = user_profile.user == validator.key() @ ErrorCode::UserAccountMismatch
+    )]
     pub user_profile: Account<'info, UserProfile>,
     
+    /// Validator's topic-specific balance account for this topic.
+    /// MUST be initialized first. Used only if is_permanent_rep is false.
+    #[account(
+        mut, // Needs to be mutable to update balances
+        seeds = [b"user_topic_balance", validator.key().as_ref(), topic.key().as_ref()],
+        bump = user_topic_balance.bump,
+        constraint = user_topic_balance.user == validator.key() @ ErrorCode::UserAccountMismatch,
+        constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic
+    )]
+    pub user_topic_balance: Account<'info, UserTopicBalance>,
+    
     /// The validator committing the vote
-    #[account(mut, constraint = user_profile.user == validator.key())]
+    #[account(mut)] // Keep mut for payer
     pub validator: Signer<'info>,
     
     pub system_program: Program<'info, System>,
@@ -355,9 +371,25 @@ pub struct FinalizeVote<'info> {
     )]
     pub vote_commit: Account<'info, VoteCommit>,
     
-    /// The validator's user profile
-    #[account(mut)]
+    /// The validator's user profile (profile whose vote is being finalized)
+    #[account(
+        mut, // Needs mut to potentially update permanent_rep_amount
+        seeds = [b"user_profile", vote_commit.validator.as_ref()], // Use validator key from vote_commit
+        bump = validator_profile.bump,
+        constraint = validator_profile.user == vote_commit.validator @ ErrorCode::UserAccountMismatch
+    )]
     pub validator_profile: Account<'info, UserProfile>,
+    
+    /// Validator's topic-specific balance account for this topic.
+    /// Used only if is_permanent_rep was false during commit.
+    #[account(
+        mut, // Needs to be mutable to update locked balance
+        seeds = [b"user_topic_balance", validator_profile.user.as_ref(), topic.key().as_ref()], // Use validator key from profile
+        bump = user_topic_balance.bump,
+        constraint = user_topic_balance.user == validator_profile.user @ ErrorCode::UserAccountMismatch,
+        constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic
+    )]
+    pub user_topic_balance: Account<'info, UserTopicBalance>,
     
     /// The protocol-owned tempRep token account for this validator (for burning)
     #[account(
