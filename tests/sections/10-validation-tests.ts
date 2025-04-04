@@ -468,13 +468,6 @@ export function runValidationTests(ctx: TestContext): void {
       }
     });
 
-    // Note: The "Duplicate Vote Commitment" test is difficult to make reliable here
-    // because the previous test already successfully created ctx.validationVoteCommitPda.
-    // If that previous test failed partway, this test might pass incorrectly.
-    // A better approach might be to try creating *another* vote commit PDA with different seeds
-    // for the *same* validator/link, which *should* be allowed, but then try to commit
-    // using the *original* PDA again. However, the `init` constraint handles the simple case.
-
     it("Prevents revealing with incorrect nonce", async () => {
       await setupVotingPhase(
         ctx,
@@ -572,6 +565,118 @@ export function runValidationTests(ctx: TestContext): void {
       }
     });
 
+    it("Prevents revealing votes after reveal phase ends", async () => {
+      // === Setup for this specific test ===
+      console.log("--- Setting up for 'reveal too late' test ---");
+      // Use User3 to ensure a distinct vote commit PDA from the validator's previous vote
+      const voter = ctx.user3Keypair;
+      const voterProfilePda = ctx.user3ProfilePda;
+      const voterTopicBalancePda = ctx.user3Topic1BalancePda;
+      const voterRepAta = ctx.user3RepAta; // User3's Rep ATA
+
+      // 1. Ensure the validation submission link is in the commit phase
+      await setupVotingPhase(
+        ctx,
+        "commit",
+        ctx.validationSubmissionTopicLinkPda,
+        ctx.validationSubmissionPda,
+      );
+
+      // 2. Commit a vote as User3 on the validation submission
+      const nonce = ctx.VOTE_NONCE_VALIDATION + "user3-reveal-late";
+      const voteHash = createVoteHash(
+        voter,
+        ctx.validationSubmissionTopicLinkPda,
+        0,
+        nonce,
+      );
+      const voteAmount = new BN(1); // Commit a small amount
+
+      // Derive PDA for User3's vote using the STANDARD seeds expected by the program context
+      const [user3VoteCommitPda] = web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("vote_commit"),
+          ctx.validationSubmissionTopicLinkPda.toBuffer(),
+          voter.publicKey.toBuffer(),
+        ],
+        ctx.program.programId,
+      );
+      // Ensure PDA is clean before init
+      try {
+        await ctx.program.account.voteCommit.fetch(user3VoteCommitPda);
+        console.warn(
+          "User3 Vote Commit PDA already exists for validation link. Test might fail.",
+        );
+      } catch (e) {
+        /* Expected */
+      }
+
+      console.log(
+        `Committing vote as User3 (${voter.publicKey.toBase58()}) for 'reveal too late' test...`,
+      );
+      await ctx.program.methods
+        .commitVote(voteHash, voteAmount, false)
+        .accounts({
+          state: ctx.statePda,
+          submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
+          topic: ctx.topic1Pda,
+          submission: ctx.validationSubmissionPda,
+          voteCommit: user3VoteCommitPda, // Use User3's PDA derived with standard seeds
+          userProfile: voterProfilePda,
+          userTopicBalance: voterTopicBalancePda,
+          validatorRepAta: voterRepAta, // Pass User3's Rep ATA
+          validator: voter.publicKey, // User3 is the signer/validator here
+          systemProgram: web3.SystemProgram.programId,
+        })
+        .signers([voter])
+        .rpc();
+      console.log(
+        " -> Committed User3 vote successfully:",
+        user3VoteCommitPda.toBase58(),
+      );
+      const committedVote =
+        await ctx.program.account.voteCommit.fetch(user3VoteCommitPda);
+      expect(committedVote.revealed).to.be.false; // Ensure it's not revealed yet
+
+      // === Actual Test Logic ===
+      // 3. Set phase to *after* reveal phase ended ("finalized")
+      await setupVotingPhase(
+        ctx,
+        "finalized",
+        ctx.validationSubmissionTopicLinkPda,
+        ctx.validationSubmissionPda,
+      );
+
+      // 4. Attempt to reveal User3's vote (which is unrevealed) after the phase ends
+      console.log(
+        "Attempting to reveal User3's vote after reveal phase ended (should fail)...",
+      );
+      try {
+        await ctx.program.methods
+          .revealVote(ctx.VOTE_CHOICE_YES, nonce) // Use the correct nonce
+          .accounts({
+            state: ctx.statePda,
+            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
+            topic: ctx.topic1Pda,
+            submission: ctx.validationSubmissionPda,
+            voteCommit: user3VoteCommitPda, // Target User3's vote commit
+            userProfile: voterProfilePda, // User3's profile
+            validator: voter.publicKey, // User3 is signer
+            systemProgram: web3.SystemProgram.programId,
+          })
+          .signers([voter])
+          .rpc();
+        expect.fail(
+          "Revealing vote after reveal phase ended should be rejected",
+        );
+      } catch (error) {
+        console.log(" -> Received expected error:", error.message);
+        // The !revealed constraint passes, but the time check inside reveal_vote fails
+        expect(error.error.errorCode.code).to.equal("RevealPhaseEnded");
+        expect(error.error.errorMessage).to.include("Reveal phase has ended");
+      }
+    });
+
     it("Prevents finalizing votes before submission is finalized", async () => {
       await setupVotingPhase(
         ctx,
@@ -640,8 +745,8 @@ export function runValidationTests(ctx: TestContext): void {
             submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            contributorProfile: ctx.contributorProfilePda, // The contributor who made the submission
-            userTopicBalance: ctx.contributorTopic1BalancePda, // Contributor's balance
+            contributorProfile: ctx.contributorProfilePda,
+            userTopicBalance: ctx.contributorTopic1BalancePda,
             contributorTempAlignAccount: ctx.contributorTempAlignAccount,
             contributorAlignAta: ctx.contributorAlignAta,
             tempAlignMint: ctx.tempAlignMintPda,
@@ -657,8 +762,10 @@ export function runValidationTests(ctx: TestContext): void {
         );
       } catch (error) {
         console.log(" -> Received expected error:", error.message);
-        expect(error.error.errorCode.code).to.equal("RevealPhaseEnded");
-        expect(error.error.errorMessage).to.include("Reveal phase has ended");
+        expect(error.error.errorCode.code).to.equal("RevealPhaseNotEnded");
+        expect(error.error.errorMessage).to.include(
+          "Reveal phase has not ended yet",
+        );
       }
     });
 
@@ -677,8 +784,8 @@ export function runValidationTests(ctx: TestContext): void {
           submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.validationSubmissionPda,
-          contributorProfile: ctx.contributorProfilePda, // Submitter
-          userTopicBalance: ctx.contributorTopic1BalancePda, // Submitter balance
+          contributorProfile: ctx.contributorProfilePda,
+          userTopicBalance: ctx.contributorTopic1BalancePda,
           contributorTempAlignAccount: ctx.contributorTempAlignAccount,
           contributorAlignAta: ctx.contributorAlignAta,
           tempAlignMint: ctx.tempAlignMintPda,
@@ -695,14 +802,13 @@ export function runValidationTests(ctx: TestContext): void {
       );
       expect(link.status.pending).to.be.undefined;
 
-      // Attempt to finalize again
       console.log("Attempting to finalize submission again (should fail)...");
       try {
         await ctx.program.methods
           .finalizeSubmission()
           .accounts({
             state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda, // Finalized link
+            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
             contributorProfile: ctx.contributorProfilePda,
@@ -733,10 +839,10 @@ export function runValidationTests(ctx: TestContext): void {
         .finalizeVote()
         .accounts({
           state: ctx.statePda,
-          submissionTopicLink: ctx.validationSubmissionTopicLinkPda, // Finalized link
+          submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.validationSubmissionPda,
-          voteCommit: ctx.validationVoteCommitPda, // Revealed vote
+          voteCommit: ctx.validationVoteCommitPda,
           validatorProfile: ctx.validatorProfilePda,
           userTopicBalance: ctx.validatorTopic1BalancePda,
           validatorTempRepAccount: ctx.validatorTempRepAccount,
@@ -755,7 +861,6 @@ export function runValidationTests(ctx: TestContext): void {
       );
       expect(voteCommit.finalized).to.be.true;
 
-      // Attempt to finalize again
       console.log("Attempting to finalize vote again (should fail)...");
       try {
         await ctx.program.methods
@@ -765,7 +870,7 @@ export function runValidationTests(ctx: TestContext): void {
             submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            voteCommit: ctx.validationVoteCommitPda, // Already finalized vote
+            voteCommit: ctx.validationVoteCommitPda,
             validatorProfile: ctx.validatorProfilePda,
             userTopicBalance: ctx.validatorTopic1BalancePda,
             validatorTempRepAccount: ctx.validatorTempRepAccount,
@@ -781,8 +886,6 @@ export function runValidationTests(ctx: TestContext): void {
         expect.fail("Finalizing vote twice should be rejected");
       } catch (error) {
         console.log(" -> Received expected error:", error.message);
-        // finalize_vote instruction logic checks `if ctx.accounts.vote_commit.finalized`
-        // Check error.rs for the corresponding code
         expect(error.error.errorCode.code).to.equal("VoteAlreadyFinalized");
         expect(error.error.errorMessage).to.include(
           "Vote has already been finalized",
