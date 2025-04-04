@@ -1,10 +1,10 @@
+use crate::data::*;
+use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount},
 };
-use crate::data::*;
-use crate::error::ErrorCode;
 
 // Removed legacy context structures
 
@@ -13,7 +13,7 @@ use crate::error::ErrorCode;
 pub struct CreateTopic<'info> {
     #[account(mut, has_one = authority)]
     pub state: Account<'info, State>,
-    
+
     #[account(
         init,
         payer = authority,
@@ -34,10 +34,10 @@ pub struct CreateTopic<'info> {
                 1   // bump
     )]
     pub topic: Account<'info, Topic>,
-    
+
     #[account(mut)]
     pub authority: Signer<'info>,
-    
+
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
@@ -48,17 +48,17 @@ pub struct CreateTopic<'info> {
 pub struct SubmitDataToTopic<'info> {
     #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
-    
+
     #[account(mut, constraint = topic.is_active == true @ ErrorCode::TopicInactive)]
     pub topic: Account<'info, Topic>,
-    
+
     /// The temporary alignment token mint, must be mutable for minting
     #[account(
         mut,
         constraint = temp_align_mint.key() == state.temp_align_mint @ ErrorCode::TokenMintMismatch
     )]
     pub temp_align_mint: Account<'info, Mint>,
-    
+
     /// The protocol-owned tempAlign token account for this contributor
     #[account(
         mut,
@@ -68,7 +68,7 @@ pub struct SubmitDataToTopic<'info> {
         constraint = contributor_temp_align_account.owner == state.key() @ ErrorCode::InvalidTokenAccount
     )]
     pub contributor_temp_align_account: Account<'info, TokenAccount>,
-    
+
     /// The new Submission account - Seeds now use user key + user counter index
     #[account(
         init,
@@ -83,7 +83,7 @@ pub struct SubmitDataToTopic<'info> {
         space = 8 + 32 + 8 + (4 + MAX_DATA_REFERENCE_LENGTH) + 1
     )]
     pub submission: Account<'info, Submission>,
-    
+
     /// The link between submission and topic - Seeds use the derived submission key
     #[account(
         init,
@@ -98,7 +98,7 @@ pub struct SubmitDataToTopic<'info> {
         space = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
-    
+
     /// The contributor's user profile (must exist)
     #[account(
         mut, // Keep mut for incrementing user_submission_count
@@ -107,7 +107,7 @@ pub struct SubmitDataToTopic<'info> {
         constraint = contributor_profile.user == contributor.key() @ ErrorCode::UserAccountMismatch
     )]
     pub contributor_profile: Account<'info, UserProfile>,
-    
+
     /// The UserTopicBalance account for this contributor and topic.
     /// MUST be initialized separately via `initialize_user_topic_balance` first.
     #[account(
@@ -118,14 +118,14 @@ pub struct SubmitDataToTopic<'info> {
         constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic
     )]
     pub user_topic_balance: Account<'info, UserTopicBalance>,
-    
+
     /// The user making the submission
     #[account(mut)]
     pub contributor: Signer<'info>,
-    
+
     #[account(address = anchor_spl::token::ID)]
     pub token_program: Program<'info, Token>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
@@ -134,13 +134,13 @@ pub struct SubmitDataToTopic<'info> {
 pub struct LinkSubmissionToTopic<'info> {
     #[account(mut)]
     pub state: Account<'info, State>,
-    
+
     #[account(mut, constraint = topic.is_active == true)]
     pub topic: Account<'info, Topic>,
-    
+
     /// The existing submission to link to the topic
     pub submission: Account<'info, Submission>,
-    
+
     /// The link between submission and topic
     #[account(
         init,
@@ -155,11 +155,11 @@ pub struct LinkSubmissionToTopic<'info> {
         space = 8 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
-    
+
     /// The user linking the submission to the topic (could be contributor or authority)
     #[account(mut)]
     pub authority: Signer<'info>,
-    
+
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
@@ -168,14 +168,14 @@ pub struct LinkSubmissionToTopic<'info> {
 #[derive(Accounts)]
 pub struct CommitVote<'info> {
     pub state: Account<'info, State>,
-    
+
     #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
-    
+
     pub topic: Account<'info, Topic>,
-    
+
     pub submission: Account<'info, Submission>,
-    
+
     #[account(
         init,
         payer = validator,
@@ -190,7 +190,7 @@ pub struct CommitVote<'info> {
         space = 8 + 32 + 32 + 32 + 1 + 1 + (1 + 1) + 8 + 8 + 1 + 1
     )]
     pub vote_commit: Account<'info, VoteCommit>,
-    
+
     /// Validator's profile (needed for constraints, maybe not mut unless other fields change)
     #[account(
         seeds = [b"user_profile", validator.key().as_ref()],
@@ -198,7 +198,7 @@ pub struct CommitVote<'info> {
         constraint = user_profile.user == validator.key() @ ErrorCode::UserAccountMismatch
     )]
     pub user_profile: Account<'info, UserProfile>,
-    
+
     /// Validator's topic-specific balance account for this topic.
     /// MUST be initialized first. Used only if is_permanent_rep is false.
     #[account(
@@ -209,11 +209,11 @@ pub struct CommitVote<'info> {
         constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic
     )]
     pub user_topic_balance: Account<'info, UserTopicBalance>,
-    
+
     /// The validator committing the vote
     #[account(mut)] // Keep mut for payer
     pub validator: Signer<'info>,
-    
+
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
@@ -222,14 +222,14 @@ pub struct CommitVote<'info> {
 #[derive(Accounts)]
 pub struct RevealVote<'info> {
     pub state: Account<'info, State>,
-    
+
     #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
-    
+
     pub topic: Account<'info, Topic>,
-    
+
     pub submission: Account<'info, Submission>,
-    
+
     #[account(
         mut,
         seeds = [
@@ -243,14 +243,14 @@ pub struct RevealVote<'info> {
         constraint = vote_commit.submission_topic_link == submission_topic_link.key()
     )]
     pub vote_commit: Account<'info, VoteCommit>,
-    
+
     #[account(mut)]
     pub user_profile: Account<'info, UserProfile>,
-    
+
     /// The validator revealing the vote (must match the original committer)
     #[account(mut, constraint = user_profile.user == validator.key())]
     pub validator: Signer<'info>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
@@ -258,18 +258,18 @@ pub struct RevealVote<'info> {
 #[derive(Accounts)]
 pub struct SetVotingPhases<'info> {
     pub state: Account<'info, State>,
-    
+
     #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
-    
+
     pub topic: Account<'info, Topic>,
-    
+
     pub submission: Account<'info, Submission>,
-    
+
     /// Only authority can modify phases
     #[account(mut, constraint = state.authority == authority.key())]
     pub authority: Signer<'info>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
@@ -278,18 +278,18 @@ pub struct SetVotingPhases<'info> {
 pub struct FinalizeSubmission<'info> {
     #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
-    
+
     #[account(
         mut,
         constraint = submission_topic_link.status == SubmissionStatus::Pending,
         constraint = Clock::get()?.unix_timestamp as u64 > submission_topic_link.reveal_phase_end
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
-    
+
     pub topic: Account<'info, Topic>,
-    
+
     pub submission: Account<'info, Submission>,
-    
+
     /// The contributor's user profile with topic-specific token balances
     #[account(
         mut,
@@ -298,7 +298,7 @@ pub struct FinalizeSubmission<'info> {
         constraint = contributor_profile.user == submission.contributor
     )]
     pub contributor_profile: Account<'info, UserProfile>,
-    
+
     /// The protocol-owned tempAlign token account for the contributor
     #[account(
         mut,
@@ -308,7 +308,7 @@ pub struct FinalizeSubmission<'info> {
         constraint = contributor_temp_align_account.owner == state.key()
     )]
     pub contributor_temp_align_account: Account<'info, TokenAccount>,
-    
+
     /// The contributor's ATA for permanent alignment tokens (regular user-owned ATA)
     #[account(
         mut,
@@ -316,33 +316,33 @@ pub struct FinalizeSubmission<'info> {
         constraint = contributor_align_ata.owner == submission.contributor
     )]
     pub contributor_align_ata: Account<'info, TokenAccount>,
-    
+
     /// The tempAlign mint (for burning)
     #[account(
         mut,
         constraint = temp_align_mint.key() == state.temp_align_mint
     )]
     pub temp_align_mint: Account<'info, Mint>,
-    
+
     /// The Align mint (for minting)
     #[account(
         mut,
         constraint = align_mint.key() == state.align_mint
     )]
     pub align_mint: Account<'info, Mint>,
-    
+
     /// The authority calling this instruction (can be any user)
     #[account(mut)]
     pub authority: Signer<'info>,
-    
+
     #[account(address = anchor_spl::token::ID)]
     pub token_program: Program<'info, Token>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
 /// Account constraints for finalizing a validator's vote after submission finalization
-/// 
+///
 /// Note: This design allows anyone to call finalize_vote, not just the validator themselves.
 /// This ensures validators receive rewards or penalties even if they don't explicitly claim them.
 /// Future enhancements could include:
@@ -352,17 +352,17 @@ pub struct FinalizeSubmission<'info> {
 pub struct FinalizeVote<'info> {
     #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
-    
+
     #[account(
         mut,
         constraint = submission_topic_link.status != SubmissionStatus::Pending,
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
-    
+
     pub topic: Account<'info, Topic>,
-    
+
     pub submission: Account<'info, Submission>,
-    
+
     #[account(
         mut,
         constraint = vote_commit.revealed == true,
@@ -370,7 +370,7 @@ pub struct FinalizeVote<'info> {
         constraint = vote_commit.submission_topic_link == submission_topic_link.key()
     )]
     pub vote_commit: Account<'info, VoteCommit>,
-    
+
     /// The validator's user profile (profile whose vote is being finalized)
     #[account(
         mut, // Needs mut to potentially update permanent_rep_amount
@@ -379,7 +379,7 @@ pub struct FinalizeVote<'info> {
         constraint = validator_profile.user == vote_commit.validator @ ErrorCode::UserAccountMismatch
     )]
     pub validator_profile: Account<'info, UserProfile>,
-    
+
     /// Validator's topic-specific balance account for this topic.
     /// Used only if is_permanent_rep was false during commit.
     #[account(
@@ -390,7 +390,7 @@ pub struct FinalizeVote<'info> {
         constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic
     )]
     pub user_topic_balance: Account<'info, UserTopicBalance>,
-    
+
     /// The protocol-owned tempRep token account for this validator (for burning)
     #[account(
         mut,
@@ -400,7 +400,7 @@ pub struct FinalizeVote<'info> {
         constraint = validator_temp_rep_account.owner == state.key()
     )]
     pub validator_temp_rep_account: Account<'info, TokenAccount>,
-    
+
     /// The validator's ATA for permanent reputation tokens (for minting)
     /// This remains user-owned since permanent tokens belong to users
     #[account(
@@ -409,28 +409,28 @@ pub struct FinalizeVote<'info> {
         constraint = validator_rep_ata.owner == validator_profile.user
     )]
     pub validator_rep_ata: Account<'info, TokenAccount>,
-    
+
     /// The tempRep mint (for burning)
     #[account(
         mut,
         constraint = temp_rep_mint.key() == state.temp_rep_mint
     )]
     pub temp_rep_mint: Account<'info, Mint>,
-    
+
     /// The Rep mint (for minting)
     #[account(
         mut,
         constraint = rep_mint.key() == state.rep_mint
     )]
     pub rep_mint: Account<'info, Mint>,
-    
+
     /// The signer finalizing the vote (can be anyone, not just the validator)
     #[account(mut)]
     pub authority: Signer<'info>,
-    
+
     #[account(address = anchor_spl::token::ID)]
     pub token_program: Program<'info, Token>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
@@ -471,7 +471,7 @@ pub struct InitializeTempAlignMint<'info> {
         seeds = [b"temp_align_mint"],
         bump,
         payer = authority,
-        mint::decimals = 0,            
+        mint::decimals = 0,
         mint::authority = state.key(), // The state PDA is the mint authority
         mint::freeze_authority = state.key()
     )]
@@ -501,8 +501,8 @@ pub struct InitializeAlignMint<'info> {
         seeds = [b"align_mint"],
         bump,
         payer = authority,
-        mint::decimals = 0,            
-        mint::authority = state.key(), 
+        mint::decimals = 0,
+        mint::authority = state.key(),
         mint::freeze_authority = state.key()
     )]
     pub align_mint: Account<'info, Mint>,
@@ -531,8 +531,8 @@ pub struct InitializeTempRepMint<'info> {
         seeds = [b"temp_rep_mint"],
         bump,
         payer = authority,
-        mint::decimals = 0,            
-        mint::authority = state.key(), 
+        mint::decimals = 0,
+        mint::authority = state.key(),
         mint::freeze_authority = state.key()
     )]
     pub temp_rep_mint: Account<'info, Mint>,
@@ -561,8 +561,8 @@ pub struct InitializeRepMint<'info> {
         seeds = [b"rep_mint"],
         bump,
         payer = authority,
-        mint::decimals = 0,            
-        mint::authority = state.key(), 
+        mint::decimals = 0,
+        mint::authority = state.key(),
         mint::freeze_authority = state.key()
     )]
     pub rep_mint: Account<'info, Mint>,
@@ -604,8 +604,8 @@ pub struct CreateUserAta<'info> {
     pub user: Signer<'info>,
 
     /// The mint for which we want the user's ATA (only permanent token mints)
-    #[account(mut, constraint = 
-        *mint.to_account_info().key == state.align_mint || 
+    #[account(mut, constraint =
+        *mint.to_account_info().key == state.align_mint ||
         *mint.to_account_info().key == state.rep_mint
     )]
     pub mint: Account<'info, Mint>,
@@ -629,20 +629,20 @@ pub struct CreateUserTempAlignAccount<'info> {
     /// The state account containing protocol configuration
     #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
-    
+
     /// The payer for the transaction
     #[account(mut)]
     pub payer: Signer<'info>,
-    
+
     /// The user for whom we're creating the account (but not the account owner)
     pub user: Signer<'info>,
-    
+
     /// The mint must be the tempAlign mint
-    #[account(mut, constraint = 
+    #[account(mut, constraint =
         *mint.to_account_info().key == state.temp_align_mint
     )]
     pub mint: Account<'info, Mint>,
-    
+
     /// The token account will be a PDA owned by the program
     /// With the state as the authority, not the user
     #[account(
@@ -654,7 +654,7 @@ pub struct CreateUserTempAlignAccount<'info> {
         bump
     )]
     pub token_account: Account<'info, TokenAccount>,
-    
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
@@ -666,20 +666,20 @@ pub struct CreateUserTempRepAccount<'info> {
     /// The state account containing protocol configuration
     #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
-    
+
     /// The payer for the transaction
     #[account(mut)]
     pub payer: Signer<'info>,
-    
+
     /// The user for whom we're creating the account (but not the account owner)
     pub user: Signer<'info>,
-    
+
     /// The mint must be the tempRep mint
-    #[account(mut, constraint = 
+    #[account(mut, constraint =
         *mint.to_account_info().key == state.temp_rep_mint
     )]
     pub mint: Account<'info, Mint>,
-    
+
     /// The token account will be a PDA owned by the program
     /// With the state as the authority, not the user
     #[account(
@@ -691,7 +691,7 @@ pub struct CreateUserTempRepAccount<'info> {
         bump
     )]
     pub token_account: Account<'info, TokenAccount>,
-    
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,

@@ -29,13 +29,13 @@ pub fn commit_vote(
     if vote_amount == 0 {
         return Err(ErrorCode::ZeroVoteAmount.into());
     }
-    
+
     // IMPORTANT: Prevent self-voting by checking if the validator is the submission contributor
     if ctx.accounts.validator.key() == ctx.accounts.submission.contributor {
         msg!("Self-voting is not allowed: validators cannot vote on their own submissions");
         return Err(ErrorCode::SelfVotingNotAllowed.into());
     }
-    
+
     // Check if vote has already been committed (examine if vote_commit is initialized)
     if ctx.accounts.vote_commit.validator != Pubkey::default() {
         msg!("You have already committed a vote for this submission-topic pair");
@@ -72,25 +72,35 @@ pub fn commit_vote(
         if !found_topic || topic_temp_rep < vote_amount {
             return Err(ErrorCode::NoReputationForTopic.into());
         }
-        
+
         // Lock the tokens by moving them from available to locked
         // Update the user's topic-specific token balance
         let user_profile = &mut ctx.accounts.user_profile;
         for topic_pair in user_profile.topic_tokens.iter_mut() {
             if topic_pair.topic_id == topic_id {
                 // Decrease available balance
-                topic_pair.token.temp_rep_amount = topic_pair.token.temp_rep_amount
+                topic_pair.token.temp_rep_amount = topic_pair
+                    .token
+                    .temp_rep_amount
                     .checked_sub(vote_amount)
                     .ok_or(ErrorCode::Overflow)?;
-                
+
                 // Increase locked balance
-                topic_pair.token.locked_temp_rep_amount = topic_pair.token.locked_temp_rep_amount
+                topic_pair.token.locked_temp_rep_amount = topic_pair
+                    .token
+                    .locked_temp_rep_amount
                     .checked_add(vote_amount)
                     .ok_or(ErrorCode::Overflow)?;
-                
+
                 msg!("Locked {} tempRep tokens for voting", vote_amount);
-                msg!("New available balance: {}", topic_pair.token.temp_rep_amount);
-                msg!("New locked balance: {}", topic_pair.token.locked_temp_rep_amount);
+                msg!(
+                    "New available balance: {}",
+                    topic_pair.token.temp_rep_amount
+                );
+                msg!(
+                    "New locked balance: {}",
+                    topic_pair.token.locked_temp_rep_amount
+                );
                 break;
             }
         }
@@ -399,18 +409,15 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
         for topic_pair in validator_profile.topic_tokens.iter_mut() {
             if topic_pair.topic_id == topic_id {
                 found_topic = true;
-                
+
                 // Unlock the tokens that were committed to this vote
                 topic_pair.token.locked_temp_rep_amount = topic_pair
                     .token
                     .locked_temp_rep_amount
                     .checked_sub(vote_amount)
                     .ok_or(ErrorCode::Overflow)?;
-                
-                msg!(
-                    "Unlocked {} tempRep tokens from locked pool",
-                    vote_amount
-                );
+
+                msg!("Unlocked {} tempRep tokens from locked pool", vote_amount);
                 msg!(
                     "New locked balance: {}",
                     topic_pair.token.locked_temp_rep_amount

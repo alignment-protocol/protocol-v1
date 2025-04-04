@@ -91,10 +91,10 @@ pub enum ErrorCode {
 
     #[msg("Invalid voting phase order")]
     InvalidPhaseOrder,
-    
+
     #[msg("Self-voting is not allowed: validators cannot vote on their own submissions")]
     SelfVotingNotAllowed,
-    
+
     #[msg("You have already committed a vote for this submission-topic pair")]
     DuplicateVoteCommitment,
 
