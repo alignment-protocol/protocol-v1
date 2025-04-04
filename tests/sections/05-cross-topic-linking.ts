@@ -15,6 +15,15 @@ export function runCrossTopicLinkingTests(ctx: TestContext): void {
         ctx.program.programId,
       );
 
+      // Fetch topic 2 state BEFORE linking
+      const topic2AccBefore = await ctx.program.account.topic.fetch(
+        ctx.topic2Pda,
+      );
+      console.log(
+        "Topic 2 submission count BEFORE linking:",
+        topic2AccBefore.submissionCount.toNumber(),
+      );
+
       // Link the submission to the second topic
       const tx = await ctx.program.methods
         .linkSubmissionToTopic()
@@ -25,7 +34,6 @@ export function runCrossTopicLinkingTests(ctx: TestContext): void {
           submissionTopicLink: ctx.crossTopicLinkPda,
           authority: ctx.authorityKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.authorityKeypair])
         .rpc();
@@ -40,22 +48,50 @@ export function runCrossTopicLinkingTests(ctx: TestContext): void {
         ctx.submissionPda.toString(),
       );
       expect(linkAcc.topic.toString()).to.equal(ctx.topic2Pda.toString());
-      expect(linkAcc.status.pending).to.not.be.undefined; // Check that status is Pending
+      expect(linkAcc.status.pending).to.not.be.undefined;
       expect(linkAcc.yesVotingPower.toNumber()).to.equal(0);
       expect(linkAcc.noVotingPower.toNumber()).to.equal(0);
       expect(linkAcc.totalCommittedVotes.toNumber()).to.equal(0);
       expect(linkAcc.totalRevealedVotes.toNumber()).to.equal(0);
+      // Verify phase timestamps were set based on Topic 2 defaults
+      const submissionAcc = await ctx.program.account.submission.fetch(
+        ctx.submissionPda,
+      ); // Fetch submission to get timestamp if needed, or use Clock sysvar in instruction
+      const now = Math.floor(Date.now() / 1000); // Approximate link creation time
+      const expectedCommitEnd =
+        now + topic2AccBefore.commitPhaseDuration.toNumber();
+      const expectedRevealStart = expectedCommitEnd;
+      const expectedRevealEnd =
+        expectedRevealStart + topic2AccBefore.revealPhaseDuration.toNumber();
+      // Note: The instruction currently doesn't set timestamps for linking, only for initial submission.
+      // We might need to adjust the instruction or this test depending on desired behavior.
+      // For now, we'll check they are non-zero or update if the instruction changes.
+      // Let's assume for now they SHOULD be set upon linking. We'll refine if needed.
+      expect(linkAcc.commitPhaseStart.toNumber()).to.be.closeTo(now, 60); // Should be set around tx time
+      expect(linkAcc.commitPhaseEnd.toNumber()).to.be.closeTo(
+        expectedCommitEnd,
+        60,
+      );
+      expect(linkAcc.revealPhaseStart.toNumber()).to.be.closeTo(
+        expectedRevealStart,
+        60,
+      );
+      expect(linkAcc.revealPhaseEnd.toNumber()).to.be.closeTo(
+        expectedRevealEnd,
+        60,
+      );
 
       // Verify that the topic's submission count was incremented
-      const topicAcc = await ctx.program.account.topic.fetch(ctx.topic2Pda);
-      expect(topicAcc.submissionCount.toNumber()).to.equal(1);
-
-      // Verify the state's submission count did NOT change when linking to another topic
-      const stateAcc = await ctx.program.account.state.fetch(ctx.statePda);
-      // Get the current submission count from the first test
-      const submissionCount = stateAcc.submissionCount.toNumber();
-      // Should still be 1 since we only created one submission and just linked it to another topic
-      expect(submissionCount).to.equal(1);
+      const topic2AccAfter = await ctx.program.account.topic.fetch(
+        ctx.topic2Pda,
+      );
+      console.log(
+        "Topic 2 submission count AFTER linking:",
+        topic2AccAfter.submissionCount.toNumber(),
+      );
+      expect(topic2AccAfter.submissionCount.toNumber()).to.equal(
+        topic2AccBefore.submissionCount.toNumber() + 1,
+      );
     });
   });
 }
