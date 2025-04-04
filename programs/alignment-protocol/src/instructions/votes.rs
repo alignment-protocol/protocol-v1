@@ -233,16 +233,16 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
     // Check if the validator voted with the consensus
     let voted_with_consensus = (consensus_is_yes && voted_yes) || (!consensus_is_yes && !voted_yes);
 
-    // Only process token conversions for temporary reputation
-    // With permanent reputation, we don't burn or reward tokens for now
+    // Only process token conversions/burns if temporary reputation was used
     if !ctx.accounts.vote_commit.is_permanent_rep {
         let vote_amount = ctx.accounts.vote_commit.vote_amount;
 
         if voted_with_consensus {
             // Validator voted correctly - convert tempRep to permanent Rep
 
-            // Check if the validator has enough tempRep tokens
+            // Check token balance in protocol-owned tempRep account
             if ctx.accounts.validator_temp_rep_account.amount < vote_amount {
+                msg!("Error: Mismatch between locked amount and tempRep token account balance during finalization.");
                 return Err(ErrorCode::InsufficientTokenBalance.into());
             }
 
@@ -264,7 +264,7 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
 
             token::burn(burn_cpi_ctx, vote_amount)?;
 
-            // 2. Mint permanent Rep tokens
+            // 2. Mint permanent Rep tokens to user-owned ATA
             let state_bump = ctx.accounts.state.bump;
             let seeds = &[b"state".as_ref(), &[state_bump]];
             let signer = &[&seeds[..]];
@@ -281,49 +281,17 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
 
             token::mint_to(mint_cpi_ctx, vote_amount)?;
 
-            // Update validator profile
-            let validator_profile = &mut ctx.accounts.validator_profile;
-            validator_profile.permanent_rep_amount = validator_profile
-                .permanent_rep_amount
-                .checked_add(vote_amount)
-                .ok_or(ErrorCode::Overflow)?;
-
-            // Get the topic ID
-            let topic_id = ctx.accounts.topic.id;
-
-            // Update topic-specific token balances
-            let mut found_topic = false;
-
-            // Find the topic in the user's topic_tokens collection
-            for topic_pair in validator_profile.topic_tokens.iter_mut() {
-                if topic_pair.topic_id == topic_id {
-                    found_topic = true;
-                    // We don't need to decrease tempRepAmount here
-                    // It was already decreased during commit_vote when we moved tokens
-                    // from tempRepAmount to lockedTempRepAmount
-
-                    break;
-                }
-            }
-
-            // We should always find the topic since we already verified in commit_vote
-            if !found_topic {
-                msg!(
-                    "Warning: Topic {} not found in validator's profile during finalization",
-                    topic_id
-                );
-            }
-
             msg!(
-                "Validator voted correctly! Converted {} tempRep to {} permanent Rep",
+                "Validator voted correctly! Converted {} tempRep to {} permanent Rep (minted to ATA)",
                 vote_amount,
                 vote_amount
             );
         } else {
             // Validator voted incorrectly - burn tempRep tokens with no replacement
 
-            // Check if the validator has enough tempRep tokens
+            // Check token balance in protocol-owned tempRep account
             if ctx.accounts.validator_temp_rep_account.amount < vote_amount {
+                msg!("Error: Mismatch between locked amount and tempRep token account balance during finalization.");
                 return Err(ErrorCode::InsufficientTokenBalance.into());
             }
 
@@ -345,82 +313,36 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
 
             token::burn(burn_cpi_ctx, vote_amount)?;
 
-            // Update validator profile
-            let validator_profile = &mut ctx.accounts.validator_profile;
-
-            // Get the topic ID
-            let topic_id = ctx.accounts.topic.id;
-
-            // Update topic-specific token balances
-            let mut found_topic = false;
-
-            // Find the topic in the user's topic_tokens collection
-            for topic_pair in validator_profile.topic_tokens.iter_mut() {
-                if topic_pair.topic_id == topic_id {
-                    found_topic = true;
-                    // We don't need to decrease tempRepAmount here
-                    // It was already decreased during commit_vote when we moved tokens
-                    // from tempRepAmount to lockedTempRepAmount
-
-                    break;
-                }
-            }
-
-            // We should always find the topic since we already verified in commit_vote
-            if !found_topic {
-                msg!(
-                    "Warning: Topic {} not found in validator's profile during finalization",
-                    topic_id
-                );
-            }
-
             msg!(
                 "Validator voted incorrectly. Burned {} tempRep tokens with no replacement",
                 vote_amount
             );
         }
     } else {
-        // Using permanent Rep tokens
-        // For MVP we don't apply penalties to permanent Rep
+        // Using permanent Rep tokens - No conversion/burn/reward/penalty in MVP
         msg!("Vote was made with permanent Rep tokens. No token conversion applied.");
     }
 
-    // Update the locked token balance by reducing the locked amount for this specific vote
+    // Update the locked token balance in UserTopicBalance if tempRep was used
     if !ctx.accounts.vote_commit.is_permanent_rep {
-        // Only update the user topic balance if this vote used temporary reputation tokens
-        let topic_id = ctx.accounts.topic.id;
         let vote_amount = ctx.accounts.vote_commit.vote_amount;
+        let user_topic_balance = &mut ctx.accounts.user_topic_balance;
 
-        // Find the topic in the user's topic_tokens collection and update the locked amount
-        let validator_profile = &mut ctx.accounts.validator_profile;
-        let mut found_topic = false;
+        // Unlock the tokens that were committed to this vote
+        user_topic_balance.locked_temp_rep_amount = user_topic_balance
+            .locked_temp_rep_amount
+            .checked_sub(vote_amount)
+            .ok_or(ErrorCode::Overflow)?;
 
-        for topic_pair in validator_profile.topic_tokens.iter_mut() {
-            if topic_pair.topic_id == topic_id {
-                found_topic = true;
-
-                // Unlock the tokens that were committed to this vote
-                topic_pair.token.locked_temp_rep_amount = topic_pair
-                    .token
-                    .locked_temp_rep_amount
-                    .checked_sub(vote_amount)
-                    .ok_or(ErrorCode::Overflow)?;
-
-                msg!("Unlocked {} tempRep tokens from locked pool", vote_amount);
-                msg!(
-                    "New locked balance: {}",
-                    topic_pair.token.locked_temp_rep_amount
-                );
-                break;
-            }
-        }
-
-        if !found_topic {
-            msg!(
-                "Warning: Topic {} not found in validator's profile when updating locked tokens",
-                topic_id
-            );
-        }
+        msg!(
+            "Unlocked {} tempRep tokens from locked pool in UserTopicBalance for topic {}",
+            vote_amount,
+            ctx.accounts.topic.key()
+        );
+        msg!(
+            "New locked balance in UserTopicBalance: {}",
+            user_topic_balance.locked_temp_rep_amount
+        );
     }
 
     // Mark the vote as finalized
