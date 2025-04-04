@@ -1,4 +1,4 @@
-import { Program, AnchorProvider, web3 } from "@coral-xyz/anchor";
+import { Program, AnchorProvider, web3, BN } from "@coral-xyz/anchor";
 import { AlignmentProtocol } from "../../target/types/alignment_protocol";
 
 // Setup utility functions and shared variables
@@ -48,10 +48,13 @@ export interface TestContext {
 
   // User Topic Balances
   contributorTopic1BalancePda: web3.PublicKey;
+  validatorTopic1BalancePda: web3.PublicKey;
 
   // Submission tracking
   submissionPda: web3.PublicKey;
+  validatorSubmissionPda: web3.PublicKey;
   submissionTopicLinkPda: web3.PublicKey;
+  validatorSubmissionTopicLinkPda: web3.PublicKey;
   crossTopicLinkPda: web3.PublicKey;
 
   // Vote tracking
