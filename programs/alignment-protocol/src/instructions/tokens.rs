@@ -5,7 +5,7 @@ use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::{create, Create},
-    token::{self, Burn, MintTo, Token},
+    token::{self, Burn, MintTo},
 };
 
 pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
