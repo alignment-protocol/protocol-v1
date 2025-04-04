@@ -42,71 +42,61 @@ pub fn commit_vote(
         return Err(ErrorCode::DuplicateVoteCommitment.into());
     }
 
-    // Check if user has enough Rep (either temp or permanent)
+    // Check if user has enough Rep based on the flag
     if is_permanent_rep {
-        // Voting with permanent Rep - can vote across any topic
-        if ctx.accounts.user_profile.permanent_rep_amount < vote_amount {
+        // Voting with permanent Rep - check balance in user-owned ATA
+        if ctx.accounts.validator_rep_ata.amount < vote_amount {
+            msg!(
+                "Insufficient permanent Rep. Required: {}, Available: {}",
+                vote_amount,
+                ctx.accounts.validator_rep_ata.amount
+            );
             return Err(ErrorCode::InsufficientVotingPower.into());
         }
+        // No token locking needed for permanent rep in MVP
+        msg!("Committing vote with {} permanent Rep", vote_amount);
     } else {
-        // Voting with tempRep - can only vote within the topic it was gained for
+        // Voting with tempRep - use the UserTopicBalance account for topic-specific balance
+        let user_topic_balance = &mut ctx.accounts.user_topic_balance;
 
-        // Get the topic ID from the submission-topic link
-        let topic_id = ctx.accounts.topic.id;
-
-        // Check if they have enough topic-specific tempRep for this specific topic
-        let user_profile = &ctx.accounts.user_profile;
-        let mut found_topic = false;
-        let mut topic_temp_rep = 0;
-
-        // Find the topic in the user's topic_tokens collection
-        for topic_pair in user_profile.topic_tokens.iter() {
-            if topic_pair.topic_id == topic_id {
-                found_topic = true;
-                topic_temp_rep = topic_pair.token.temp_rep_amount;
-                break;
-            }
-        }
-
-        // Ensure the user has enough topic-specific tokens
-        if !found_topic || topic_temp_rep < vote_amount {
+        // Check available topic-specific tempRep
+        if user_topic_balance.temp_rep_amount < vote_amount {
+            msg!(
+                "Insufficient tempRep for topic {}. Required: {}, Available: {}",
+                ctx.accounts.topic.key(),
+                vote_amount,
+                user_topic_balance.temp_rep_amount
+            );
             return Err(ErrorCode::NoReputationForTopic.into());
         }
 
-        // Lock the tokens by moving them from available to locked
-        // Update the user's topic-specific token balance
-        let user_profile = &mut ctx.accounts.user_profile;
-        for topic_pair in user_profile.topic_tokens.iter_mut() {
-            if topic_pair.topic_id == topic_id {
-                // Decrease available balance
-                topic_pair.token.temp_rep_amount = topic_pair
-                    .token
-                    .temp_rep_amount
-                    .checked_sub(vote_amount)
-                    .ok_or(ErrorCode::Overflow)?;
+        // Lock the tokens by moving them from available to locked in UserTopicBalance
+        user_topic_balance.temp_rep_amount = user_topic_balance
+            .temp_rep_amount
+            .checked_sub(vote_amount)
+            .ok_or(ErrorCode::Overflow)?;
 
-                // Increase locked balance
-                topic_pair.token.locked_temp_rep_amount = topic_pair
-                    .token
-                    .locked_temp_rep_amount
-                    .checked_add(vote_amount)
-                    .ok_or(ErrorCode::Overflow)?;
+        user_topic_balance.locked_temp_rep_amount = user_topic_balance
+            .locked_temp_rep_amount
+            .checked_add(vote_amount)
+            .ok_or(ErrorCode::Overflow)?;
 
-                msg!("Locked {} tempRep tokens for voting", vote_amount);
-                msg!(
-                    "New available balance: {}",
-                    topic_pair.token.temp_rep_amount
-                );
-                msg!(
-                    "New locked balance: {}",
-                    topic_pair.token.locked_temp_rep_amount
-                );
-                break;
-            }
-        }
+        msg!(
+            "Locked {} tempRep tokens for voting in topic {}",
+            vote_amount,
+            ctx.accounts.topic.key()
+        );
+        msg!(
+            "New available balance in UserTopicBalance: {}",
+            user_topic_balance.temp_rep_amount
+        );
+        msg!(
+            "New locked balance in UserTopicBalance: {}",
+            user_topic_balance.locked_temp_rep_amount
+        );
     }
 
-    // Initialize the vote commit
+    // Initialize the vote commit - store is_permanent_rep flag
     let vote_commit = &mut ctx.accounts.vote_commit;
     vote_commit.submission_topic_link = ctx.accounts.submission_topic_link.key();
     vote_commit.validator = ctx.accounts.validator.key();
@@ -116,11 +106,10 @@ pub fn commit_vote(
     vote_commit.vote_choice = None;
     vote_commit.commit_timestamp = current_time;
     vote_commit.vote_amount = vote_amount;
-    vote_commit.is_permanent_rep = is_permanent_rep;
+    vote_commit.is_permanent_rep = is_permanent_rep; // Store how the vote was made
     vote_commit.bump = ctx.bumps.vote_commit;
 
     // Increment the submission-topic link's committed votes counter
-    // Important: we need to use checked_add to avoid overflow
     let link = &mut ctx.accounts.submission_topic_link;
     msg!(
         "Before increment: total_committed_votes = {}",
@@ -145,7 +134,7 @@ pub fn commit_vote(
         }
     );
     msg!(
-        "After increment: total_committed_votes = {}",
+        "Total committed votes for link now: {}",
         link.total_committed_votes
     );
 
