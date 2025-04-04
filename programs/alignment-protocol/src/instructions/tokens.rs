@@ -25,8 +25,34 @@ pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
     // If the ATA already exists, create(...) will throw an error
     create(cpi_ctx)?;
 
+    // Update the user profile with the newly created ATA address
+    let user_profile = &mut ctx.accounts.user_profile;
+    let user_ata_key = ctx.accounts.user_ata.key();
+    let mint_key = ctx.accounts.mint.key();
+    let state = &ctx.accounts.state;
+
+    if mint_key == state.align_mint {
+        user_profile.user_align_ata = user_ata_key;
+        msg!(
+            "Updated user {} profile with Align ATA {}",
+            ctx.accounts.user.key(),
+            user_ata_key
+        );
+    } else if mint_key == state.rep_mint {
+        user_profile.user_rep_ata = user_ata_key;
+        msg!(
+            "Updated user {} profile with Rep ATA {}",
+            ctx.accounts.user.key(),
+            user_ata_key
+        );
+    } else {
+        // This case should be prevented by the context constraints, but good practice to handle
+        return Err(ErrorCode::TokenMintMismatch.into());
+    }
+
     msg!(
-        "Created permanent token ATA for user {}",
+        "Created permanent token ATA {} for user {}",
+        user_ata_key,
         ctx.accounts.user.key()
     );
     Ok(())
@@ -38,12 +64,24 @@ pub fn create_user_ata(ctx: Context<CreateUserAta>) -> Result<()> {
 /// 1. Is owned by the protocol (state PDA) rather than the user
 /// 2. Has the state PDA as the authority, allowing burns without user signature
 /// 3. Uses PDA with seeds ["user_temp_align", user.key()]
+/// 4. Updates the user's profile with the account address
 pub fn create_user_temp_align_account(ctx: Context<CreateUserTempAlignAccount>) -> Result<()> {
     // The token account is initialized in the context with proper ownership and authority
 
+    // Update the user profile with the newly created token account address
+    let user_profile = &mut ctx.accounts.user_profile;
+    let token_account_key = ctx.accounts.token_account.key();
+    user_profile.user_temp_align_account = token_account_key;
+
     msg!(
-        "Created protocol-owned tempAlign token account for user {}",
+        "Created protocol-owned tempAlign token account {} for user {}",
+        token_account_key,
         ctx.accounts.user.key()
+    );
+    msg!(
+        "Updated user {} profile with tempAlign account {}",
+        ctx.accounts.user.key(),
+        token_account_key
     );
 
     Ok(())
@@ -55,12 +93,24 @@ pub fn create_user_temp_align_account(ctx: Context<CreateUserTempAlignAccount>) 
 /// 1. Is owned by the protocol (state PDA) rather than the user
 /// 2. Has the state PDA as the authority, allowing burns without user signature
 /// 3. Uses PDA with seeds ["user_temp_rep", user.key()]
+/// 4. Updates the user's profile with the account address
 pub fn create_user_temp_rep_account(ctx: Context<CreateUserTempRepAccount>) -> Result<()> {
     // The token account is initialized in the context with proper ownership and authority
 
+    // Update the user profile with the newly created token account address
+    let user_profile = &mut ctx.accounts.user_profile;
+    let token_account_key = ctx.accounts.token_account.key();
+    user_profile.user_temp_rep_account = token_account_key;
+
     msg!(
-        "Created protocol-owned tempRep token account for user {}",
+        "Created protocol-owned tempRep token account {} for user {}",
+        token_account_key,
         ctx.accounts.user.key()
+    );
+    msg!(
+        "Updated user {} profile with tempRep account {}",
+        ctx.accounts.user.key(),
+        token_account_key
     );
 
     Ok(())

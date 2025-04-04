@@ -632,10 +632,20 @@ pub struct CreateUserAta<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    /// The user's profile, needs mut to store the new ATA address
+    #[account(
+        mut,
+        seeds = [b"user_profile", user.key().as_ref()],
+        bump = user_profile.bump,
+        constraint = user_profile.user == user.key() @ ErrorCode::UserAccountMismatch
+    )]
+    pub user_profile: Account<'info, UserProfile>,
+
     /// The mint for which we want the user's ATA (only permanent token mints)
     #[account(mut, constraint =
         *mint.to_account_info().key == state.align_mint ||
         *mint.to_account_info().key == state.rep_mint
+            @ ErrorCode::TokenMintMismatch // Added error code for clarity
     )]
     pub mint: Account<'info, Mint>,
 
@@ -666,9 +676,19 @@ pub struct CreateUserTempAlignAccount<'info> {
     /// The user for whom we're creating the account (but not the account owner)
     pub user: Signer<'info>,
 
+    /// The user's profile, needs mut to store the new token account address
+    #[account(
+        mut,
+        seeds = [b"user_profile", user.key().as_ref()],
+        bump = user_profile.bump,
+        constraint = user_profile.user == user.key() @ ErrorCode::UserAccountMismatch
+    )]
+    pub user_profile: Account<'info, UserProfile>,
+
     /// The mint must be the tempAlign mint
     #[account(mut, constraint =
         *mint.to_account_info().key == state.temp_align_mint
+            @ ErrorCode::TokenMintMismatch // Added error code for clarity
     )]
     pub mint: Account<'info, Mint>,
 
@@ -703,9 +723,19 @@ pub struct CreateUserTempRepAccount<'info> {
     /// The user for whom we're creating the account (but not the account owner)
     pub user: Signer<'info>,
 
+    /// The user's profile, needs mut to store the new token account address
+    #[account(
+        mut,
+        seeds = [b"user_profile", user.key().as_ref()],
+        bump = user_profile.bump,
+        constraint = user_profile.user == user.key() @ ErrorCode::UserAccountMismatch
+    )]
+    pub user_profile: Account<'info, UserProfile>,
+
     /// The mint must be the tempRep mint
     #[account(mut, constraint =
         *mint.to_account_info().key == state.temp_rep_mint
+            @ ErrorCode::TokenMintMismatch // Added error code for clarity
     )]
     pub mint: Account<'info, Mint>,
 
