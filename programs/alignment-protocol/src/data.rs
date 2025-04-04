@@ -117,9 +117,6 @@ pub struct UserTopicBalance {
 /// Topic/Corpus account for organizing submissions
 #[account]
 pub struct Topic {
-    /// Unique identifier for the topic
-    pub id: u64,
-
     /// Name of the topic
     pub name: String,
 
