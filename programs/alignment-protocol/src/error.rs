@@ -112,4 +112,7 @@ pub enum ErrorCode {
 
     #[msg("The data reference cannot be empty")]
     EmptyDataReference,
+
+    #[msg("The provided submission does not match the expected submission.")]
+    InvalidSubmission,
 }
