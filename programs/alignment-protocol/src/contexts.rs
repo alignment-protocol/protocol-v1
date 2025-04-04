@@ -23,7 +23,6 @@ pub struct CreateTopic<'info> {
         ],
         bump,
         space = 8 + // discriminator
-                8 + // id
                 4 + MAX_TOPIC_NAME_LENGTH + // name (string)
                 4 + MAX_TOPIC_DESCRIPTION_LENGTH + // description (string)
                 32 + // authority
@@ -293,57 +292,75 @@ pub struct FinalizeSubmission<'info> {
 
     #[account(
         mut,
-        constraint = submission_topic_link.status == SubmissionStatus::Pending,
-        constraint = Clock::get()?.unix_timestamp as u64 > submission_topic_link.reveal_phase_end
+        constraint = submission_topic_link.status == SubmissionStatus::Pending @ ErrorCode::SubmissionNotPending,
+        constraint = Clock::get()?.unix_timestamp as u64 > submission_topic_link.reveal_phase_end @ ErrorCode::RevealPhaseEnded
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
 
+    #[account(
+        constraint = topic.key() == submission_topic_link.topic @ ErrorCode::InvalidTopic
+    )]
     pub topic: Account<'info, Topic>,
 
+    #[account(
+        constraint = submission.key() == submission_topic_link.submission @ ErrorCode::InvalidSubmission
+    )]
     pub submission: Account<'info, Submission>,
 
-    /// The contributor's user profile with topic-specific token balances
+    /// The contributor's user profile (needed for token account constraints)
     #[account(
-        mut,
         seeds = [b"user_profile", submission.contributor.as_ref()],
-        bump,
-        constraint = contributor_profile.user == submission.contributor
+        bump = contributor_profile.bump,
+        constraint = contributor_profile.user == submission.contributor @ ErrorCode::UserAccountMismatch
     )]
     pub contributor_profile: Account<'info, UserProfile>,
 
-    /// The protocol-owned tempAlign token account for the contributor
+    /// The contributor's topic-specific balance account for this topic.
+    /// This holds the tempAlign to potentially convert.
+    #[account(
+        mut,
+        seeds = [b"user_topic_balance", submission.contributor.as_ref(), topic.key().as_ref()],
+        bump = user_topic_balance.bump,
+        constraint = user_topic_balance.user == submission.contributor @ ErrorCode::UserAccountMismatch,
+        constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic
+    )]
+    pub user_topic_balance: Account<'info, UserTopicBalance>,
+
+    /// The protocol-owned tempAlign token account for the contributor (for burning)
     #[account(
         mut,
         seeds = [b"user_temp_align", submission.contributor.as_ref()],
         bump,
-        constraint = contributor_temp_align_account.mint == state.temp_align_mint,
-        constraint = contributor_temp_align_account.owner == state.key()
+        constraint = contributor_temp_align_account.mint == state.temp_align_mint @ ErrorCode::TokenMintMismatch,
+        constraint = contributor_temp_align_account.owner == state.key() @ ErrorCode::InvalidTokenAccount,
+        constraint = contributor_temp_align_account.key() == contributor_profile.user_temp_align_account @ ErrorCode::InvalidTokenAccount
     )]
     pub contributor_temp_align_account: Account<'info, TokenAccount>,
 
     /// The contributor's ATA for permanent alignment tokens (regular user-owned ATA)
     #[account(
         mut,
-        constraint = contributor_align_ata.mint == state.align_mint,
-        constraint = contributor_align_ata.owner == submission.contributor
+        constraint = contributor_align_ata.mint == state.align_mint @ ErrorCode::TokenMintMismatch,
+        constraint = contributor_align_ata.owner == submission.contributor @ ErrorCode::UserAccountMismatch,
+        constraint = contributor_align_ata.key() == contributor_profile.user_align_ata @ ErrorCode::InvalidTokenAccount
     )]
     pub contributor_align_ata: Account<'info, TokenAccount>,
 
     /// The tempAlign mint (for burning)
     #[account(
         mut,
-        constraint = temp_align_mint.key() == state.temp_align_mint
+        constraint = temp_align_mint.key() == state.temp_align_mint @ ErrorCode::TokenMintMismatch
     )]
     pub temp_align_mint: Account<'info, Mint>,
 
     /// The Align mint (for minting)
     #[account(
         mut,
-        constraint = align_mint.key() == state.align_mint
+        constraint = align_mint.key() == state.align_mint @ ErrorCode::TokenMintMismatch
     )]
     pub align_mint: Account<'info, Mint>,
 
-    /// The authority calling this instruction (can be any user)
+    /// The authority calling this instruction (can be any user, acts as payer)
     #[account(mut)]
     pub authority: Signer<'info>,
 

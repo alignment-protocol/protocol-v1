@@ -179,133 +179,103 @@ pub fn link_submission_to_topic(ctx: Context<LinkSubmissionToTopic>) -> Result<(
 }
 
 pub fn finalize_submission(ctx: Context<FinalizeSubmission>) -> Result<()> {
-    // Calculate final vote tallies
     let link = &mut ctx.accounts.submission_topic_link;
 
     // Determine if the submission is accepted or rejected
     let is_accepted = link.yes_voting_power > link.no_voting_power;
 
-    // Update submission status
+    // Update submission status in the link
     if is_accepted {
         link.status = SubmissionStatus::Accepted;
 
-        // Convert contributor's tempAlign tokens to permanent Align tokens
-        // For simplicity, we assume a 1:1 conversion rate in the MVP
+        // --- Token Conversion Logic ---
+        // Get the amount of tempAlign potentially eligible for conversion from UserTopicBalance
+        let topic_align_balance = ctx.accounts.user_topic_balance.temp_align_amount;
 
-        // Get conversion amount (tempAlign to burn and Align to mint)
-        // In a real implementation, this might be a function of the submission quality
-        let tokens_to_mint = ctx.accounts.state.tokens_to_mint;
+        // Determine conversion amount - use the balance from UserTopicBalance
+        // Cap it at the max mintable amount (state.tokens_to_mint) if needed.
+        let conversion_amount =
+            std::cmp::min(ctx.accounts.state.tokens_to_mint, topic_align_balance);
 
-        // Check if topic-specific balance can be found
-        let topic_id = ctx.accounts.topic.id;
-        let mut topic_align_balance = 0;
-        let mut found_topic = false;
-
-        // Check the contributor's topic-specific token balance
-        for topic_pair in ctx.accounts.contributor_profile.topic_tokens.iter() {
-            if topic_pair.topic_id == topic_id {
-                found_topic = true;
-                topic_align_balance = topic_pair.token.temp_align_amount;
-                break;
-            }
-        }
-
-        // Determine conversion amount based on topic-specific balance
-        let conversion_amount = if found_topic {
-            // Don't try to convert more than what was earned in this topic
-            std::cmp::min(tokens_to_mint, topic_align_balance)
-        } else {
-            // If topic not found, assume they have none from this topic
-            0
-        };
-
-        // If no topic-specific tokens, abort with error
+        // Check if there are any tokens to convert
         if conversion_amount == 0 {
-            return Err(ErrorCode::InsufficientTopicTokens.into());
-        }
-
-        // Check if the contributor has enough tempAlign tokens globally
-        if ctx.accounts.contributor_temp_align_account.amount < conversion_amount {
-            return Err(ErrorCode::InsufficientTokenBalance.into());
-        }
-
-        // 1. Burn tempAlign tokens from contributor's protocol-owned token account
-        // Since the token account is owned by the protocol, we use the state PDA as the authority
-        let state_bump = ctx.accounts.state.bump;
-        let seeds = &[b"state".as_ref(), &[state_bump]];
-        let signer = &[&seeds[..]];
-
-        let burn_cpi_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            Burn {
-                mint: ctx.accounts.temp_align_mint.to_account_info(),
-                from: ctx
-                    .accounts
-                    .contributor_temp_align_account
-                    .to_account_info(),
-                authority: ctx.accounts.state.to_account_info(),
-            },
-        )
-        .with_signer(signer);
-
-        token::burn(burn_cpi_ctx, conversion_amount)?;
-
-        // 2. Mint permanent Align tokens to contributor
-        let state_bump = ctx.accounts.state.bump;
-        let seeds = &[b"state".as_ref(), &[state_bump]];
-        let signer = &[&seeds[..]];
-
-        let mint_cpi_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            MintTo {
-                mint: ctx.accounts.align_mint.to_account_info(),
-                to: ctx.accounts.contributor_align_ata.to_account_info(),
-                authority: ctx.accounts.state.to_account_info(),
-            },
-        )
-        .with_signer(signer);
-
-        token::mint_to(mint_cpi_ctx, conversion_amount)?;
-
-        // Update the contributor's topic-specific balance
-        if found_topic {
-            for topic_pair in ctx.accounts.contributor_profile.topic_tokens.iter_mut() {
-                if topic_pair.topic_id == topic_id {
-                    // Reduce the topic-specific tempAlign amount
-                    topic_pair.token.temp_align_amount = topic_pair
-                        .token
-                        .temp_align_amount
-                        .checked_sub(conversion_amount)
-                        .ok_or(ErrorCode::Overflow)?;
-                    break;
-                }
+            // No tokens were earned in this topic (or state.tokens_to_mint is 0), so nothing to convert.
+            msg!(
+                "Submission accepted, but no tempAlign tokens found in UserTopicBalance for topic {} to convert.",
+                ctx.accounts.topic.key() // Use topic key for logging
+            );
+            // Proceed to log results without token conversion
+        } else {
+            // Check if the protocol-owned tempAlign account has enough balance (safety check)
+            if ctx.accounts.contributor_temp_align_account.amount < conversion_amount {
+                msg!("Error: Mismatch between UserTopicBalance and protocol-owned token account balance.");
+                return Err(ErrorCode::InsufficientTokenBalance.into());
             }
-        }
 
-        msg!(
-            "Submission accepted! Converted {} tempAlign to {} Align for contributor",
-            conversion_amount,
-            conversion_amount
-        );
-        msg!(
-            "Remaining topic-specific tempAlign for topic {}: {}",
-            topic_id,
-            if found_topic {
-                topic_align_balance.saturating_sub(conversion_amount)
-            } else {
-                0
-            }
-        );
+            // 1. Burn tempAlign tokens from contributor's protocol-owned token account
+            let state_bump = ctx.accounts.state.bump;
+            let seeds = &[b"state".as_ref(), &[state_bump]];
+            let signer = &[&seeds[..]];
+
+            let burn_cpi_ctx = CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Burn {
+                    mint: ctx.accounts.temp_align_mint.to_account_info(),
+                    from: ctx
+                        .accounts
+                        .contributor_temp_align_account
+                        .to_account_info(),
+                    authority: ctx.accounts.state.to_account_info(), // State is authority
+                },
+            )
+            .with_signer(signer); // Sign with state PDA signer
+
+            token::burn(burn_cpi_ctx, conversion_amount)?;
+
+            // 2. Mint permanent Align tokens to contributor's user-owned ATA
+            // (Minting logic uses state PDA signer)
+            let mint_cpi_ctx = CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.align_mint.to_account_info(),
+                    to: ctx.accounts.contributor_align_ata.to_account_info(), // Mint to user's ATA
+                    authority: ctx.accounts.state.to_account_info(),          // State is authority
+                },
+            )
+            .with_signer(signer); // Sign with state PDA signer
+
+            token::mint_to(mint_cpi_ctx, conversion_amount)?;
+
+            // Update the contributor's UserTopicBalance by reducing tempAlign amount
+            let user_topic_balance = &mut ctx.accounts.user_topic_balance;
+            user_topic_balance.temp_align_amount = user_topic_balance
+                .temp_align_amount
+                .checked_sub(conversion_amount)
+                .ok_or(ErrorCode::Overflow)?;
+
+            msg!(
+                "Submission accepted! Converted {} tempAlign to {} Align for contributor {}",
+                conversion_amount,
+                conversion_amount,
+                ctx.accounts.submission.contributor // Log contributor key
+            );
+            msg!(
+                "Remaining tempAlign in UserTopicBalance for topic {}: {}",
+                ctx.accounts.topic.key(), // Use topic key for logging
+                user_topic_balance.temp_align_amount  // Log remaining balance directly
+            );
+        }
     } else {
-        // If rejected, no token conversion happens
+        // If rejected, no token conversion happens. Just update status.
         link.status = SubmissionStatus::Rejected;
         msg!("Submission rejected. No token conversion performed.");
     }
 
-    // Log the voting results
+    // Log the voting results (applies to both accepted/rejected)
     msg!(
-        "Finalized submission in topic '{}' with status: {:?}",
-        ctx.accounts.topic.name,
+        "Finalized submission {} in topic '{}' with status: {:?}",
+        ctx.accounts.submission.key(), // Log submission key
+        ctx.accounts.topic.name,       // Use topic name for logging
         link.status
     );
     msg!(
