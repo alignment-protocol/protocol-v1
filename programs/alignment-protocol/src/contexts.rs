@@ -293,7 +293,7 @@ pub struct FinalizeSubmission<'info> {
     #[account(
         mut,
         constraint = submission_topic_link.status == SubmissionStatus::Pending @ ErrorCode::SubmissionNotPending,
-        constraint = Clock::get()?.unix_timestamp as u64 > submission_topic_link.reveal_phase_end @ ErrorCode::RevealPhaseEnded
+        constraint = Clock::get()?.unix_timestamp as u64 > submission_topic_link.reveal_phase_end @ ErrorCode::RevealPhaseNotEnded
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
 

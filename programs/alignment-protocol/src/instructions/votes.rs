@@ -151,8 +151,9 @@ pub fn reveal_vote(ctx: Context<RevealVote>, vote_choice: VoteChoice, nonce: Str
         return Err(ErrorCode::RevealPhaseNotStarted.into());
     }
 
+    // Check if reveal phase has ended - THIS USES RevealPhaseEnded
     if current_time > link.reveal_phase_end {
-        return Err(ErrorCode::RevealPhaseEnded.into());
+        return Err(ErrorCode::RevealPhaseEnded.into()); // Keep this as RevealPhaseEnded
     }
 
     // Reconstruct the hash from the reveal data and verify it matches the commit

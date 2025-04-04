@@ -83,6 +83,9 @@ pub enum ErrorCode {
     #[msg("Reveal phase has ended")]
     RevealPhaseEnded,
 
+    #[msg("Reveal phase has not ended yet")]
+    RevealPhaseNotEnded,
+
     #[msg("Vote has already been finalized")]
     VoteAlreadyFinalized,
 
