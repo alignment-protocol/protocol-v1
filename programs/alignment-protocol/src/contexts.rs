@@ -191,7 +191,7 @@ pub struct CommitVote<'info> {
     )]
     pub vote_commit: Account<'info, VoteCommit>,
 
-    /// Validator's profile (needed for constraints, maybe not mut unless other fields change)
+    /// Validator's profile (needed for constraints and rep_ata check)
     #[account(
         seeds = [b"user_profile", validator.key().as_ref()],
         bump,
@@ -200,9 +200,9 @@ pub struct CommitVote<'info> {
     pub user_profile: Account<'info, UserProfile>,
 
     /// Validator's topic-specific balance account for this topic.
-    /// MUST be initialized first. Used only if is_permanent_rep is false.
+    /// MUST be initialized first. Only used if is_permanent_rep is false.
     #[account(
-        mut, // Needs to be mutable to update balances
+        mut,
         seeds = [b"user_topic_balance", validator.key().as_ref(), topic.key().as_ref()],
         bump = user_topic_balance.bump,
         constraint = user_topic_balance.user == validator.key() @ ErrorCode::UserAccountMismatch,
@@ -210,8 +210,20 @@ pub struct CommitVote<'info> {
     )]
     pub user_topic_balance: Account<'info, UserTopicBalance>,
 
+    /// Validator's permanent Rep ATA (user-owned).
+    /// Only needed if is_permanent_rep is true. We pass it regardless for simplicity,
+    /// but only read its balance conditionally in the instruction.
+    #[account(
+        // No mut needed, just reading balance
+        constraint = validator_rep_ata.mint == state.rep_mint @ ErrorCode::TokenMintMismatch,
+        constraint = validator_rep_ata.owner == validator.key() @ ErrorCode::InvalidTokenAccount,
+        // Ensure ATA corresponds to the profile's stored ATA key
+        constraint = validator_rep_ata.key() == user_profile.user_rep_ata @ ErrorCode::InvalidTokenAccount
+    )]
+    pub validator_rep_ata: Account<'info, TokenAccount>,
+
     /// The validator committing the vote
-    #[account(mut)] // Keep mut for payer
+    #[account(mut)]
     pub validator: Signer<'info>,
 
     pub system_program: Program<'info, System>,
