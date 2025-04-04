@@ -2,9 +2,8 @@
   "name": "alignment-protocol",
   "license": "ISC",
   "scripts": {
-    "trunk": "trunk",
-    "lint": "trunk check",
-    "fmt": "trunk fmt",
+    "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
+    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "test": "anchor test"
   },
   "dependencies": {
