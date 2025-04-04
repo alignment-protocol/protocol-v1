@@ -48,7 +48,7 @@ pub struct SubmitDataToTopic<'info> {
     #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
-    #[account(mut, constraint = topic.is_active == true @ ErrorCode::TopicInactive)]
+    #[account(mut, constraint = topic.is_active @ ErrorCode::TopicInactive)]
     pub topic: Account<'info, Topic>,
 
     /// The temporary alignment token mint, must be mutable for minting
