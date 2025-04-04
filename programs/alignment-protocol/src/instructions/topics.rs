@@ -27,7 +27,6 @@ pub fn create_topic(
     let topic = &mut ctx.accounts.topic;
     let state = &mut ctx.accounts.state;
 
-    topic.id = state.topic_count;
     topic.name = name.clone();
     topic.description = description.clone();
     topic.authority = ctx.accounts.authority.key();
@@ -47,7 +46,7 @@ pub fn create_topic(
         .checked_add(1)
         .ok_or(ErrorCode::Overflow)?;
 
-    msg!("Created new topic: {} (ID: {})", name, topic.id);
+    msg!("Created new topic: {}", name);
     msg!("Description: {}", description);
     msg!(
         "Commit phase duration: {} seconds",
