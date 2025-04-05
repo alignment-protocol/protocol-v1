@@ -906,7 +906,7 @@ pub struct RequestAiValidation<'info> {
 
     /// The link between the submission and the topic
     #[account(
-        seeds = [b"link", topic.key().as_ref(), submission.key().as_ref()],
+        seeds = [b"submission_topic_link", submission.key().as_ref(), topic.key().as_ref()],
         bump = submission_topic_link.bump,
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
