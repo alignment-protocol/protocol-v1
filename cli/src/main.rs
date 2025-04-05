@@ -63,17 +63,19 @@ fn main() -> Result<()> {
                 data_reference,
             } => user::submission::cmd_submit_data_to_topic(&program, topic_id, data_reference)?,
             SubmissionCommands::Link {
-                submission_id,
+                submission_pda,
                 topic_id,
-            } => user::submission::cmd_link_submission_to_topic(&program, submission_id, topic_id)?,
+            } => {
+                user::submission::cmd_link_submission_to_topic(&program, submission_pda, topic_id)?
+            }
             SubmissionCommands::Finalize {
-                submission_id,
+                submission_pda,
                 topic_id,
-            } => user::submission::cmd_finalize_submission(&program, submission_id, topic_id)?,
+            } => user::submission::cmd_finalize_submission(&program, submission_pda, topic_id)?,
         },
         Commands::Vote { subcommand } => match subcommand {
             VoteCommands::Commit {
-                submission_id,
+                submission_pda,
                 topic_id,
                 choice,
                 amount,
@@ -81,7 +83,7 @@ fn main() -> Result<()> {
                 permanent,
             } => user::vote::cmd_commit_vote(
                 &program,
-                submission_id,
+                submission_pda,
                 topic_id,
                 choice,
                 amount,
@@ -89,17 +91,17 @@ fn main() -> Result<()> {
                 permanent,
             )?,
             VoteCommands::Reveal {
-                submission_id,
+                submission_pda,
                 topic_id,
                 choice,
                 nonce,
-            } => user::vote::cmd_reveal_vote(&program, submission_id, topic_id, choice, nonce)?,
+            } => user::vote::cmd_reveal_vote(&program, submission_pda, topic_id, choice, nonce)?,
             VoteCommands::Finalize {
-                submission_id,
+                submission_pda,
                 topic_id,
-            } => user::vote::cmd_finalize_vote(&program, submission_id, topic_id)?,
+            } => user::vote::cmd_finalize_vote(&program, submission_pda, topic_id)?,
             VoteCommands::SetPhases {
-                submission_id,
+                submission_pda,
                 topic_id,
                 commit_start,
                 commit_end,
@@ -109,7 +111,7 @@ fn main() -> Result<()> {
                 println!("[ADMIN] Setting voting phases...");
                 admin::vote::cmd_set_voting_phases(
                     &program,
-                    submission_id,
+                    submission_pda,
                     topic_id,
                     commit_start,
                     commit_end,
@@ -133,19 +135,19 @@ fn main() -> Result<()> {
         },
         Commands::Query { subcommand } => match subcommand {
             QueryCommands::State => user::query::cmd_query_state(&program)?,
-            QueryCommands::Submission { id } => user::query::cmd_query_submission(&program, id)?,
+            QueryCommands::Submission { pda } => user::query::cmd_query_submission(&program, pda)?,
             QueryCommands::Submissions { by, topic } => {
                 user::query::cmd_query_submissions(&program, by, topic)?
             }
             QueryCommands::SubmissionTopic {
-                submission_id,
+                submission_pda,
                 topic_id,
-            } => user::query::cmd_query_submission_topic(&program, submission_id, topic_id)?,
+            } => user::query::cmd_query_submission_topic(&program, submission_pda, topic_id)?,
             QueryCommands::Vote {
-                submission_id,
+                submission_pda,
                 topic_id,
                 validator,
-            } => user::query::cmd_query_vote(&program, submission_id, topic_id, validator)?,
+            } => user::query::cmd_query_vote(&program, submission_pda, topic_id, validator)?,
             QueryCommands::TopicBalance { topic_id, user } => {
                 user::query::cmd_view_user_topic_balance(&program, topic_id, user)?
             }

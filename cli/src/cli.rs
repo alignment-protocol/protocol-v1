@@ -164,9 +164,9 @@ pub enum SubmissionCommands {
 
     /// Link an existing submission to another topic
     Link {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -175,9 +175,9 @@ pub enum SubmissionCommands {
 
     /// Finalize a submission after voting
     Finalize {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -189,9 +189,9 @@ pub enum SubmissionCommands {
 pub enum VoteCommands {
     /// Commit a vote (first phase)
     Commit {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -216,9 +216,9 @@ pub enum VoteCommands {
 
     /// Reveal a vote (second phase)
     Reveal {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -235,9 +235,9 @@ pub enum VoteCommands {
 
     /// Finalize a vote
     Finalize {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -246,9 +246,9 @@ pub enum VoteCommands {
 
     /// [ADMIN] Set arbitrary timestamps for voting phases
     SetPhases {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -308,9 +308,9 @@ pub enum QueryCommands {
 
     /// Get a specific submission
     Submission {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        id: u64,
+        pda: String,
     },
 
     /// List submissions by a specific contributor (optionally filtered by topic)
@@ -326,9 +326,9 @@ pub enum QueryCommands {
 
     /// Get details about submission in a specific topic
     SubmissionTopic {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -337,9 +337,9 @@ pub enum QueryCommands {
 
     /// Get information about a vote
     Vote {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]

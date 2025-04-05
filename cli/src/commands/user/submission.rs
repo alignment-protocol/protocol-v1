@@ -5,6 +5,7 @@ use anchor_client::{
 };
 use anyhow::Result;
 use std::rc::Rc;
+use std::str::FromStr;
 
 use alignment_protocol::{
     accounts as AccountsAll, instruction as InstructionAll, State as StateAccount,
@@ -12,7 +13,7 @@ use alignment_protocol::{
 };
 
 use crate::commands::common::pda::{
-    get_state_pda, get_submission_pda, get_submission_topic_link_pda, get_token_ata, get_topic_pda,
+    get_state_pda, get_submission_topic_link_pda, get_token_ata, get_topic_pda,
     get_user_profile_pda, get_user_temp_token_account_pda, get_user_topic_balance_pda,
 };
 
@@ -137,17 +138,18 @@ pub fn cmd_submit_data_to_topic(
 /// Link an existing submission to another topic
 pub fn cmd_link_submission_to_topic(
     program: &Program<Rc<Keypair>>,
-    submission_id: u64,
+    submission_pda_str: String,
     topic_id: u64,
 ) -> Result<()> {
-    let (submission_pda, _) = get_submission_pda(program, submission_id);
+    let submission_pda = Pubkey::from_str(&submission_pda_str)
+        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
 
     println!(
-        "Linking submission #{} to topic #{}",
-        submission_id, topic_id
+        "Linking submission {} to topic #{}",
+        submission_pda, topic_id
     );
 
     let (state_pda, _) = get_state_pda(program);
@@ -176,12 +178,13 @@ pub fn cmd_link_submission_to_topic(
 /// Finalize a submission after voting
 pub fn cmd_finalize_submission(
     program: &Program<Rc<Keypair>>,
-    submission_id: u64,
+    submission_pda_str: String,
     topic_id: u64,
 ) -> Result<()> {
+    let submission_pda = Pubkey::from_str(&submission_pda_str)
+        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
     let contributor = program.payer();
     let (state_pda, _) = get_state_pda(program);
-    let (submission_pda, _) = get_submission_pda(program, submission_id);
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
@@ -203,8 +206,8 @@ pub fn cmd_finalize_submission(
     let contributor_align_ata = get_token_ata(&original_contributor, &align_mint);
 
     println!(
-        "Finalizing submission #{} in topic #{}",
-        submission_id, topic_id
+        "Finalizing submission {} in topic #{}",
+        submission_pda, topic_id
     );
 
     let accounts = AccountsAll::FinalizeSubmission {

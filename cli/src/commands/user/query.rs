@@ -11,8 +11,8 @@ use alignment_protocol::{
 };
 
 use crate::commands::common::pda::{
-    get_state_pda, get_submission_pda, get_submission_topic_link_pda, get_topic_pda,
-    get_user_profile_pda, get_user_topic_balance_pda, get_vote_commit_pda,
+    get_state_pda, get_submission_topic_link_pda, get_topic_pda, get_user_profile_pda,
+    get_user_topic_balance_pda, get_vote_commit_pda,
 };
 use crate::commands::common::time::get_current_timestamp;
 
@@ -48,15 +48,16 @@ pub fn cmd_query_state(program: &Program<Rc<Keypair>>) -> Result<()> {
 }
 
 /// Query a specific submission
-pub fn cmd_query_submission(program: &Program<Rc<Keypair>>, id: u64) -> Result<()> {
-    let (submission_pda, _) = get_submission_pda(program, id);
+pub fn cmd_query_submission(program: &Program<Rc<Keypair>>, pda_str: String) -> Result<()> {
+    let submission_pda = Pubkey::from_str(&pda_str)
+        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
 
     match program.account::<SubmissionAccount>(submission_pda) {
         Ok(submission) => {
-            println!("Submission #{} ({})", id, submission_pda);
-            println!("Contributor: {}", submission.contributor);
-            println!("Timestamp: {}", submission.timestamp);
-            println!("Data Reference: {}", submission.data_reference);
+            println!("Submission ({})", submission_pda);
+            println!("  Contributor: {}", submission.contributor);
+            println!("  Timestamp: {}", submission.timestamp);
+            println!("  Data Reference: {}", submission.data_reference);
             Ok(())
         }
         Err(e) => Err(anyhow::anyhow!("Submission not found: {}", e)),
@@ -170,17 +171,18 @@ pub fn cmd_query_submissions(
 /// Query details about a submission in a specific topic
 pub fn cmd_query_submission_topic(
     program: &Program<Rc<Keypair>>,
-    submission_id: u64,
+    submission_pda_str: String,
     topic_id: u64,
 ) -> Result<()> {
-    let (submission_pda, _) = get_submission_pda(program, submission_id);
+    let submission_pda = Pubkey::from_str(&submission_pda_str)
+        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
 
     match program.account::<SubmissionTopicLinkAccount>(submission_topic_link_pda) {
         Ok(link) => {
-            println!("Submission #{} in Topic #{}", submission_id, topic_id);
+            println!("Submission {} in Topic #{}", submission_pda, topic_id);
             println!("Link PDA: {}", submission_topic_link_pda);
             println!("Status: {:?}", link.status);
             println!("\nVoting Phases:");
@@ -221,16 +223,17 @@ pub fn cmd_query_submission_topic(
 /// Query vote information
 pub fn cmd_query_vote(
     program: &Program<Rc<Keypair>>,
-    submission_id: u64,
+    submission_pda_str: String,
     topic_id: u64,
     validator_str: Option<String>,
 ) -> Result<()> {
+    let submission_pda = Pubkey::from_str(&submission_pda_str)
+        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
     let validator = match validator_str {
         Some(pubkey_str) => Pubkey::from_str(&pubkey_str)?,
         None => program.payer(),
     };
 
-    let (submission_pda, _) = get_submission_pda(program, submission_id);
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
@@ -239,8 +242,8 @@ pub fn cmd_query_vote(
     match program.account::<VoteCommitAccount>(vote_commit_pda) {
         Ok(vote) => {
             println!(
-                "Vote by {} on Submission #{} in Topic #{}",
-                validator, submission_id, topic_id
+                "Vote by {} on Submission {} in Topic #{}",
+                validator, submission_pda, topic_id
             );
             println!("Vote Commit PDA: {}", vote_commit_pda);
             println!("Vote Hash: {:?}", vote.vote_hash);
