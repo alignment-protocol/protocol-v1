@@ -92,7 +92,8 @@ pub fn cmd_submit_data_to_topic(
 
     if !temp_align_account_exists {
         return Err(anyhow::anyhow!(
-            "Temp align token account not found for '{contributor}'. Has the user run 'create-profile'?"
+            "Temp align token account not found for '{}'. Has the user run 'create-profile'?",
+            contributor
         ));
     }
 
