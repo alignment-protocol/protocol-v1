@@ -5,11 +5,13 @@ This directory contains visual documentation for the Alignment Protocol using Me
 ## Available Diagrams
 
 1. [**Token Flow Diagram**](token-flow.md)
+
    - Illustrates how tokens move through the system
    - Shows the token lifecycle from temporary to permanent
    - Visualizes the conversion and burning mechanisms
 
 2. [**Revenue Sharing Diagram**](revenue-sharing.md)
+
    - Shows the dual-layered revenue sharing model
    - Explains corpus-specific vs. platform revenue distribution
    - Details how revenue is shared between participants
@@ -27,6 +29,7 @@ These diagrams use Mermaid syntax, which is rendered automatically by many Markd
 2. The diagrams will be rendered automatically
 
 If you need to edit these diagrams:
+
 - Modify the Mermaid code in the respective Markdown files
 - Preview changes using a Mermaid-compatible editor or the [Mermaid Live Editor](https://mermaid.live/)
 

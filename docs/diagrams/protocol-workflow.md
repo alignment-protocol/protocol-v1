@@ -90,6 +90,7 @@ flowchart TD
 The Alignment Protocol workflow consists of the following key phases:
 
 ### 1. Protocol Initialization
+
 - Protocol Authority initializes the protocol state
 - Creates four token mints:
   - Temporary ALIGN token mint (for contributors)
@@ -99,17 +100,20 @@ The Alignment Protocol workflow consists of the following key phases:
 - Sets up configuration parameters (e.g., tokens per submission)
 
 ### 2. Topic Creation
+
 - Protocol Authority creates topics with specific parameters
 - Each topic has dedicated commit and reveal phase durations
 - Topics are uniquely identified and organize submissions by category
 
 ### 3. User Setup
+
 - Contributors and Validators create user profiles
 - Protocol establishes token accounts:
   - Protocol-owned temporary token accounts
   - User-owned permanent token accounts (ATAs)
 
 ### 4. Submission Phase
+
 - Contributors submit data to topics
 - Submission data is stored in on-chain PDAs
 - Submission-topic links are created
@@ -117,12 +121,14 @@ The Alignment Protocol workflow consists of the following key phases:
 - Optional: Cross-topic linking for multi-topic submissions
 
 ### 5. Staking Phase
+
 - Validators stake temporary ALIGN tokens to participate in voting
 - Staked temporary ALIGN is burned
 - Temporary REP is minted in 1:1 ratio
 - This REP represents voting power in the protocol
 
 ### 6. Voting Phase
+
 - Two-phase voting system:
   - **Commit Phase**: Validators submit encrypted vote commitments
     - Hash of (vote choice + secret nonce)
@@ -132,7 +138,9 @@ The Alignment Protocol workflow consists of the following key phases:
     - Each validator's vote updates the submission's tallies
 
 ### 7. Finalization Phase
+
 - **Submission Finalization**:
+
   - If accepted (more YES than NO votes):
     - Convert contributor's tempALIGN to permanent ALIGN
     - Send to contributor's personal ATA

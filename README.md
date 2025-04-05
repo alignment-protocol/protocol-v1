@@ -40,6 +40,7 @@ The Alignment Protocol implements a community-driven data quality validation sys
 ## Deployment
 
 The protocol is deployed on Solana devnet at address:
+
 ```
 3NYwpp7xv6m35he2sbWTDKPyzepwQiJq5YkD2AzdHmRc
 ```
