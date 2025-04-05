@@ -33,7 +33,7 @@ pub struct Cli {
     pub cluster: Option<String>,
 
     /// Program ID for the Alignment Protocol
-    #[arg(long, default_value = "3NYwpp7xv6m35he2sbWTDKPyzepwQiJq5YkD2AzdHmRc")]
+    #[arg(long, default_value = "T4E39enXA8obNv8iT8Sx58UoiaEcWCpg1SqBr33d28V")]
     pub program_id: String,
 
     #[command(subcommand)]
