@@ -259,13 +259,21 @@ pub fn cmd_request_ai_validation(
 
     // SubmissionTopicLink PDA
     let (link_pda, _link_bump) = Pubkey::find_program_address(
-        &[b"link", topic_pda.as_ref(), submission_pda.as_ref()],
+        &[
+            b"submission_topic_link",
+            submission_pda.as_ref(),
+            topic_pda.as_ref(),
+        ],
         &program.id(),
     );
 
     // UserTopicBalance PDA
     let (user_balance_pda, _user_balance_bump) = Pubkey::find_program_address(
-        &[b"balance", requester.as_ref(), topic_pda.as_ref()],
+        &[
+            b"user_topic_balance",
+            requester.as_ref(),
+            topic_pda.as_ref(),
+        ],
         &program.id(),
     );
 

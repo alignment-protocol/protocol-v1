@@ -914,7 +914,7 @@ pub struct RequestAiValidation<'info> {
     /// User's balance account for this specific topic (to deduct tempRep)
     #[account(
         mut, // Need mutable access to deduct tokens
-        seeds = [b"balance", requester.key().as_ref(), topic.key().as_ref()],
+        seeds = [b"user_topic_balance", requester.key().as_ref(), topic.key().as_ref()],
         bump = user_topic_balance.bump,
         // Constraint: Ensure user owns this balance account
         constraint = user_topic_balance.user == requester.key() @ ErrorCode::UserAccountMismatch,
