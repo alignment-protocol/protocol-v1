@@ -1,6 +1,6 @@
 use anchor_client::solana_sdk::signature::Keypair;
 use anchor_client::{
-    solana_sdk::{system_program, sysvar},
+    solana_sdk::{pubkey::Pubkey, system_program, sysvar},
     Program,
 };
 use anyhow::Result;
@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use alignment_protocol::{
     accounts as AccountsAll, instruction as InstructionAll, State as StateAccount,
-    Submission as SubmissionAccount, Topic as TopicAccount,
+    Submission as SubmissionAccount,
 };
 
 use crate::commands::common::pda::{
@@ -27,13 +27,54 @@ pub fn cmd_submit_data_to_topic(
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &contributor, &topic_pda);
 
+    match program.rpc().get_account(&user_topic_balance_pda) {
+        Ok(_) => {
+            println!(
+                "UserTopicBalance account found ({}). Proceeding with submission.",
+                user_topic_balance_pda
+            );
+        }
+        Err(e) => {
+            eprintln!(
+                "\nError: User balance account for this topic (PDA: {}) not found.",
+                user_topic_balance_pda
+            );
+            eprintln!(
+                "This usually means the user hasn't interacted with this specific topic yet."
+            );
+            eprintln!("Please run 'alignment-protocol-cli user initialize-topic-balance --topic-id {}' first.", topic_id);
+            return Err(anyhow::anyhow!(
+                "UserTopicBalance account not initialized: {}",
+                e
+            ));
+        }
+    }
+
     let state_data: StateAccount = program.account(state_pda)?;
 
-    let topic_data: TopicAccount = program.account(topic_pda)?;
-    let current_submission_index = topic_data.submission_count;
+    let (contributor_profile_pda, _) = get_user_profile_pda(program, &contributor);
+    let contributor_profile_data: alignment_protocol::UserProfile =
+        match program.account(contributor_profile_pda) {
+            Ok(profile) => profile,
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "Could not fetch user profile {}: {}. Has the user run 'create-profile'?",
+                    contributor_profile_pda,
+                    e
+                ));
+            }
+        };
+    let current_submission_index = contributor_profile_data.user_submission_count;
 
-    let (submission_pda, _) = get_submission_pda(program, current_submission_index);
-    let submission_id = current_submission_index;
+    let (submission_pda, _) = Pubkey::find_program_address(
+        &[
+            b"submission",
+            contributor.as_ref(),
+            &current_submission_index.to_le_bytes(),
+        ],
+        &program.id(),
+    );
+    let submission_id_for_print = current_submission_index;
 
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
@@ -43,22 +84,21 @@ pub fn cmd_submit_data_to_topic(
     let (contributor_temp_align_account_pda, _) =
         get_user_temp_token_account_pda(program, &contributor, "user_temp_align");
 
-    let (contributor_profile_pda, _) = get_user_profile_pda(program, &contributor);
-
-    let profile_exists = program.rpc().get_account(&contributor_profile_pda).is_ok();
-
     let temp_align_account_exists = program
         .rpc()
         .get_account(&contributor_temp_align_account_pda)
         .is_ok();
 
-    if !profile_exists || !temp_align_account_exists {
+    if !temp_align_account_exists {
         return Err(anyhow::anyhow!(
-            "User profile or temp align token account not found. Please ensure '{contributor}' has run 'alignment-protocol-cli user create-profile' and has interacted with the protocol before."
+            "Temp align token account not found for '{contributor}'. Has the user run 'create-profile'?"
         ));
     }
 
-    println!("Submitting data to topic #{}", topic_id);
+    println!(
+        "Submitting data to topic #{} using user submission index {}",
+        topic_id, current_submission_index
+    );
     println!("Data reference: {}", data_reference);
 
     let accounts = AccountsAll::SubmitDataToTopic {
@@ -85,7 +125,10 @@ pub fn cmd_submit_data_to_topic(
         .send()?;
 
     println!("Data submitted successfully (txSig: {})", tx_sig);
-    println!("Derived Submission Index for Topic: {}", submission_id);
+    println!(
+        "User-Specific Submission Index Used: {}",
+        submission_id_for_print
+    );
     println!("Submission PDA: {}", submission_pda);
     println!("Submission-Topic Link PDA: {}", submission_topic_link_pda);
     Ok(())

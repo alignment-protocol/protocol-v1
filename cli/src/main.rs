@@ -53,6 +53,9 @@ fn main() -> Result<()> {
         Commands::User { subcommand } => match subcommand {
             UserCommands::CreateProfile => user::user::cmd_create_user_profile(&program)?,
             UserCommands::Profile { user } => user::user::cmd_view_user_profile(&program, user)?,
+            UserCommands::InitializeTopicBalance { topic_id } => {
+                user::topic::cmd_initialize_user_topic_balance(&program, topic_id)?
+            }
         },
         Commands::Submission { subcommand } => match subcommand {
             SubmissionCommands::Submit {

@@ -140,6 +140,13 @@ pub enum UserCommands {
         #[arg(index = 1)]
         user: Option<String>,
     },
+
+    /// Initialize the UserTopicBalance account for a user and topic
+    InitializeTopicBalance {
+        /// Topic ID to initialize balance for
+        #[arg(long)]
+        topic_id: u64,
+    },
 }
 
 #[derive(Subcommand)]

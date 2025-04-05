@@ -3,9 +3,14 @@ use anchor_client::Program;
 use anyhow::Result;
 use std::rc::Rc;
 
-use alignment_protocol::{State as StateAccount, Topic as TopicAccount};
+use alignment_protocol::{
+    accounts as AccountsAll, instruction as InstructionAll, State as StateAccount,
+    Topic as TopicAccount,
+};
 
-use crate::commands::common::pda::{get_state_pda, get_topic_pda};
+use crate::commands::common::pda::{
+    get_state_pda, get_topic_pda, get_user_profile_pda, get_user_topic_balance_pda,
+};
 
 /// List all topics
 pub fn cmd_list_topics(program: &Program<Rc<Keypair>>) -> Result<()> {
@@ -67,4 +72,71 @@ pub fn cmd_view_topic(program: &Program<Rc<Keypair>>, id: u64) -> Result<()> {
         }
         Err(e) => Err(anyhow::anyhow!("Topic not found: {}", e)),
     }
+}
+
+/// Initialize UserTopicBalance account for the payer and a specific topic
+pub fn cmd_initialize_user_topic_balance(
+    program: &Program<Rc<Keypair>>,
+    topic_id: u64,
+) -> Result<()> {
+    let user = program.payer();
+    let (user_profile_pda, _) = get_user_profile_pda(program, &user);
+    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &user, &topic_pda);
+
+    // Check if user profile exists first (optional but good UX)
+    if program.rpc().get_account(&user_profile_pda).is_err() {
+        return Err(anyhow::anyhow!(
+            "User profile {} not found. Run 'user create-profile' first.",
+            user_profile_pda
+        ));
+    }
+
+    // Check if topic exists (optional but good UX)
+    if program.rpc().get_account(&topic_pda).is_err() {
+        return Err(anyhow::anyhow!(
+            "Topic with ID {} (PDA: {}) not found.",
+            topic_id,
+            topic_pda
+        ));
+    }
+
+    // Check if balance account *already* exists (optional but good UX)
+    if program.rpc().get_account(&user_topic_balance_pda).is_ok() {
+        println!(
+            "UserTopicBalance account {} already exists for topic {}. No action needed.",
+            user_topic_balance_pda, topic_id
+        );
+        return Ok(());
+    }
+
+    println!(
+        "Initializing UserTopicBalance for user {} and topic ID {}",
+        user, topic_id
+    );
+    println!("  User Profile PDA: {}", user_profile_pda);
+    println!("  Topic PDA: {}", topic_pda);
+    println!("  UserTopicBalance PDA: {}", user_topic_balance_pda);
+
+    let accounts = AccountsAll::InitializeUserTopicBalance {
+        user,
+        user_profile: user_profile_pda,
+        topic: topic_pda,
+        user_topic_balance: user_topic_balance_pda,
+        system_program: anchor_client::solana_sdk::system_program::ID, // Use fully qualified path
+        rent: anchor_client::solana_sdk::sysvar::rent::ID,             // Use fully qualified path
+    };
+
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::InitializeUserTopicBalance {})
+        .send()?;
+
+    println!(
+        "UserTopicBalance initialized successfully (txSig: {})",
+        tx_sig
+    );
+
+    Ok(())
 }
