@@ -1,3 +1,4 @@
+use anchor_client::solana_sdk::pubkey::Pubkey;
 use anchor_client::solana_sdk::signature::Keypair;
 use anchor_client::{
     solana_sdk::{system_program, sysvar},
@@ -5,34 +6,44 @@ use anchor_client::{
 };
 use anyhow::Result;
 use std::rc::Rc;
+use std::str::FromStr;
 
 use alignment_protocol::{
     accounts as AccountsAll, instruction as InstructionAll, State as StateAccount,
 };
 
 use crate::commands::common::pda::{
-    get_state_pda, get_submission_pda, get_submission_topic_link_pda, get_token_ata, get_topic_pda,
-    get_user_profile_pda, get_user_temp_token_account_pda, get_vote_commit_pda,
+    get_state_pda, get_submission_topic_link_pda, get_token_ata, get_topic_pda,
+    get_user_profile_pda, get_user_temp_token_account_pda, get_user_topic_balance_pda,
+    get_vote_commit_pda,
 };
 use crate::commands::common::vote::{generate_vote_hash, parse_vote_choice};
 
 /// Commit a vote (first phase)
 pub fn cmd_commit_vote(
     program: &Program<Rc<Keypair>>,
-    submission_id: u64,
+    submission_pda_str: String,
     topic_id: u64,
     choice_str: String,
     amount: u64,
     nonce: String,
     permanent: bool,
 ) -> Result<()> {
+    let submission_pda = Pubkey::from_str(&submission_pda_str)
+        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
+
     let validator = program.payer();
     let (user_profile_pda, _) = get_user_profile_pda(program, &validator);
-    let (submission_pda, _) = get_submission_pda(program, submission_id);
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
     let (vote_commit_pda, _) = get_vote_commit_pda(program, &submission_topic_link_pda, &validator);
+    let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &validator, &topic_pda);
+    let (state_pda, _) = get_state_pda(program);
+
+    let state_data: StateAccount = program.account(state_pda)?;
+    let rep_mint = state_data.rep_mint;
+    let validator_rep_ata = get_token_ata(&validator, &rep_mint);
 
     // Parse vote choice
     let vote_choice = parse_vote_choice(&choice_str)?;
@@ -51,8 +62,8 @@ pub fn cmd_commit_vote(
     }
 
     println!(
-        "Committing {} vote on submission #{} in topic #{}",
-        choice_str, submission_id, topic_id
+        "Committing {} vote on submission {} in topic #{}",
+        choice_str, submission_pda, topic_id
     );
     println!("Vote amount: {}", amount);
     println!(
@@ -62,8 +73,6 @@ pub fn cmd_commit_vote(
     println!("Nonce: {}", nonce);
     println!("Generated hash: {:?}", vote_hash);
 
-    let (state_pda, _) = get_state_pda(program);
-
     let accounts = AccountsAll::CommitVote {
         validator,
         user_profile: user_profile_pda,
@@ -72,6 +81,8 @@ pub fn cmd_commit_vote(
         state: state_pda,
         topic: topic_pda,
         vote_commit: vote_commit_pda,
+        user_topic_balance: user_topic_balance_pda,
+        validator_rep_ata,
         system_program: system_program::ID,
         rent: sysvar::rent::ID,
     };
@@ -95,13 +106,15 @@ pub fn cmd_commit_vote(
 /// Reveal a vote (second phase)
 pub fn cmd_reveal_vote(
     program: &Program<Rc<Keypair>>,
-    submission_id: u64,
+    submission_pda_str: String,
     topic_id: u64,
     choice_str: String,
     nonce: String,
 ) -> Result<()> {
+    let submission_pda = Pubkey::from_str(&submission_pda_str)
+        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
+
     let validator = program.payer();
-    let (submission_pda, _) = get_submission_pda(program, submission_id);
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
@@ -120,8 +133,8 @@ pub fn cmd_reveal_vote(
     }
 
     println!(
-        "Revealing {} vote on submission #{} in topic #{}",
-        choice_str, submission_id, topic_id
+        "Revealing {} vote on submission {} in topic #{}",
+        choice_str, submission_pda, topic_id
     );
     println!("Nonce: {}", nonce);
 
@@ -152,31 +165,32 @@ pub fn cmd_reveal_vote(
 /// Finalize a vote
 pub fn cmd_finalize_vote(
     program: &Program<Rc<Keypair>>,
-    submission_id: u64,
+    submission_pda_str: String,
     topic_id: u64,
 ) -> Result<()> {
+    let submission_pda = Pubkey::from_str(&submission_pda_str)
+        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
+
     let validator = program.payer();
     let (state_pda, _) = get_state_pda(program);
     let (validator_profile_pda, _) = get_user_profile_pda(program, &validator);
-    let (submission_pda, _) = get_submission_pda(program, submission_id);
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
     let (vote_commit_pda, _) = get_vote_commit_pda(program, &submission_topic_link_pda, &validator);
+    let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &validator, &topic_pda);
 
-    // Get mint addresses from state
     let state_data: StateAccount = program.account(state_pda)?;
     let temp_rep_mint = state_data.temp_rep_mint;
     let rep_mint = state_data.rep_mint;
 
-    // Get token accounts
     let (validator_temp_rep_account_pda, _) =
         get_user_temp_token_account_pda(program, &validator, "user_temp_rep");
     let validator_rep_ata = get_token_ata(&validator, &rep_mint);
 
     println!(
-        "Finalizing vote on submission #{} in topic #{}",
-        submission_id, topic_id
+        "Finalizing vote on submission {} in topic #{}",
+        submission_pda, topic_id
     );
 
     let accounts = AccountsAll::FinalizeVote {
@@ -187,6 +201,7 @@ pub fn cmd_finalize_vote(
         topic: topic_pda,
         vote_commit: vote_commit_pda,
         validator_profile: validator_profile_pda,
+        user_topic_balance: user_topic_balance_pda,
         validator_temp_rep_account: validator_temp_rep_account_pda,
         validator_rep_ata,
         temp_rep_mint,

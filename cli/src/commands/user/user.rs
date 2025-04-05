@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use alignment_protocol::{
     accounts as AccountsAll, instruction as InstructionAll, State as StateAccount,
-    UserProfile as UserProfileAccount,
+    UserProfile as UserProfileAccount, UserTopicBalance as UserTopicBalanceAccount,
 };
 
 use crate::commands::common::pda::{
@@ -32,7 +32,6 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
         state: state_pda,
         user_profile: user_profile_pda,
         system_program: system_program::ID,
-        rent: RENT_ID,
     };
 
     let tx_sig = program
@@ -54,6 +53,7 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     let accounts = AccountsAll::CreateUserAta {
         payer: user,
         user,
+        user_profile: user_profile_pda,
         state: state_pda,
         mint: align_mint,
         user_ata: align_ata,
@@ -80,6 +80,7 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     let accounts = AccountsAll::CreateUserAta {
         payer: user,
         user,
+        user_profile: user_profile_pda,
         state: state_pda,
         mint: rep_mint,
         user_ata: rep_ata,
@@ -107,6 +108,7 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     let accounts = AccountsAll::CreateUserTempAlignAccount {
         payer: user,
         user,
+        user_profile: user_profile_pda,
         state: state_pda,
         mint: temp_align_mint,
         token_account: temp_align_account_pda,
@@ -136,6 +138,7 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     let accounts = AccountsAll::CreateUserTempRepAccount {
         payer: user,
         user,
+        user_profile: user_profile_pda,
         state: state_pda,
         mint: temp_rep_mint,
         token_account: temp_rep_account_pda,
@@ -178,32 +181,80 @@ pub fn cmd_view_user_profile(
         Ok(profile) => {
             println!("User Profile for {}", user);
             println!("Profile PDA: {}", user_profile_pda);
-            println!("Permanent reputation: {}", profile.permanent_rep_amount);
+            println!("User Submission Count: {}", profile.user_submission_count);
 
-            if profile.topic_tokens.is_empty() {
-                println!("No topic-specific tokens");
+            // Display optional token account references stored in the profile struct
+            println!("\nToken Account References (Stored in Profile):");
+
+            if profile.user_temp_align_account != Pubkey::default() {
+                println!(
+                    "  User Temp Align Account: {}",
+                    profile.user_temp_align_account
+                );
             } else {
-                println!("\nTopic-specific tokens:");
-                for token_pair in profile.topic_tokens {
-                    println!("  Topic #{}", token_pair.topic_id);
-                    println!("    Temp Align: {}", token_pair.token.temp_align_amount);
-                    println!("    Temp Rep: {}", token_pair.token.temp_rep_amount);
+                println!("  User Temp Align Account: Not Set");
+            }
+            if profile.user_temp_rep_account != Pubkey::default() {
+                println!("  User Temp Rep Account: {}", profile.user_temp_rep_account);
+            } else {
+                println!("  User Temp Rep Account: Not Set");
+            }
+            if profile.user_align_ata != Pubkey::default() {
+                println!("  User Align ATA: {}", profile.user_align_ata);
+            } else {
+                println!("  User Align ATA: Not Set");
+            }
+            if profile.user_rep_ata != Pubkey::default() {
+                println!("  User Rep ATA: {}", profile.user_rep_ata);
+            } else {
+                println!("  User Rep ATA: Not Set");
+            }
+
+            // Display UserTopicBalance accounts
+            println!("\nTopic Balances:");
+            // Fetch ALL UserTopicBalance accounts first
+            match program.accounts::<UserTopicBalanceAccount>(vec![]) {
+                Ok(all_balance_accounts) => {
+                    // Filter client-side
+                    let user_balance_accounts: Vec<_> = all_balance_accounts
+                        .into_iter()
+                        .filter(|(_, balance_account)| balance_account.user == user)
+                        .collect();
+
+                    if user_balance_accounts.is_empty() {
+                        println!("  No topic-specific balances found for this user.");
+                    } else {
+                        for (pda, balance_account) in user_balance_accounts {
+                            // Iterate over filtered list
+                            // Fetching Topic name is skipped for CLI simplicity for now
+                            println!("  Topic PDA: {}", balance_account.topic);
+                            println!("    Balance PDA: {}", pda); // Show the PDA of the balance account itself
+                            println!("    Temp Align: {}", balance_account.temp_align_amount);
+                            println!("    Temp Rep: {}", balance_account.temp_rep_amount);
+                            println!(
+                                "    Locked Temp Rep: {}",
+                                balance_account.locked_temp_rep_amount
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("  Error fetching topic balances: {}", e);
                 }
             }
 
-            // Get state account to access mint addresses
-            let (state_pda, _) = get_state_pda(program);
-            match program.account::<StateAccount>(state_pda) {
+            // Existing code to display actual token account addresses and balances
+            // This remains useful as it shows the derived/expected ATAs/PDAs and their current balances
+            match program.account::<StateAccount>(get_state_pda(program).0) {
                 Ok(state_data) => {
-                    // Show token account addresses and balances
-                    println!("\nToken Accounts:");
+                    println!("\nToken Account Details (Derived & Checked):");
 
                     // Permanent align token account
                     let align_ata = get_token_ata(&user, &state_data.align_mint);
                     let align_balance =
                         match program.account::<anchor_spl::token::TokenAccount>(align_ata) {
-                            Ok(token_account) => token_account.amount,
-                            Err(_) => 0,
+                            Ok(token_account) => token_account.amount.to_string(),
+                            Err(_) => "Not found/created".to_string(),
                         };
                     println!(
                         "  Permanent Align Token ATA: {} (Balance: {})",
@@ -214,8 +265,8 @@ pub fn cmd_view_user_profile(
                     let rep_ata = get_token_ata(&user, &state_data.rep_mint);
                     let rep_balance =
                         match program.account::<anchor_spl::token::TokenAccount>(rep_ata) {
-                            Ok(token_account) => token_account.amount,
-                            Err(_) => 0,
+                            Ok(token_account) => token_account.amount.to_string(),
+                            Err(_) => "Not found/created".to_string(),
                         };
                     println!(
                         "  Permanent Rep Token ATA: {} (Balance: {})",
@@ -228,8 +279,8 @@ pub fn cmd_view_user_profile(
                     let temp_align_balance = match program
                         .account::<anchor_spl::token::TokenAccount>(temp_align_account_pda)
                     {
-                        Ok(token_account) => token_account.amount,
-                        Err(_) => 0,
+                        Ok(token_account) => token_account.amount.to_string(),
+                        Err(_) => "Not found/created".to_string(),
                     };
                     println!(
                         "  Temp Align Token PDA: {} (Balance: {})",
@@ -242,8 +293,8 @@ pub fn cmd_view_user_profile(
                     let temp_rep_balance = match program
                         .account::<anchor_spl::token::TokenAccount>(temp_rep_account_pda)
                     {
-                        Ok(token_account) => token_account.amount,
-                        Err(_) => 0,
+                        Ok(token_account) => token_account.amount.to_string(),
+                        Err(_) => "Not found/created".to_string(),
                     };
                     println!(
                         "  Temp Rep Token PDA: {} (Balance: {})",
@@ -251,16 +302,20 @@ pub fn cmd_view_user_profile(
                     );
                 }
                 Err(e) => {
-                    println!("Could not fetch protocol state: {}", e);
+                    println!(
+                        "\nCould not fetch protocol state to check token accounts: {}",
+                        e
+                    );
                 }
             }
 
             Ok(())
         }
         Err(e) => {
-            println!("User profile not found: {}", e);
-            println!("Create a profile with 'alignment-protocol-cli user create-profile'");
-            Ok(())
+            println!("\nUser profile {} not found: {}", user_profile_pda, e);
+            println!("Hint: Create a profile using `alignment-protocol-cli user create-profile`");
+            // Consider returning an error or specific exit code here if desired
+            Ok(()) // Keep Ok(()) for now to avoid breaking changes in CLI exit behavior
         }
     }
 }

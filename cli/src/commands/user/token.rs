@@ -1,8 +1,5 @@
 use anchor_client::solana_sdk::signature::Keypair;
-use anchor_client::{
-    solana_sdk::{system_program, sysvar},
-    Program,
-};
+use anchor_client::Program;
 use anyhow::Result;
 use std::rc::Rc;
 
@@ -12,6 +9,7 @@ use alignment_protocol::{
 
 use crate::commands::common::pda::{
     get_state_pda, get_topic_pda, get_user_profile_pda, get_user_temp_token_account_pda,
+    get_user_topic_balance_pda,
 };
 
 /// Stake temporary alignment tokens for a topic to earn reputation
@@ -24,6 +22,7 @@ pub fn cmd_stake_topic_specific_tokens(
     let (user_profile_pda, _) = get_user_profile_pda(program, &user);
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (state_pda, _) = get_state_pda(program);
+    let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &user, &topic_pda);
 
     // Get mint addresses from state
     let state_data: StateAccount = program.account(state_pda)?;
@@ -63,13 +62,12 @@ pub fn cmd_stake_topic_specific_tokens(
         user_profile: user_profile_pda,
         topic: topic_pda,
         state: state_pda,
+        user_topic_balance: user_topic_balance_pda,
         temp_align_mint,
         user_temp_align_account: user_temp_align_account_pda,
         temp_rep_mint,
         user_temp_rep_account: user_temp_rep_account_pda,
         token_program: anchor_spl::token::ID,
-        system_program: system_program::ID,
-        rent: sysvar::rent::ID,
     };
 
     let tx_sig = program
