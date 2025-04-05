@@ -98,7 +98,7 @@ dependencies = [
 
 [[package]]
 name = "alignment-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -107,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "alignment-protocol-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alignment-protocol",
  "anchor-client",
