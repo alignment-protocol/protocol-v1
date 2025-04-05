@@ -9,7 +9,7 @@ export function runInitializationTests(ctx: TestContext): void {
     it("Initializes the protocol in multiple steps to prevent stack overflow", async () => {
       // Step 1: Initialize the state account
       const stateTx = await ctx.program.methods
-        .initializeState()
+        .initializeState(ctx.oracleKeypair.publicKey)
         .accounts({
           state: ctx.statePda,
           authority: ctx.authorityKeypair.publicKey,
@@ -27,6 +27,9 @@ export function runInitializationTests(ctx: TestContext): void {
       // Check initial state properties
       expect(stateAcc.authority.toString()).to.equal(
         ctx.authorityKeypair.publicKey.toString(),
+      );
+      expect(stateAcc.oraclePubkey.toString()).to.equal(
+        ctx.oracleKeypair.publicKey.toString(),
       );
       expect(stateAcc.topicCount.toNumber()).to.equal(0);
       expect(stateAcc.tokensToMint.toNumber()).to.equal(0);

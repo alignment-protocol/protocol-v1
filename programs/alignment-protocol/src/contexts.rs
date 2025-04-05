@@ -49,7 +49,7 @@ pub struct SubmitDataToTopic<'info> {
     pub state: Account<'info, State>,
 
     #[account(mut, constraint = topic.is_active @ ErrorCode::TopicInactive)]
-    pub topic: Account<'info, Topic>,
+    pub topic: Box<Account<'info, Topic>>,
 
     /// The temporary alignment token mint, must be mutable for minting
     #[account(
@@ -105,7 +105,7 @@ pub struct SubmitDataToTopic<'info> {
         bump = contributor_profile.bump,
         constraint = contributor_profile.user == contributor.key() @ ErrorCode::UserAccountMismatch
     )]
-    pub contributor_profile: Account<'info, UserProfile>,
+    pub contributor_profile: Box<Account<'info, UserProfile>>,
 
     /// The UserTopicBalance account for this contributor and topic.
     /// MUST be initialized separately via `initialize_user_topic_balance` first.
@@ -467,7 +467,7 @@ pub struct FinalizeVote<'info> {
 ///
 /// 1) Creates the `State` account (PDA with seeds=["state"]).
 /// 2) Initializes the state account with default values
-/// 3) Sets `submission_count = 0` and `topic_count = 0`.
+/// 3) Sets `topic_count = 0`.
 #[derive(Accounts)]
 pub struct InitializeState<'info> {
     #[account(
@@ -475,7 +475,7 @@ pub struct InitializeState<'info> {
         seeds = [b"state"],
         bump,
         payer = authority,
-        space = 8 + 32 + 32 + 32 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 // Discriminator + 4 mints + authority + bump + submission_count + topic_count + tokens_to_mint + 2 phase durations
+        space = 8 + (32 * 6) + 1 + (8 * 4) // Updated space (233 bytes) for 6 pubkeys, 1 bump, 4 u64s
     )]
     pub state: Account<'info, State>,
 

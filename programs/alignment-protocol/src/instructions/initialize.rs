@@ -12,7 +12,7 @@ pub fn initialize_state(ctx: Context<InitializeState>, oracle_pubkey: Pubkey) ->
     state_acc.oracle_pubkey = oracle_pubkey;
     state_acc.bump = ctx.bumps.state;
     state_acc.topic_count = 0;
-    state_acc.tokens_to_mint = 10;
+    state_acc.tokens_to_mint = 0;
 
     // Set default voting phase durations (24 hours each by default)
     state_acc.default_commit_phase_duration = 24 * 60 * 60; // 24 hours in seconds
