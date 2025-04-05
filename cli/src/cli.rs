@@ -342,6 +342,17 @@ pub enum QueryCommands {
         #[arg(index = 3)]
         validator: Option<String>,
     },
+
+    /// Get user balance for a specific topic
+    TopicBalance {
+        /// Topic identifier (creation index used for PDA derivation)
+        #[arg(index = 1)]
+        topic_id: u64,
+
+        /// User public key (defaults to the CLI payer if not provided)
+        #[arg(index = 2)]
+        user: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
