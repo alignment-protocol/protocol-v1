@@ -55,7 +55,7 @@ comment "# Check topic-specific token balances:"
 pe './align query topic-balance 0'
 
 comment "# Airdrop some SOL to the user2:"
-pe 'solana airdrop 10 ~/.config/solana/user2.json --url localhost'
+pe 'solana airdrop 10 ~/.config/solana/user2.json'
 
 comment "# (User #2) Create a profile:"
 pe './align --keypair ~/.config/solana/user2.json user create-profile'
