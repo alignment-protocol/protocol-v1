@@ -14,7 +14,7 @@ alignment-protocol = "T4E39enXA8obNv8iT8Sx58UoiaEcWCpg1SqBr33d28V"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

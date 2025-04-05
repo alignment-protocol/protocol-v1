@@ -278,10 +278,6 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>, oracle_pubkey_str: String) -
         }
     }
 
-    // Add a small delay to allow state account to be confirmed if necessary
-    println!("Waiting briefly before initializing mints...");
-    std::thread::sleep(std::time::Duration::from_secs(2));
-
     // Then initialize all token mints
     match cmd_init_temp_align_mint(program) {
         Ok(_) => println!("[DEBUG] TempAlign mint initialization successful"),
@@ -290,7 +286,6 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>, oracle_pubkey_str: String) -
             return Err(e);
         }
     }
-    std::thread::sleep(std::time::Duration::from_secs(2));
 
     match cmd_init_align_mint(program) {
         Ok(_) => println!("[DEBUG] Align mint initialization successful"),
@@ -299,7 +294,6 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>, oracle_pubkey_str: String) -
             return Err(e);
         }
     }
-    std::thread::sleep(std::time::Duration::from_secs(2));
 
     match cmd_init_temp_rep_mint(program) {
         Ok(_) => println!("[DEBUG] TempRep mint initialization successful"),
@@ -308,7 +302,6 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>, oracle_pubkey_str: String) -
             return Err(e);
         }
     }
-    std::thread::sleep(std::time::Duration::from_secs(2));
 
     match cmd_init_rep_mint(program) {
         Ok(_) => println!("[DEBUG] Rep mint initialization successful"),

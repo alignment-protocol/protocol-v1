@@ -4,7 +4,7 @@
 source demo-magic.sh
 
 DEMO_PROMPT="${GREEN}➜ ${CYAN}\W ${COLOR_RESET}"
-TYPE_SPEED=30
+TYPE_SPEED=60
 
 function comment() {
 	cmd=${DEMO_COMMENT_COLOR}$1${COLOR_RESET}
@@ -22,7 +22,7 @@ comment "# Check if protocol is already initialized on devnet:"
 pe './align query state'
 
 comment "# (Admin) Initialize the protocol:"
-pe './align init all'
+pe './align init all --oracle-pubkey GhhtFfnLT3dSDny1uid722NhjfKMAgweEcq5jngCVAk'
 
 comment "# (Admin) Set tokens-to-mint for submissions in the state:"
 pe './align config update-tokens-to-mint 100'
@@ -46,10 +46,10 @@ comment "# Check token balances after submission:"
 pe './align user profile'
 
 comment "# Check submission status:"
-pe './align query submission 9hubnWkfubMaqGZvtRE9NthaGCkscxTMvJJz6URga4Tr'
+pe './align query submission 4oaTmoYYzb2AuQ1ZofhHjbXNVvE4n2jSx79HVWRHJhsE'
 
 comment "# (User #1) Stake tALIGN tokens to the topic #0 to earn tREP:"
-pe './align token stake 0 10'
+pe './align token stake 0 30'
 
 comment "# Check topic-specific token balances:"
 pe './align query topic-balance 0'
@@ -67,16 +67,19 @@ comment "# (User #2) Submit data to the topic:"
 pe './align --keypair ~/.config/solana/user2.json submission submit 0 "User #2 submission"'
 
 comment "# (User #2) Check submission status:"
-pe './align --keypair ~/.config/solana/user2.json query submission zmT4iXKET62TXYonYbx4tC47Fot6jDmb4uJNRpw2m4K'
+pe './align --keypair ~/.config/solana/user2.json query submission FccPkgu8NiPQCn2NFoeCHLTLdaot8VqpSPfZiK24PtrY'
 
 comment "# (User #2) Stake tALIGN tokens to the topic #0 to earn tREP:"
-pe './align --keypair ~/.config/solana/user2.json token stake 0 10'
+pe './align --keypair ~/.config/solana/user2.json token stake 0 30'
 
 comment "# (User #2) Check topic-specific token balances:"
 pe './align --keypair ~/.config/solana/user2.json query topic-balance 0'
 
 comment "# (User #1) Commit a vote for the submission:"
-pe './align vote commit zmT4iXKET62TXYonYbx4tC47Fot6jDmb4uJNRpw2m4K 0 yes 1 "test-secret-nonce"'
+pe './align vote commit FccPkgu8NiPQCn2NFoeCHLTLdaot8VqpSPfZiK24PtrY 0 yes 9 "test-secret-nonce"'
+
+comment "# Query the submission topic link:"
+pe './align query submission-topic FccPkgu8NiPQCn2NFoeCHLTLdaot8VqpSPfZiK24PtrY 0'
 
 comment "# Check token balances after voting:"
 pe './align user profile'
