@@ -33,12 +33,14 @@ describe("Alignment Protocol Tests", () => {
   const contributorKeypair = web3.Keypair.generate();
   const validatorKeypair = web3.Keypair.generate();
   const user3Keypair = web3.Keypair.generate(); // For additional testing
+  const oracleKeypair = web3.Keypair.generate(); // <-- Generate Oracle Keypair
 
   // Create context object
   const ctx: TestContext = {
     provider,
     program,
     authorityKeypair,
+    oracleKeypair, // <-- Add to context initialization
     contributorKeypair,
     validatorKeypair,
     user3Keypair,
@@ -64,11 +66,29 @@ describe("Alignment Protocol Tests", () => {
     contributorProfilePda: null,
     validatorProfilePda: null,
     user3ProfilePda: null,
+    // --- Initialize all other fields as before ---
+    contributorTopic1BalancePda: null,
+    validatorTopic1BalancePda: null,
+    user3Topic1BalancePda: null,
     submissionPda: null,
+    validatorSubmissionPda: null,
+    testSubmissionPda: null,
+    user3SubmissionPda: null,
+    validationSubmissionPda: null,
     submissionTopicLinkPda: null,
+    validatorSubmissionTopicLinkPda: null,
+    testSubmissionTopicLinkPda: null,
+    user3SubmissionTopicLinkPda: null,
+    validationSubmissionTopicLinkPda: null,
     crossTopicLinkPda: null,
     voteCommitPda: null,
+    testVoteCommitPda: null,
+    user3VoteCommitPda: null,
+    validationVoteCommitPda: null,
     voteHash: [],
+    testVoteHash: [],
+    user3VoteHash: [],
+    validationVoteHash: [],
     TOPIC1_NAME: "AI Safety",
     TOPIC1_DESCRIPTION:
       "Alignment, interpretability, and safety research for AI systems",
@@ -77,6 +97,8 @@ describe("Alignment Protocol Tests", () => {
     SUBMISSION_DATA: "ipfs://QmULkt3mMt5K8XHnYYxmnvtUGZ4p1qGQgvTKYwXkUxBcmx",
     VOTE_NONCE: "my-secret-nonce-123",
     VOTE_CHOICE_YES: { yes: {} },
+    VOTE_CHOICE_NO: { no: {} },
+    VOTE_NONCE_VALIDATION: "nonce-for-validation-vote",
   };
 
   // Setup test accounts and PDAs
@@ -90,6 +112,7 @@ describe("Alignment Protocol Tests", () => {
       ctx.contributorKeypair,
       ctx.validatorKeypair,
       ctx.user3Keypair,
+      ctx.oracleKeypair, // <-- Add oracleKeypair to the funding loop
     ]) {
       const tx = new web3.Transaction().add(
         web3.SystemProgram.transfer({
@@ -98,10 +121,12 @@ describe("Alignment Protocol Tests", () => {
           lamports,
         }),
       );
+      // Sign with authority only
       await ctx.provider.sendAndConfirm(tx, [ctx.authorityKeypair]);
     }
 
     console.log("Authority:", ctx.authorityKeypair.publicKey.toBase58());
+    console.log("Oracle:", ctx.oracleKeypair.publicKey.toBase58()); // <-- Log oracle pubkey
     console.log("Contributor:", ctx.contributorKeypair.publicKey.toBase58());
     console.log("Validator:", ctx.validatorKeypair.publicKey.toBase58());
     console.log("User3:", ctx.user3Keypair.publicKey.toBase58());

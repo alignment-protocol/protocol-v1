@@ -23,6 +23,9 @@ pub struct State {
     /// The protocol authority (admin, DAO, etc.)
     pub authority: Pubkey,
 
+    /// The authorized public key for the AI Oracle service
+    pub oracle_pubkey: Pubkey,
+
     /// Bump seed for the state PDA
     pub bump: u8,
 
@@ -220,5 +223,41 @@ pub struct VoteCommit {
     pub is_permanent_rep: bool,
 
     /// Bump seed for the vote commit PDA
+    pub bump: u8,
+}
+
+/// Status of an AI Validation Request
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AiValidationStatus {
+    /// Request made, waiting for off-chain processing
+    Pending,
+    /// Off-chain service is processing the request
+    Processing,
+    /// AI result received and vote submitted on-chain
+    Completed,
+    /// Off-chain processing failed
+    Failed,
+}
+
+/// Account to track an AI validation request for a specific submission within a topic
+#[account]
+pub struct AiValidationRequest {
+    /// Link to the submission being validated
+    pub submission_topic_link: Pubkey,
+    /// User who requested the validation (the original contributor)
+    pub requester: Pubkey,
+    /// Amount of tempRep risked/spent by the user for this request
+    pub temp_rep_staked: u64,
+    /// Timestamp of the request
+    pub request_timestamp: u64,
+    /// Status of the AI validation process
+    pub status: AiValidationStatus,
+    /// The AI's decision (populated upon completion)
+    pub ai_decision: Option<VoteChoice>,
+    /// The AI's voting power derived from temp_rep_staked (populated upon completion)
+    pub ai_voting_power: u64,
+    /// The index (from link counter) used for this request's PDA
+    pub request_index: u64,
+    /// Bump seed for the PDA
     pub bump: u8,
 }

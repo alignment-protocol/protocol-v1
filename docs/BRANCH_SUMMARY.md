@@ -3,12 +3,14 @@
 ## Completed Features
 
 ### 1. Topic/Corpus Organization
+
 - ✅ Created `Topic` struct for organizing submissions by topic area
 - ✅ Implemented `create_topic` instruction for protocol authorities
 - ✅ Created `SubmissionTopicLink` struct for many-to-many relationships
 - ✅ Implemented `submit_data_to_topic` instruction for topic-specific submissions
 
 ### 2. Voting Mechanism (Commit-Reveal)
+
 - ✅ Created `VoteChoice` enum for Yes/No voting
 - ✅ Created `VoteCommit` struct for commit phase
 - ✅ Added voting phase timing for each submission within a topic
@@ -18,6 +20,7 @@
 - ✅ Support for both temporary and permanent reputation tokens
 
 ### 3. Finalization
+
 - ✅ Added `finalize_submission` to determine acceptance based on votes
 - ✅ Implemented token conversion from tempAlign to Align for contributors
 - ✅ Added `finalize_vote` for validator rewards/penalties
@@ -25,6 +28,7 @@
 - ✅ Added slashing (burning tempRep) for incorrect votes
 
 ### 4. Security Features
+
 - ✅ Added permissions to allow anyone to call finalize_vote (not just validators)
 - ✅ Added voting time window enforcement
 - ✅ Added comprehensive error handling
@@ -32,16 +36,19 @@
 ## Still To Be Implemented
 
 ### 1. Cross-Topic Submission Linking
+
 - ❌ Allow linking existing submissions to additional topics after initial validation
 - ❌ Add a new instruction to create these links
 
 ### 2. Testing
+
 - ❌ Unit tests for staking functionality
 - ❌ Unit tests for voting mechanisms (commit and reveal)
 - ❌ Unit tests for finalization logic
 - ❌ Integration tests for end-to-end workflows
 
 ### 3. Advanced Features
+
 - ❌ Reputation token tracking by topic
 - ❌ Partial burn for permanent Rep tokens
 - ❌ Batch processing for vote finalizations
@@ -50,16 +57,19 @@
 ## Architecture Decisions
 
 ### Topics and Submissions
+
 - Submissions are created first, then linked to topics
 - Each submission within a topic has its own voting window
 - Submissions can potentially exist in multiple topics (future enhancement)
 
 ### Voting
+
 - Two-phase commit-reveal to prevent collusion
 - Quadratic voting with tempRep or Rep tokens
 - Anyone can finalize votes, not just the validator
 
 ### Token Conversion
+
 - tempAlign → Align conversion for accepted submissions
 - tempRep → Rep conversion for correct votes
 - tempRep burning for incorrect votes

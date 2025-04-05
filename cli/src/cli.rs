@@ -33,7 +33,7 @@ pub struct Cli {
     pub cluster: Option<String>,
 
     /// Program ID for the Alignment Protocol
-    #[arg(long, default_value = "3NYwpp7xv6m35he2sbWTDKPyzepwQiJq5YkD2AzdHmRc")]
+    #[arg(long, default_value = "T4E39enXA8obNv8iT8Sx58UoiaEcWCpg1SqBr33d28V")]
     pub program_id: String,
 
     #[command(subcommand)]
@@ -182,6 +182,21 @@ pub enum SubmissionCommands {
         /// Topic ID
         #[arg(index = 2)]
         topic_id: u64,
+    },
+
+    /// Request AI validation for your submission (costs tempRep)
+    RequestAiValidation {
+        /// Submission PDA (Pubkey as String)
+        #[arg(long)]
+        submission_pda: String,
+
+        /// Topic ID
+        #[arg(long)]
+        topic_id: u64,
+
+        /// Amount of tempRep to stake/spend for the validation
+        #[arg(long)]
+        amount: u64,
     },
 }
 
@@ -386,7 +401,11 @@ pub enum DebugCommands {
 #[derive(Subcommand)]
 pub enum InitCommands {
     /// [ADMIN] Initialize protocol state account
-    State,
+    State {
+        /// Public key of the authorized AI Oracle service
+        #[arg(long, required = true)]
+        oracle_pubkey: String,
+    },
 
     /// [ADMIN] Initialize temporary alignment token mint
     TempAlignMint,
@@ -401,7 +420,11 @@ pub enum InitCommands {
     RepMint,
 
     /// [ADMIN] Initialize all accounts (state and all token mints)
-    All,
+    All {
+        /// Public key of the authorized AI Oracle service
+        #[arg(long, required = true)]
+        oracle_pubkey: String,
+    },
 }
 
 #[derive(Subcommand)]

@@ -118,4 +118,27 @@ pub enum ErrorCode {
 
     #[msg("The provided submission does not match the expected submission.")]
     InvalidSubmission,
+
+    // --- AI Validation Errors ---
+    #[msg("The signer is not the original contributor of the submission.")]
+    NotSubmissionContributor,
+
+    #[msg("Insufficient temporary reputation balance for AI validation request.")]
+    InsufficientTempRepBalance,
+
+    #[msg("The signer is not the authorized AI Oracle.")]
+    UnauthorizedOracle,
+
+    #[msg("The AI validation request is not in the expected state (e.g., not Pending).")]
+    InvalidAiRequestStatus,
+
+    #[msg("The AI validation request account does not correspond to the provided SubmissionTopicLink.")]
+    MismatchedAiRequestLink,
+
+    #[msg("This submission has already been finalized.")]
+    SubmissionAlreadyFinalized,
+
+    // State Mismatch Errors (Start: 2024)
+    #[msg("AI request index mismatch. State may have changed.")]
+    StateMismatch,
 }

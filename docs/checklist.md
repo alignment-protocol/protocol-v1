@@ -1,6 +1,7 @@
 # Alignment Protocol Implementation Checklist
 
 ## Legend
+
 - ✅ Completed
 - 🔄 Partially Implemented / In Progress
 - ❌ Not Implemented
@@ -134,6 +135,7 @@
 ## Hackathon Implementation Plan (3 Days Remaining)
 
 ### Day 1: Diagram Creation & Documentation ✅
+
 - ✅ Create token flow diagram using Mermaid:
   - ✅ tempAlign → tempRep → permanent token conversion
   - ✅ Voting power and staking relationships
@@ -149,12 +151,14 @@
 - ✅ Update documentation with these diagrams for clearer understanding
 
 ### Day 2: CLI Development & Devnet Deployment
+
 - Update CLI to support all protocol functions:
   - Implement topic creation, submission, staking, voting, finalization
   - Add explorer functionality for topics, submissions, users, stats
 - Deploy protocol to devnet for testing with updated CLI
 
 ### Day 3: Test Enhancement & Presentation
+
 - Update tests to include multiple contributors and validators
 - Implement scenarios described in the whitepaper
 - Prepare demo script and slides for presentation

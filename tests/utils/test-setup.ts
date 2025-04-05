@@ -9,6 +9,7 @@ export interface TestContext {
 
   // Keypairs
   authorityKeypair: web3.Keypair;
+  oracleKeypair: web3.Keypair;
   contributorKeypair: web3.Keypair;
   validatorKeypair: web3.Keypair;
   user3Keypair: web3.Keypair;

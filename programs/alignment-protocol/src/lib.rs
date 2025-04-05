@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("3NYwpp7xv6m35he2sbWTDKPyzepwQiJq5YkD2AzdHmRc");
+declare_id!("T4E39enXA8obNv8iT8Sx58UoiaEcWCpg1SqBr33d28V");
 
 // Module declarations
 pub mod contexts;
@@ -28,8 +28,8 @@ pub mod alignment_protocol {
     use super::*;
 
     /// Instruction handler: initialize the protocol state (Part 1)
-    pub fn initialize_state(ctx: Context<InitializeState>) -> Result<()> {
-        instructions::initialize::initialize_state(ctx)
+    pub fn initialize_state(ctx: Context<InitializeState>, oracle_pubkey: Pubkey) -> Result<()> {
+        instructions::initialize::initialize_state(ctx, oracle_pubkey)
     }
 
     /// Instruction handler: initialize temp_align_mint (Part 2a)
@@ -213,5 +213,27 @@ pub mod alignment_protocol {
             reveal_phase_start,
             reveal_phase_end,
         )
+    }
+
+    /// Instruction handler: Request AI validation for a submission
+    ///
+    /// Allows the original contributor to spend tempRep to have an AI vote on their submission.
+    pub fn request_ai_validation(
+        ctx: Context<RequestAiValidation>,
+        temp_rep_to_stake: u64,
+        expected_ai_request_index: u64,
+    ) -> Result<()> {
+        instructions::ai::request_ai_validation(ctx, temp_rep_to_stake, expected_ai_request_index)
+    }
+
+    /// Instruction handler: Submit AI vote result (called by Oracle)
+    ///
+    /// Allows the authorized off-chain Oracle to submit the AI's decision, adding voting power.
+    pub fn submit_ai_vote(
+        ctx: Context<SubmitAiVote>,
+        ai_request_index: u64,
+        ai_decision: VoteChoice,
+    ) -> Result<()> {
+        instructions::ai::submit_ai_vote(ctx, ai_request_index, ai_decision)
     }
 }

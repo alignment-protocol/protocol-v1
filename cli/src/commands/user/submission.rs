@@ -3,7 +3,7 @@ use anchor_client::{
     solana_sdk::{pubkey::Pubkey, system_program, sysvar},
     Program,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::rc::Rc;
 use std::str::FromStr;
 
@@ -44,10 +44,7 @@ pub fn cmd_submit_data_to_topic(
                 "This usually means the user hasn't interacted with this specific topic yet."
             );
             eprintln!("Please run 'alignment-protocol-cli user initialize-topic-balance --topic-id {}' first.", topic_id);
-            return Err(anyhow::anyhow!(
-                "UserTopicBalance account not initialized: {}",
-                e
-            ));
+            return Err(anyhow!("UserTopicBalance account not initialized: {}", e));
         }
     }
 
@@ -58,7 +55,7 @@ pub fn cmd_submit_data_to_topic(
         match program.account(contributor_profile_pda) {
             Ok(profile) => profile,
             Err(e) => {
-                return Err(anyhow::anyhow!(
+                return Err(anyhow!(
                     "Could not fetch user profile {}: {}. Has the user run 'create-profile'?",
                     contributor_profile_pda,
                     e
@@ -91,7 +88,7 @@ pub fn cmd_submit_data_to_topic(
         .is_ok();
 
     if !temp_align_account_exists {
-        return Err(anyhow::anyhow!(
+        return Err(anyhow!(
             "Temp align token account not found for '{}'. Has the user run 'create-profile'?",
             contributor
         ));
@@ -143,7 +140,7 @@ pub fn cmd_link_submission_to_topic(
     topic_id: u64,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
-        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
+        .map_err(|e| anyhow!("Invalid Submission PDA format: {}", e))?;
     let (topic_pda, _) = get_topic_pda(program, topic_id);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
@@ -183,7 +180,7 @@ pub fn cmd_finalize_submission(
     topic_id: u64,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
-        .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
+        .map_err(|e| anyhow!("Invalid Submission PDA format: {}", e))?;
     let contributor = program.payer();
     let (state_pda, _) = get_state_pda(program);
     let (topic_pda, _) = get_topic_pda(program, topic_id);
@@ -234,5 +231,99 @@ pub fn cmd_finalize_submission(
         .send()?;
 
     println!("Submission finalized successfully (txSig: {})", tx_sig);
+    Ok(())
+}
+
+/// Request AI validation for your submission (costs tempRep)
+pub fn cmd_request_ai_validation(
+    program: &Program<Rc<Keypair>>,
+    submission_pda_str: String,
+    topic_id: u64,
+    amount: u64,
+) -> Result<()> {
+    println!("Requesting AI validation...");
+    println!("  Submission PDA: {}", submission_pda_str);
+    println!("  Topic ID: {}", topic_id);
+    println!("  Amount (tempRep): {}", amount);
+
+    let requester = program.payer(); // Get the CLI user's keypair pubkey
+
+    // Parse pubkeys
+    let submission_pda = Pubkey::from_str(&submission_pda_str)
+        .map_err(|e| anyhow!("Invalid submission PDA: {}", e))?;
+
+    // Derive necessary PDAs
+    // Topic PDA (assuming derivation by index)
+    let (topic_pda, _topic_bump) =
+        Pubkey::find_program_address(&[b"topic", &topic_id.to_le_bytes()], &program.id());
+
+    // SubmissionTopicLink PDA
+    let (link_pda, _link_bump) = Pubkey::find_program_address(
+        &[
+            b"submission_topic_link",
+            submission_pda.as_ref(),
+            topic_pda.as_ref(),
+        ],
+        &program.id(),
+    );
+
+    // UserTopicBalance PDA
+    let (user_balance_pda, _user_balance_bump) = Pubkey::find_program_address(
+        &[
+            b"user_topic_balance",
+            requester.as_ref(),
+            topic_pda.as_ref(),
+        ],
+        &program.id(),
+    );
+
+    // Fetch the SubmissionTopicLink account to get the current total_committed_votes
+    let link_data: alignment_protocol::SubmissionTopicLink = program.account(link_pda)?;
+    let expected_ai_request_index = link_data.total_committed_votes; // Get index BEFORE sending TX
+    println!(
+        "  Current total_committed_votes on link (used for expected index): {}",
+        expected_ai_request_index
+    );
+
+    // AiValidationRequest PDA (Needs the specific index)
+    let (ai_request_pda, _ai_request_bump) = Pubkey::find_program_address(
+        &[
+            b"ai_request",
+            link_pda.as_ref(),
+            &expected_ai_request_index.to_le_bytes(), // Use the fetched index for derivation
+        ],
+        &program.id(),
+    );
+
+    println!("Derived PDAs:");
+    println!("  Topic: {}", topic_pda);
+    println!("  SubmissionTopicLink: {}", link_pda);
+    println!("  UserTopicBalance: {}", user_balance_pda);
+    println!("  AiValidationRequest: {}", ai_request_pda);
+
+    // Build and send transaction
+    let builder = program
+        .request()
+        .accounts(AccountsAll::RequestAiValidation {
+            requester, // Clone Rc<Keypair> for the signer
+            submission: submission_pda,
+            topic: topic_pda,
+            submission_topic_link: link_pda,
+            user_topic_balance: user_balance_pda,
+            ai_validation_request: ai_request_pda,
+            system_program: system_program::ID,
+        })
+        .args(InstructionAll::RequestAiValidation {
+            temp_rep_to_stake: amount,
+            expected_ai_request_index, // <-- Pass the fetched index
+        });
+
+    let signature = builder
+        .send()
+        .map_err(|e| anyhow!("Transaction failed: {:?}", e))?;
+
+    println!("AI Validation requested successfully!");
+    println!("Transaction signature: {}", signature);
+
     Ok(())
 }

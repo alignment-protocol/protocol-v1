@@ -49,7 +49,7 @@ pub struct SubmitDataToTopic<'info> {
     pub state: Account<'info, State>,
 
     #[account(mut, constraint = topic.is_active @ ErrorCode::TopicInactive)]
-    pub topic: Account<'info, Topic>,
+    pub topic: Box<Account<'info, Topic>>,
 
     /// The temporary alignment token mint, must be mutable for minting
     #[account(
@@ -105,7 +105,7 @@ pub struct SubmitDataToTopic<'info> {
         bump = contributor_profile.bump,
         constraint = contributor_profile.user == contributor.key() @ ErrorCode::UserAccountMismatch
     )]
-    pub contributor_profile: Account<'info, UserProfile>,
+    pub contributor_profile: Box<Account<'info, UserProfile>>,
 
     /// The UserTopicBalance account for this contributor and topic.
     /// MUST be initialized separately via `initialize_user_topic_balance` first.
@@ -467,7 +467,7 @@ pub struct FinalizeVote<'info> {
 ///
 /// 1) Creates the `State` account (PDA with seeds=["state"]).
 /// 2) Initializes the state account with default values
-/// 3) Sets `submission_count = 0` and `topic_count = 0`.
+/// 3) Sets `topic_count = 0`.
 #[derive(Accounts)]
 pub struct InitializeState<'info> {
     #[account(
@@ -475,7 +475,7 @@ pub struct InitializeState<'info> {
         seeds = [b"state"],
         bump,
         payer = authority,
-        space = 8 + 32 + 32 + 32 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 // Discriminator + 4 mints + authority + bump + submission_count + topic_count + tokens_to_mint + 2 phase durations
+        space = 8 + (32 * 6) + 1 + (8 * 4) // Updated space (233 bytes) for 6 pubkeys, 1 bump, 4 u64s
     )]
     pub state: Account<'info, State>,
 
@@ -887,3 +887,102 @@ pub struct StakeTopicSpecificTokens<'info> {
     /// Token program for CPI calls
     pub token_program: Program<'info, Token>,
 }
+
+// --- NEW CONTEXTS FOR AI VALIDATION ---
+
+/// Account constraints for requesting AI validation for a submission
+#[derive(Accounts)]
+#[instruction(temp_rep_to_stake: u64, expected_ai_request_index: u64)]
+pub struct RequestAiValidation<'info> {
+    #[account(mut)]
+    pub requester: Signer<'info>,
+
+    /// The submission made by the requester
+    #[account()]
+    pub submission: Account<'info, Submission>,
+
+    /// The topic the submission belongs to (needed for UserTopicBalance PDA derivation)
+    #[account()]
+    pub topic: Account<'info, Topic>,
+
+    /// The link between the submission and the topic
+    #[account(
+        mut,
+        seeds = [b"submission_topic_link", submission.key().as_ref(), topic.key().as_ref()],
+        bump = submission_topic_link.bump,
+    )]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+
+    /// User's balance account for this specific topic (to deduct tempRep)
+    #[account(
+        mut,
+        seeds = [b"user_topic_balance", requester.key().as_ref(), topic.key().as_ref()],
+        bump = user_topic_balance.bump,
+        constraint = user_topic_balance.user == requester.key() @ ErrorCode::UserAccountMismatch,
+        constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic,
+    )]
+    pub user_topic_balance: Account<'info, UserTopicBalance>,
+
+    /// The new AI Validation Request account to be created
+    #[account(
+        init,
+        payer = requester,
+        space = 8 + // Discriminator
+                32 + // submission_topic_link: Pubkey
+                32 + // requester: Pubkey
+                 8 + // temp_rep_staked: u64
+                 8 + // request_timestamp: u64
+                 1 + // status: AiValidationStatus (enum discriminator)
+                 2 + // ai_decision: Option<VoteChoice> (option + enum discriminators)
+                 8 + // ai_voting_power: u64
+                 8 + // request_index: u64 (the index used for PDA derivation)
+                 1 , // bump: u8
+                // TOTAL = 108 bytes
+        seeds = [
+            b"ai_request",
+            submission_topic_link.key().as_ref(),
+            expected_ai_request_index.to_le_bytes().as_ref()
+        ],
+        bump
+    )]
+    pub ai_validation_request: Account<'info, AiValidationRequest>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(ai_request_index: u64)]
+pub struct SubmitAiVote<'info> {
+    #[account(mut)]
+    pub oracle: Signer<'info>, // The off-chain service's keypair
+
+    #[account(
+        seeds = [b"state"], bump = state.bump,
+        // Constraint checked in instruction logic using oracle_pubkey field
+    )]
+    pub state: Account<'info, State>, // Needed to verify the oracle's public key
+
+    /// The AI Request being fulfilled.
+    #[account(
+        mut, // Needs to be mutable to update status
+        seeds = [
+            b"ai_request",
+            submission_topic_link.key().as_ref(),
+            ai_request_index.to_le_bytes().as_ref() // Use the passed index
+        ],
+        bump, // Specify bump for Anchor to derive the PDA address using canonical bump
+        // Constraint: Ensure it belongs to the link (checked in instruction logic)
+    )]
+    pub ai_validation_request: Account<'info, AiValidationRequest>,
+
+    /// The SubmissionTopicLink being voted on.
+    #[account(
+        mut,
+        // Constraint: Ensure link matches request (checked in instruction logic)
+    )]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    // Optional: Include Topic if needed for context or validation rules in future
+    // #[account(constraint = submission_topic_link.topic == topic.key())]
+    // pub topic: Account<'info, Topic>,
+}
+// --- END OF NEW CONTEXTS ---
