@@ -420,7 +420,11 @@ pub enum InitCommands {
     RepMint,
 
     /// [ADMIN] Initialize all accounts (state and all token mints)
-    All,
+    All {
+        /// Public key of the authorized AI Oracle service
+        #[arg(long, required = true)]
+        oracle_pubkey: String,
+    },
 }
 
 #[derive(Subcommand)]

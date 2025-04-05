@@ -171,12 +171,16 @@ fn main() -> Result<()> {
         Commands::Init { subcommand } => {
             println!("[ADMIN] Running initialization...");
             match subcommand {
-                InitCommands::State => admin::init::cmd_init_state(&program)?,
+                InitCommands::State { oracle_pubkey } => {
+                    admin::init::cmd_init_state(&program, oracle_pubkey)?
+                }
                 InitCommands::TempAlignMint => admin::init::cmd_init_temp_align_mint(&program)?,
                 InitCommands::AlignMint => admin::init::cmd_init_align_mint(&program)?,
                 InitCommands::TempRepMint => admin::init::cmd_init_temp_rep_mint(&program)?,
                 InitCommands::RepMint => admin::init::cmd_init_rep_mint(&program)?,
-                InitCommands::All => admin::init::cmd_init_all(&program)?,
+                InitCommands::All { oracle_pubkey } => {
+                    admin::init::cmd_init_all(&program, oracle_pubkey)?
+                }
             }
         }
         Commands::Config { subcommand } => match subcommand {
