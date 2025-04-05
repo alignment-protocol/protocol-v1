@@ -306,13 +306,13 @@ pub enum QueryCommands {
         id: u64,
     },
 
-    /// List all submissions
+    /// List submissions by a specific contributor (optionally filtered by topic)
     Submissions {
-        /// Filter by contributor public key
+        /// Contributor public key (Mandatory)
         #[arg(long)]
-        by: Option<String>,
+        by: String,
 
-        /// Filter by topic ID
+        /// Filter by topic ID (Optional)
         #[arg(long)]
         topic: Option<u64>,
     },

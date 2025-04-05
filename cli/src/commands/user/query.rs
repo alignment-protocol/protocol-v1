@@ -6,12 +6,13 @@ use std::str::FromStr;
 
 use alignment_protocol::{
     State as StateAccount, Submission as SubmissionAccount,
-    SubmissionTopicLink as SubmissionTopicLinkAccount, VoteCommit as VoteCommitAccount,
+    SubmissionTopicLink as SubmissionTopicLinkAccount, UserProfile as UserProfileAccount,
+    UserTopicBalance as UserTopicBalanceAccount, VoteCommit as VoteCommitAccount,
 };
 
 use crate::commands::common::pda::{
     get_state_pda, get_submission_pda, get_submission_topic_link_pda, get_topic_pda,
-    get_vote_commit_pda,
+    get_user_profile_pda, get_user_topic_balance_pda, get_vote_commit_pda,
 };
 use crate::commands::common::time::get_current_timestamp;
 
@@ -27,7 +28,6 @@ pub fn cmd_query_state(program: &Program<Rc<Keypair>>) -> Result<()> {
             println!("Align Mint: {}", state.align_mint);
             println!("Temp Rep Mint: {}", state.temp_rep_mint);
             println!("Rep Mint: {}", state.rep_mint);
-            println!("Submission Count: {}", state.submission_count);
             println!("Topic Count: {}", state.topic_count);
             println!("Tokens to Mint: {}", state.tokens_to_mint);
             println!(
@@ -63,98 +63,105 @@ pub fn cmd_query_submission(program: &Program<Rc<Keypair>>, id: u64) -> Result<(
     }
 }
 
-/// Query all submissions
+/// Query submissions by a contributor, optionally filtered by topic
 pub fn cmd_query_submissions(
     program: &Program<Rc<Keypair>>,
-    by: Option<String>,
+    by: String,
     topic: Option<u64>,
 ) -> Result<()> {
-    let (state_pda, _) = get_state_pda(program);
+    let contributor_pubkey = Pubkey::from_str(&by)?;
+    println!(
+        "Querying submissions by Contributor: {}",
+        contributor_pubkey
+    );
 
-    // Get state data to find total submission count
-    let state_data: StateAccount = program.account(state_pda)?;
-    let submission_count = state_data.submission_count;
+    // Fetch the user profile to get the submission count
+    let (contributor_profile_pda, _) = get_user_profile_pda(program, &contributor_pubkey);
+    let contributor_profile: UserProfileAccount = match program.account(contributor_profile_pda) {
+        Ok(profile) => profile,
+        Err(e) => {
+            return Err(anyhow::anyhow!(
+                "Could not fetch user profile {}: {}. Has the user submitted data?",
+                contributor_profile_pda,
+                e
+            ));
+        }
+    };
+
+    let submission_count = contributor_profile.user_submission_count;
 
     if submission_count == 0 {
-        println!("No submissions found.");
+        println!("No submissions found for this contributor.");
         return Ok(());
     }
 
-    println!("Total submissions in protocol: {}", submission_count);
-
-    // Parse contributor pubkey if provided
-    let contributor_filter = match by {
-        Some(pubkey_str) => Some(Pubkey::from_str(&pubkey_str)?),
-        None => None,
-    };
+    println!(
+        "Contributor {} has {} total submissions. Checking filters...",
+        contributor_pubkey, submission_count
+    );
 
     // Get topic PDA if topic filter is provided
     let topic_pda_filter = match topic {
         Some(id) => {
             let (topic_pda, _) = get_topic_pda(program, id);
+            println!("Filtering for topic ID {} (PDA: {})", id, topic_pda);
             Some(topic_pda)
         }
         None => None,
     };
 
-    // Print filter info
-    if let Some(pubkey) = contributor_filter {
-        println!("Filtering for contributor: {}", pubkey);
-    }
-
-    if let Some(id) = topic {
-        println!("Filtering for topic: {}", id);
-    }
-
     let mut matched_count = 0;
 
-    // Iterate through all submission indices
+    // Iterate through all submission indices for this user
     for i in 0..submission_count {
-        let (submission_pda, _) = get_submission_pda(program, i);
+        // Derive submission PDA using contributor key and index
+        let (submission_pda, _) = Pubkey::find_program_address(
+            &[b"submission", contributor_pubkey.as_ref(), &i.to_le_bytes()],
+            &program.id(),
+        );
 
         // Fetch the submission account data
         let submission_data: SubmissionAccount = match program.account(submission_pda) {
             Ok(data) => data,
             Err(e) => {
-                println!("Warning: Failed to fetch submission #{}: {}", i, e);
+                // This might happen if accounts were created out of order or inconsistently
+                println!(
+                    "Warning: Failed to fetch submission account at index {}: {}. PDA: {}",
+                    i, e, submission_pda
+                );
                 continue;
             }
         };
-
-        // If contributor filter is specified, skip non-matching submissions
-        if let Some(pubkey) = contributor_filter {
-            if submission_data.contributor != pubkey {
-                continue;
-            }
-        }
 
         // If topic filter is specified, check submission-topic links
         if let Some(topic_pda) = topic_pda_filter {
             let (submission_topic_link_pda, _) =
                 get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
 
-            // Skip if the submission-topic link doesn't exist
-            if program
-                .rpc()
-                .get_account(&submission_topic_link_pda)
-                .is_err()
-            {
-                continue;
+            // Check if the submission-topic link exists by attempting to fetch it
+            match program.account::<SubmissionTopicLinkAccount>(submission_topic_link_pda) {
+                Ok(_) => {
+                    // Link exists, continue to print
+                }
+                Err(_) => {
+                    // Link doesn't exist for this topic, skip this submission
+                    continue;
+                }
             }
         }
 
+        // If we reach here, the submission matches all filters
         matched_count += 1;
-
-        println!("\nSubmission #{}", i);
-        println!("PDA: {}", submission_pda);
-        println!("Contributor: {}", submission_data.contributor);
-        println!("Timestamp: {}", submission_data.timestamp);
-        println!("Data Reference: {}", submission_data.data_reference);
+        println!("\nSubmission Index: {}", i); // Show the user-specific index
+        println!("  PDA: {}", submission_pda);
+        println!("  Contributor: {}", submission_data.contributor);
+        println!("  Timestamp: {}", submission_data.timestamp);
+        println!("  Data Reference: {}", submission_data.data_reference);
     }
 
     println!(
-        "\nDisplayed {} submissions matching the criteria",
-        matched_count
+        "\nDisplayed {} submissions for contributor {} matching the criteria",
+        matched_count, contributor_pubkey
     );
 
     Ok(())
@@ -262,4 +269,52 @@ pub fn cmd_query_vote(
             Ok(())
         }
     }
+}
+
+/// Query user balance for a specific topic
+pub fn cmd_view_user_topic_balance(
+    program: &Program<Rc<Keypair>>,
+    topic_id: u64,
+    user_str: Option<String>,
+) -> Result<()> {
+    let user = match user_str {
+        Some(pubkey_str) => Pubkey::from_str(&pubkey_str)?,
+        None => program.payer(),
+    };
+
+    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &user, &topic_pda);
+
+    println!(
+        "Querying balance for User: {} on Topic ID: {}",
+        user, topic_id
+    );
+    println!("Topic PDA: {}", topic_pda);
+    println!("UserTopicBalance PDA: {}", user_topic_balance_pda);
+
+    match program.account::<UserTopicBalanceAccount>(user_topic_balance_pda) {
+        Ok(balance) => {
+            println!("\nBalance Found:");
+            println!("  User: {}", balance.user);
+            println!("  Topic: {}", balance.topic);
+            println!("  Temp Align Amount: {}", balance.temp_align_amount);
+            println!("  Temp Rep Amount: {}", balance.temp_rep_amount);
+            println!(
+                "  Locked Temp Rep Amount: {}",
+                balance.locked_temp_rep_amount
+            );
+        }
+        Err(e) => {
+            if e.to_string().contains("AccountNotFound")
+                || e.to_string().contains("Could not deserialize account data")
+            {
+                println!("\nNo balance record found for this user/topic combination.");
+                println!("This usually means the user hasn't interacted with this specific topic yet (e.g., submitted, staked, or voted).");
+            } else {
+                println!("\nError fetching topic balance account: {}", e);
+            }
+        }
+    }
+
+    Ok(())
 }
