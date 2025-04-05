@@ -1,8 +1,5 @@
 use anchor_client::solana_sdk::signature::Keypair;
-use anchor_client::{
-    solana_sdk::{system_program, sysvar},
-    Program,
-};
+use anchor_client::Program;
 use anyhow::Result;
 use std::rc::Rc;
 

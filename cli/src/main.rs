@@ -21,8 +21,8 @@ fn main() -> Result<()> {
         // Otherwise, try to use the saved configuration
         None => {
             // Read saved cluster configuration
-            let saved_cluster = commands::admin::config::read_cluster_config()?;
-            saved_cluster
+
+            commands::admin::config::read_cluster_config()?
         }
     };
 

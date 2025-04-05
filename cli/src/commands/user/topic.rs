@@ -28,6 +28,7 @@ pub fn cmd_list_topics(program: &Program<Rc<Keypair>>) -> Result<()> {
         match program.account::<TopicAccount>(topic_pda) {
             Ok(topic) => {
                 println!("\nTopic #{}", i);
+                println!("  PDA: {}", topic_pda);
                 println!("Name: {}", topic.name);
                 println!("Description: {}", topic.description);
                 println!("Active: {}", topic.is_active);
