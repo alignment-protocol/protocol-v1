@@ -83,6 +83,9 @@ pub enum ErrorCode {
     #[msg("Reveal phase has ended")]
     RevealPhaseEnded,
 
+    #[msg("Reveal phase has not ended yet")]
+    RevealPhaseNotEnded,
+
     #[msg("Vote has already been finalized")]
     VoteAlreadyFinalized,
 
@@ -91,10 +94,28 @@ pub enum ErrorCode {
 
     #[msg("Invalid voting phase order")]
     InvalidPhaseOrder,
-    
+
     #[msg("Self-voting is not allowed: validators cannot vote on their own submissions")]
     SelfVotingNotAllowed,
-    
+
     #[msg("You have already committed a vote for this submission-topic pair")]
     DuplicateVoteCommitment,
+
+    #[msg("The user account in the provided data does not match the expected user.")]
+    UserAccountMismatch,
+
+    #[msg("The provided topic account does not match the expected topic.")]
+    InvalidTopic,
+
+    #[msg("The provided submission index does not match the user's current submission count.")]
+    IncorrectSubmissionIndex,
+
+    #[msg("The data reference exceeds the maximum allowed length")]
+    DataReferenceTooLong,
+
+    #[msg("The data reference cannot be empty")]
+    EmptyDataReference,
+
+    #[msg("The provided submission does not match the expected submission.")]
+    InvalidSubmission,
 }

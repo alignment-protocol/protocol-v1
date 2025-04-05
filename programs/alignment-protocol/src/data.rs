@@ -26,9 +26,6 @@ pub struct State {
     /// Bump seed for the state PDA
     pub bump: u8,
 
-    /// Counts how many submissions have been made
-    pub submission_count: u64,
-
     /// Counts how many topics have been created
     pub topic_count: u64,
 
@@ -71,52 +68,55 @@ pub enum SubmissionStatus {
     Rejected,
 }
 
-/// Structure to track a user's token balances for a specific topic
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, Debug)]
+/// User profile account to track reputation and submissions
+#[account]
+pub struct UserProfile {
+    /// The user's wallet public key
+    pub user: Pubkey,
+
+    /// A local submission counter for unique seeds
+    pub user_submission_count: u64,
+
+    /// References to the user's protocol-owned temporary token accounts
+    pub user_temp_align_account: Pubkey,
+    pub user_temp_rep_account: Pubkey,
+
+    /// (Optional) References to the user's permanent token Associated Token Accounts (ATAs)
+    /// These might need separate instructions to initialize/update if used.
+    pub user_align_ata: Pubkey,
+    pub user_rep_ata: Pubkey,
+
+    // REMOVE pub permanent_rep_amount: u64,
+    /// Bump seed for the user profile PDA
+    pub bump: u8,
+    // REMOVE pub topic_tokens: Vec<TopicTokenPair>, - Done
+}
+
+/// Account to store user's token balances for a specific topic
+#[account]
 pub struct UserTopicBalance {
+    /// The user wallet this balance belongs to
+    pub user: Pubkey,
+
+    /// The topic this balance is associated with
+    pub topic: Pubkey,
+
     /// Amount of temporary alignment tokens for this topic
     pub temp_align_amount: u64,
 
     /// Amount of temporary reputation tokens staked for this topic (available for voting)
     pub temp_rep_amount: u64,
-    
-    /// Amount of temporary reputation tokens locked in votes (committed but not finalized)
+
+    /// Amount of temporary reputation tokens locked in active votes for this topic
     pub locked_temp_rep_amount: u64,
-}
 
-/// Structure to pair a topic ID with its token balance
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
-pub struct TopicTokenPair {
-    /// The topic ID
-    pub topic_id: u64,
-
-    /// Token balances for this topic
-    pub token: UserTopicBalance,
-}
-
-/// User profile account to track reputation
-#[account]
-pub struct UserProfile {
-    /// The user's public key
-    pub user: Pubkey,
-
-    /// Amount of permanent reputation tokens earned
-    pub permanent_rep_amount: u64,
-
-    /// Map of topic ID to topic-specific token balances
-    /// This allows tracking which tokens were earned in which topic
-    pub topic_tokens: Vec<TopicTokenPair>,
-
-    /// Bump seed for the user profile PDA
+    /// Bump seed for the PDA
     pub bump: u8,
 }
 
 /// Topic/Corpus account for organizing submissions
 #[account]
 pub struct Topic {
-    /// Unique identifier for the topic
-    pub id: u64,
-
     /// Name of the topic
     pub name: String,
 

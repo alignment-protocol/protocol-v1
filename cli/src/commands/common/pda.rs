@@ -18,14 +18,6 @@ pub fn get_topic_pda(program: &Program<Rc<Keypair>>, topic_id: u64) -> (Pubkey, 
     Pubkey::find_program_address(&[b"topic", &topic_id.to_le_bytes()], &program.id())
 }
 
-/// Get the PDA for a submission account
-pub fn get_submission_pda(program: &Program<Rc<Keypair>>, submission_id: u64) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[b"submission", &submission_id.to_le_bytes()],
-        &program.id(),
-    )
-}
-
 /// Get the PDA for a user profile account
 pub fn get_user_profile_pda(program: &Program<Rc<Keypair>>, user: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[b"user_profile", user.as_ref()], &program.id())
@@ -75,4 +67,16 @@ pub fn get_user_temp_token_account_pda(
 /// Get the ATA for a token mint
 pub fn get_token_ata(user: &Pubkey, mint: &Pubkey) -> Pubkey {
     get_associated_token_address(user, mint)
+}
+
+/// Get the PDA for a user's topic balance account
+pub fn get_user_topic_balance_pda(
+    program: &Program<Rc<Keypair>>,
+    user: &Pubkey,
+    topic: &Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[b"user_topic_balance", user.as_ref(), topic.as_ref()],
+        &program.id(),
+    )
 }

@@ -140,6 +140,13 @@ pub enum UserCommands {
         #[arg(index = 1)]
         user: Option<String>,
     },
+
+    /// Initialize the UserTopicBalance account for a user and topic
+    InitializeTopicBalance {
+        /// Topic ID to initialize balance for
+        #[arg(long)]
+        topic_id: u64,
+    },
 }
 
 #[derive(Subcommand)]
@@ -157,9 +164,9 @@ pub enum SubmissionCommands {
 
     /// Link an existing submission to another topic
     Link {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -168,9 +175,9 @@ pub enum SubmissionCommands {
 
     /// Finalize a submission after voting
     Finalize {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -182,9 +189,9 @@ pub enum SubmissionCommands {
 pub enum VoteCommands {
     /// Commit a vote (first phase)
     Commit {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -209,9 +216,9 @@ pub enum VoteCommands {
 
     /// Reveal a vote (second phase)
     Reveal {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -228,9 +235,9 @@ pub enum VoteCommands {
 
     /// Finalize a vote
     Finalize {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -239,9 +246,9 @@ pub enum VoteCommands {
 
     /// [ADMIN] Set arbitrary timestamps for voting phases
     SetPhases {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -301,27 +308,27 @@ pub enum QueryCommands {
 
     /// Get a specific submission
     Submission {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        id: u64,
+        pda: String,
     },
 
-    /// List all submissions
+    /// List submissions by a specific contributor (optionally filtered by topic)
     Submissions {
-        /// Filter by contributor public key
+        /// Contributor public key (Mandatory)
         #[arg(long)]
-        by: Option<String>,
+        by: String,
 
-        /// Filter by topic ID
+        /// Filter by topic ID (Optional)
         #[arg(long)]
         topic: Option<u64>,
     },
 
     /// Get details about submission in a specific topic
     SubmissionTopic {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -330,9 +337,9 @@ pub enum QueryCommands {
 
     /// Get information about a vote
     Vote {
-        /// Submission ID
+        /// Submission PDA (Pubkey as String)
         #[arg(index = 1)]
-        submission_id: u64,
+        submission_pda: String,
 
         /// Topic ID
         #[arg(index = 2)]
@@ -341,6 +348,17 @@ pub enum QueryCommands {
         /// Validator public key (defaults to the CLI payer if not provided)
         #[arg(index = 3)]
         validator: Option<String>,
+    },
+
+    /// Get user balance for a specific topic
+    TopicBalance {
+        /// Topic identifier (creation index used for PDA derivation)
+        #[arg(index = 1)]
+        topic_id: u64,
+
+        /// User public key (defaults to the CLI payer if not provided)
+        #[arg(index = 2)]
+        user: Option<String>,
     },
 }
 

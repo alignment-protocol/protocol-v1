@@ -1,69 +1,60 @@
 import * as anchor from "@coral-xyz/anchor";
 import { expect } from "chai";
-import { web3 } from "@coral-xyz/anchor";
-import {
-  TOKEN_PROGRAM_ID,
-  getAccount,
-  getAssociatedTokenAddress,
-} from "@solana/spl-token";
+import { web3, BN } from "@coral-xyz/anchor";
+import { TOKEN_PROGRAM_ID, getAccount } from "@solana/spl-token";
 import { TestContext } from "../utils/test-setup";
 import * as crypto from "crypto";
 
 export function runTokenLockingTests(ctx: TestContext): void {
   describe("Token Locking and Unlocking Flow", () => {
-    let secondVoteCommitPda: web3.PublicKey;
-    let secondVoteHash: number[];
-    let testSubmissionPda: web3.PublicKey;
-    let testSubmissionTopicLinkPda: web3.PublicKey;
-
-    // Setup helper function to create voting phases for testing
+    // Setup helper function to set voting phases - RE-ADDED
     async function setupVotingPhase(
       phase: "commit" | "reveal" | "finalized",
-      submissionTopicLinkPda: web3.PublicKey
+      submissionTopicLinkPda: web3.PublicKey,
+      submissionPdaToUse: web3.PublicKey,
     ) {
       const now = Math.floor(Date.now() / 1000);
       let commitPhaseStart, commitPhaseEnd, revealPhaseStart, revealPhaseEnd;
 
       if (phase === "commit") {
-        // Set up for commit phase (active now)
-        commitPhaseStart = now - 60; // 1 minute ago
-        commitPhaseEnd = now + 600; // 10 minutes from now
+        commitPhaseStart = now - 60;
+        commitPhaseEnd = now + 600;
         revealPhaseStart = commitPhaseEnd;
-        revealPhaseEnd = commitPhaseEnd + 600; // 10 minutes after commit phase
+        revealPhaseEnd = commitPhaseEnd + 600;
       } else if (phase === "reveal") {
-        // Set up for reveal phase (active now)
-        commitPhaseStart = now - 1200; // 20 minutes ago
-        commitPhaseEnd = now - 60; // 1 minute ago
+        commitPhaseStart = now - 1200;
+        commitPhaseEnd = now - 60;
         revealPhaseStart = commitPhaseEnd;
-        revealPhaseEnd = now + 600; // 10 minutes from now
+        revealPhaseEnd = now + 600;
       } else {
-        // Set up for finalized (past reveal phase)
-        commitPhaseStart = now - 2400; // 40 minutes ago
-        commitPhaseEnd = now - 1800; // 30 minutes ago
+        // finalized
+        commitPhaseStart = now - 2400;
+        commitPhaseEnd = now - 1800;
         revealPhaseStart = commitPhaseEnd;
-        revealPhaseEnd = now - 60; // 1 minute ago
+        revealPhaseEnd = now - 60;
       }
 
-      // Set the voting phases
+      console.log(
+        `Setting phases for ${phase}: Commit ${commitPhaseStart}-${commitPhaseEnd}, Reveal ${revealPhaseStart}-${revealPhaseEnd} on Link ${submissionTopicLinkPda.toBase58()}`,
+      );
       const setPhasesTx = await ctx.program.methods
         .setVotingPhases(
           new anchor.BN(commitPhaseStart),
           new anchor.BN(commitPhaseEnd),
           new anchor.BN(revealPhaseStart),
-          new anchor.BN(revealPhaseEnd)
+          new anchor.BN(revealPhaseEnd),
         )
         .accounts({
           state: ctx.statePda,
           submissionTopicLink: submissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: testSubmissionPda,
+          submission: submissionPdaToUse,
           authority: ctx.authorityKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
         })
         .signers([ctx.authorityKeypair])
         .rpc();
-
-      console.log(`Set voting phases for ${phase} phase, tx: ${setPhasesTx}`);
+      console.log(` -> Set phases TX: ${setPhasesTx}`);
       return {
         commitPhaseStart,
         commitPhaseEnd,
@@ -72,12 +63,12 @@ export function runTokenLockingTests(ctx: TestContext): void {
       };
     }
 
-    // Helper to create a vote hash
+    // Helper to create a vote hash (remains the same) - RE-ADDED
     function createVoteHash(
       voter: web3.Keypair,
       submissionTopicLink: web3.PublicKey,
       choice: number,
-      nonce: string
+      nonce: string,
     ) {
       const message = Buffer.concat([
         voter.publicKey.toBuffer(),
@@ -85,524 +76,597 @@ export function runTokenLockingTests(ctx: TestContext): void {
         Buffer.from([choice]), // 0 for Yes, 1 for No
         Buffer.from(nonce),
       ]);
-
       return Array.from(crypto.createHash("sha256").update(message).digest());
     }
 
-    // Helper to check locked and available tokens
-    async function checkUserTokenBalances(
-      userProfilePda: web3.PublicKey,
-      topicId: number
-    ) {
-      const userProfile = await ctx.program.account.userProfile.fetch(
-        userProfilePda
-      );
-      const [userTempAlignPda] = web3.PublicKey.findProgramAddressSync(
-        [Buffer.from("user_temp_align"), userProfile.user.toBuffer()],
-        ctx.program.programId
-      );
-      const [userTempRepPda] = web3.PublicKey.findProgramAddressSync(
-        [Buffer.from("user_temp_rep"), userProfile.user.toBuffer()],
-        ctx.program.programId
-      );
-      const userAlignAta = await getAssociatedTokenAddress(
-        ctx.alignMintPda,
-        userProfile.user
-      );
-      const userRepAta = await getAssociatedTokenAddress(
-        ctx.repMintPda,
-        userProfile.user
-      );
-      const userTempAlignAta = await getAccount(
-        ctx.provider.connection,
-        userTempAlignPda
-      );
-      const userTempRepAta = await getAccount(
-        ctx.provider.connection,
-        userTempRepPda
-      );
-      const userAlignData = await getAccount(
-        ctx.provider.connection,
-        userAlignAta
-      );
-      const userRepData = await getAccount(ctx.provider.connection, userRepAta);
-      const topicTokenEntry = userProfile.topicTokens.find(
-        (pair) => pair.topicId.toNumber() === topicId
-      );
-
-      if (!topicTokenEntry) {
-        return {
-          permanentAlign: Number(userAlignData.amount),
-          permanentRep: Number(userRepData.amount),
-          tempAlign: Number(userTempAlignAta.amount),
-          tempRep: Number(userTempRepAta.amount),
-        };
-      } else {
-        return {
-          tempAlign: Number(userTempAlignAta.amount),
-          tempRep: Number(userTempRepAta.amount),
-          permanentAlign: Number(userAlignData.amount),
-          permanentRep: Number(userRepData.amount),
-          topicSpecificTokens: {
-            tempAlign: topicTokenEntry.token.tempAlignAmount.toNumber(),
-            tempRep: topicTokenEntry.token.tempRepAmount.toNumber(),
-            lockedTempRep: topicTokenEntry.token.lockedTempRepAmount.toNumber(),
-          },
-        };
-      }
-    }
-
-    before(async () => {
-      // Check starting balances
-      console.log("=== Rolling Over Balances from Section 08 ===");
-      // Contributor: 50 align, 50 tempRep, 0 tempAlign
-      // 100 tempAlign tokens minted, 50 staked for tempRep, 50 tempAlign tokens converted to align
-      const contributorCurrentBalances = await checkUserTokenBalances(
-        ctx.contributorProfilePda,
-        0
-      );
-      console.log("Contributor current balances:", contributorCurrentBalances);
-      expect(contributorCurrentBalances.tempAlign).to.equal(0);
-      expect(contributorCurrentBalances.tempRep).to.equal(50);
-      expect(contributorCurrentBalances.permanentAlign).to.equal(50);
-      expect(contributorCurrentBalances.permanentRep).to.equal(0);
-      expect(contributorCurrentBalances.topicSpecificTokens.tempAlign).to.equal(
-        0
-      );
-      expect(contributorCurrentBalances.topicSpecificTokens.tempRep).to.equal(
-        50
-      );
-      expect(
-        contributorCurrentBalances.topicSpecificTokens.lockedTempRep
-      ).to.equal(0);
-
-      // Validator: 50 tempAlign, 25 tempRep, 25 permanent Rep
-      // 100 tempAlign tokens minted, 50 staked for tempRep,
-      // 25 tempRep tokens used for voting then converted to permanent Rep
-      const validatorCurrentBalances = await checkUserTokenBalances(
-        ctx.validatorProfilePda,
-        0
-      );
-      console.log("Validator current balances:", validatorCurrentBalances);
-      expect(validatorCurrentBalances.tempAlign).to.equal(50);
-      expect(validatorCurrentBalances.tempRep).to.equal(25);
-      expect(validatorCurrentBalances.permanentAlign).to.equal(0);
-      expect(validatorCurrentBalances.permanentRep).to.equal(25);
-      expect(validatorCurrentBalances.topicSpecificTokens.tempAlign).to.equal(
-        50
-      );
-      expect(validatorCurrentBalances.topicSpecificTokens.tempRep).to.equal(25);
-      expect(
-        validatorCurrentBalances.topicSpecificTokens.lockedTempRep
-      ).to.equal(0);
-
-      // User3 should have all 0 balances
-      const user3CurrentBalances = await checkUserTokenBalances(
-        ctx.user3ProfilePda,
-        0
-      );
-      console.log("User3 current balances:", user3CurrentBalances);
-      expect(user3CurrentBalances.tempAlign).to.equal(0);
-      expect(user3CurrentBalances.tempRep).to.equal(0);
-      expect(user3CurrentBalances.permanentAlign).to.equal(0);
-      expect(user3CurrentBalances.permanentRep).to.equal(0);
-
-      // Create a new submission specifically for the token locking tests
-      const submissionData = "Test submission for token locking tests";
-      let currentSubmissionCount = (
-        await ctx.program.account.state.fetch(ctx.statePda)
-      ).submissionCount.toNumber();
-
-      // Get the current submission count before creating our test submission
-      console.log(
-        "Current submission count before token locking test submission:",
-        currentSubmissionCount
-      );
-
-      // Derive the PDAs for the new submission using the submission count
-      [testSubmissionPda] = web3.PublicKey.findProgramAddressSync(
+    before("Initialize User3 balance and create test submissions", async () => {
+      // Initialize UserTopicBalance for User3/Topic1
+      [ctx.user3Topic1BalancePda] = web3.PublicKey.findProgramAddressSync(
         [
-          Buffer.from("submission"),
-          new anchor.BN(currentSubmissionCount).toBuffer("le", 8),
-        ],
-        ctx.program.programId
-      );
-
-      [testSubmissionTopicLinkPda] = web3.PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("submission_topic_link"),
-          testSubmissionPda.toBuffer(),
+          Buffer.from("user_topic_balance"),
+          ctx.user3Keypair.publicKey.toBuffer(),
           ctx.topic1Pda.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
+      );
+      try {
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.user3Topic1BalancePda,
+        );
+        console.log("User3 Topic 1 Balance account already exists.");
+      } catch (error) {
+        console.log("Initializing User3 Topic 1 Balance account...");
+        const initTx = await ctx.program.methods
+          .initializeUserTopicBalance()
+          .accounts({
+            user: ctx.user3Keypair.publicKey,
+            userProfile: ctx.user3ProfilePda,
+            topic: ctx.topic1Pda,
+            userTopicBalance: ctx.user3Topic1BalancePda,
+            systemProgram: web3.SystemProgram.programId,
+          })
+          .signers([ctx.user3Keypair])
+          .rpc();
+        console.log(" -> Initialize User3 Topic 1 Balance TX:", initTx);
+      }
+
+      console.log("=== Verifying Starting Balances (Post Section 08) ===");
+      // --- Contributor ---
+      const contribBalance08 = await ctx.program.account.userTopicBalance.fetch(
+        ctx.contributorTopic1BalancePda,
+      );
+      const contribGlobalTempAlign08 = await getAccount(
+        ctx.provider.connection,
+        ctx.contributorTempAlignAccount,
+      );
+      const contribGlobalAlign08 = await getAccount(
+        ctx.provider.connection,
+        ctx.contributorAlignAta,
+      );
+      console.log(`Contributor Balances:`);
+      console.log(
+        ` -> UserTopicBalance: Align=${contribBalance08.tempAlignAmount.toNumber()}, Rep=${contribBalance08.tempRepAmount.toNumber()}, Locked=${contribBalance08.lockedTempRepAmount.toNumber()}`,
+      );
+      console.log(
+        ` -> Global TempAlign: ${Number(contribGlobalTempAlign08.amount)}`,
+      );
+      console.log(` -> Global Align: ${Number(contribGlobalAlign08.amount)}`);
+      // Expect: TopicBalance(Align=0, Rep=50), GlobalTempAlign=0, GlobalAlign=50
+      expect(contribBalance08.tempAlignAmount.toNumber()).to.equal(0);
+      expect(contribBalance08.tempRepAmount.toNumber()).to.equal(50);
+      expect(contribBalance08.lockedTempRepAmount.toNumber()).to.equal(0);
+      expect(Number(contribGlobalTempAlign08.amount)).to.equal(0);
+      expect(Number(contribGlobalAlign08.amount)).to.equal(50);
+
+      // --- Validator ---
+      const validatorBalance08 =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.validatorTopic1BalancePda,
+        );
+      const validatorGlobalTempRep08 = await getAccount(
+        ctx.provider.connection,
+        ctx.validatorTempRepAccount,
+      );
+      const validatorGlobalRep08 = await getAccount(
+        ctx.provider.connection,
+        ctx.validatorRepAta,
+      );
+      console.log(`Validator Balances:`);
+      console.log(
+        ` -> UserTopicBalance: Align=${validatorBalance08.tempAlignAmount.toNumber()}, Rep=${validatorBalance08.tempRepAmount.toNumber()}, Locked=${validatorBalance08.lockedTempRepAmount.toNumber()}`,
+      );
+      console.log(
+        ` -> Global TempRep: ${Number(validatorGlobalTempRep08.amount)}`,
+      );
+      console.log(` -> Global Rep: ${Number(validatorGlobalRep08.amount)}`);
+      // Expect: TopicBalance(Align=50, Rep=25, Locked=0), GlobalTempRep=25, GlobalRep=25
+      expect(validatorBalance08.tempAlignAmount.toNumber()).to.equal(50);
+      expect(validatorBalance08.tempRepAmount.toNumber()).to.equal(25);
+      expect(validatorBalance08.lockedTempRepAmount.toNumber()).to.equal(0);
+      expect(Number(validatorGlobalTempRep08.amount)).to.equal(25);
+      expect(Number(validatorGlobalRep08.amount)).to.equal(25);
+
+      // --- User3 ---
+      const user3Balance08 = await ctx.program.account.userTopicBalance.fetch(
+        ctx.user3Topic1BalancePda,
+      );
+      const user3GlobalTempAlign08 = await getAccount(
+        ctx.provider.connection,
+        ctx.user3TempAlignAccount,
+      );
+      const user3GlobalTempRep08 = await getAccount(
+        ctx.provider.connection,
+        ctx.user3TempRepAccount,
+      );
+      const user3GlobalAlign08 = await getAccount(
+        ctx.provider.connection,
+        ctx.user3AlignAta,
+      );
+      const user3GlobalRep08 = await getAccount(
+        ctx.provider.connection,
+        ctx.user3RepAta,
+      );
+      console.log(`User3 Balances:`);
+      console.log(
+        ` -> UserTopicBalance: Align=${user3Balance08.tempAlignAmount.toNumber()}, Rep=${user3Balance08.tempRepAmount.toNumber()}, Locked=${user3Balance08.lockedTempRepAmount.toNumber()}`,
+      );
+      console.log(
+        ` -> Global TempAlign: ${Number(user3GlobalTempAlign08.amount)}`,
+      );
+      console.log(` -> Global TempRep: ${Number(user3GlobalTempRep08.amount)}`);
+      console.log(` -> Global Align: ${Number(user3GlobalAlign08.amount)}`);
+      console.log(` -> Global Rep: ${Number(user3GlobalRep08.amount)}`);
+      // Expect: All 0
+      expect(user3Balance08.tempAlignAmount.toNumber()).to.equal(0);
+      expect(user3Balance08.tempRepAmount.toNumber()).to.equal(0);
+      expect(user3Balance08.lockedTempRepAmount.toNumber()).to.equal(0);
+      expect(Number(user3GlobalTempAlign08.amount)).to.equal(0);
+      expect(Number(user3GlobalTempRep08.amount)).to.equal(0);
+      expect(Number(user3GlobalAlign08.amount)).to.equal(0);
+      expect(Number(user3GlobalRep08.amount)).to.equal(0);
+
+      // === Create Test Submissions ===
+      const tokensToMint = (await ctx.program.account.state.fetch(ctx.statePda))
+        .tokensToMint;
+
+      // --- Contributor makes a new submission for these tests ---
+      let contributorProfile = await ctx.program.account.userProfile.fetch(
+        ctx.contributorProfilePda,
+      );
+      let testSubmissionIndex = contributorProfile.userSubmissionCount;
+      console.log(
+        `Contributor making test submission (index ${testSubmissionIndex.toNumber()})`,
+      );
+      [ctx.testSubmissionPda] = web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("submission"),
+          ctx.contributorKeypair.publicKey.toBuffer(),
+          testSubmissionIndex.toBuffer("le", 8),
+        ],
+        ctx.program.programId,
+      );
+      [ctx.testSubmissionTopicLinkPda] = web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("submission_topic_link"),
+          ctx.testSubmissionPda.toBuffer(),
+          ctx.topic1Pda.toBuffer(),
+        ],
+        ctx.program.programId,
       );
 
-      // Create the test submission using submitDataToTopic (the correct method)
       const createSubmissionTx = await ctx.program.methods
-        .submitDataToTopic(submissionData)
+        .submitDataToTopic(
+          "Test submission for token locking tests",
+          testSubmissionIndex,
+        )
         .accounts({
           state: ctx.statePda,
           topic: ctx.topic1Pda,
           tempAlignMint: ctx.tempAlignMintPda,
-          contributorTempAlignAccount: ctx.contributorTempAlignAccount,
-          submission: testSubmissionPda,
-          submissionTopicLink: testSubmissionTopicLinkPda,
+          contributorTempAlignAccount: ctx.contributorTempAlignAccount, // Target for mint
+          submission: ctx.testSubmissionPda,
+          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           contributorProfile: ctx.contributorProfilePda,
+          userTopicBalance: ctx.contributorTopic1BalancePda, // Account to update
           contributor: ctx.contributorKeypair.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.contributorKeypair])
         .rpc();
+      console.log(" -> Contributor test submission TX:", createSubmissionTx);
 
+      // Verify contributor balances updated
+      const contribBalanceAfterTestSub =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.contributorTopic1BalancePda,
+        );
+      const contribGlobalTempAlignAfterTestSub = await getAccount(
+        ctx.provider.connection,
+        ctx.contributorTempAlignAccount,
+      );
+      expect(Number(contribGlobalTempAlignAfterTestSub.amount)).to.equal(
+        tokensToMint.toNumber(),
+      ); // Should receive new tokens
+      expect(contribBalanceAfterTestSub.tempAlignAmount.toNumber()).to.equal(
+        tokensToMint.toNumber(),
+      ); // UserTopicBalance updated
+
+      // --- User3 makes a submission ---
+      let user3Profile = await ctx.program.account.userProfile.fetch(
+        ctx.user3ProfilePda,
+      );
+      let user3SubmissionIndex = user3Profile.userSubmissionCount;
       console.log(
-        "Created test submission for token locking tests:",
-        createSubmissionTx
+        `User3 making test submission (index ${user3SubmissionIndex.toNumber()})`,
       );
-
-      // Check contributor's balance after submission
-      const contributorAfterSubmission = await checkUserTokenBalances(
-        ctx.contributorProfilePda,
-        0
-      );
-      console.log("Contributor after submission:", contributorAfterSubmission);
-      // Contributor should have 100 newly minted tempAlign tokens
-      expect(contributorAfterSubmission.tempAlign).to.equal(100);
-
-      // User 3 also makes a submission to get tempAlign tokens
-      currentSubmissionCount = (
-        await ctx.program.account.state.fetch(ctx.statePda)
-      ).submissionCount.toNumber();
-
-      const [user3SubmissionPda] = web3.PublicKey.findProgramAddressSync(
+      [ctx.user3SubmissionPda] = web3.PublicKey.findProgramAddressSync(
         [
           Buffer.from("submission"),
-          new anchor.BN(currentSubmissionCount).toBuffer("le", 8),
+          ctx.user3Keypair.publicKey.toBuffer(),
+          user3SubmissionIndex.toBuffer("le", 8),
         ],
-        ctx.program.programId
+        ctx.program.programId,
+      );
+      [ctx.user3SubmissionTopicLinkPda] = web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("submission_topic_link"),
+          ctx.user3SubmissionPda.toBuffer(),
+          ctx.topic1Pda.toBuffer(),
+        ],
+        ctx.program.programId,
       );
 
-      const [user3SubmissionTopicLinkPda] =
-        web3.PublicKey.findProgramAddressSync(
-          [
-            Buffer.from("submission_topic_link"),
-            user3SubmissionPda.toBuffer(),
-            ctx.topic1Pda.toBuffer(),
-          ],
-          ctx.program.programId
-        );
-
-      // Submit data for user3 to get tempAlign tokens
       const user3SubmitTx = await ctx.program.methods
-        .submitDataToTopic("User3 submission to earn tempAlign tokens")
+        .submitDataToTopic(
+          "User3 submission to earn tempAlign",
+          user3SubmissionIndex,
+        )
         .accounts({
           state: ctx.statePda,
           topic: ctx.topic1Pda,
           tempAlignMint: ctx.tempAlignMintPda,
-          contributorTempAlignAccount: ctx.user3TempAlignAccount,
-          submission: user3SubmissionPda,
-          submissionTopicLink: user3SubmissionTopicLinkPda,
+          contributorTempAlignAccount: ctx.user3TempAlignAccount, // Target for mint
+          submission: ctx.user3SubmissionPda,
+          submissionTopicLink: ctx.user3SubmissionTopicLinkPda,
           contributorProfile: ctx.user3ProfilePda,
+          userTopicBalance: ctx.user3Topic1BalancePda, // Account to update
           contributor: ctx.user3Keypair.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.user3Keypair])
         .rpc();
+      console.log(" -> User3 submission TX:", user3SubmitTx);
 
-      console.log("User3 submission transaction:", user3SubmitTx);
-
-      // Check user3's balance after submission
-      const user3AfterSubmission = await checkUserTokenBalances(
-        ctx.user3ProfilePda,
-        0
+      // Verify User3 balances updated
+      const user3BalanceAfterTestSub =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.user3Topic1BalancePda,
+        );
+      const user3GlobalTempAlignAfterTestSub = await getAccount(
+        ctx.provider.connection,
+        ctx.user3TempAlignAccount,
       );
-      console.log("User3 after submission:", user3AfterSubmission);
-      expect(user3AfterSubmission.tempAlign).to.equal(100);
+      expect(Number(user3GlobalTempAlignAfterTestSub.amount)).to.equal(
+        tokensToMint.toNumber(),
+      );
+      expect(user3BalanceAfterTestSub.tempAlignAmount.toNumber()).to.equal(
+        tokensToMint.toNumber(),
+      );
 
-      // Now user 3 stakes 50 tempAlign for 50 tempRep tokens
+      // --- User3 Stakes Tokens ---
+      const user3StakeAmount = new BN(50);
+      console.log(`User3 staking ${user3StakeAmount.toNumber()} tempAlign`);
       const user3StakeTx = await ctx.program.methods
-        .stakeTopicSpecificTokens(new anchor.BN(50))
+        .stakeTopicSpecificTokens(user3StakeAmount)
         .accounts({
           state: ctx.statePda,
           topic: ctx.topic1Pda,
           userProfile: ctx.user3ProfilePda,
+          userTopicBalance: ctx.user3Topic1BalancePda, // Account to update
           tempAlignMint: ctx.tempAlignMintPda,
           tempRepMint: ctx.tempRepMintPda,
-          userTempAlignAccount: ctx.user3TempAlignAccount,
-          userTempRepAccount: ctx.user3TempRepAccount,
+          userTempAlignAccount: ctx.user3TempAlignAccount, // Source for burn
+          userTempRepAccount: ctx.user3TempRepAccount, // Target for mint
           user: ctx.user3Keypair.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.user3Keypair])
         .rpc();
+      console.log(" -> User3 staking TX:", user3StakeTx);
 
-      console.log("User3 staking transaction:", user3StakeTx);
-
-      // Check user3's balance after staking
-      const user3AfterStaking = await checkUserTokenBalances(
-        ctx.user3ProfilePda,
-        0
+      // Verify User3 balances after staking
+      const user3BalanceAfterStake =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.user3Topic1BalancePda,
+        );
+      const user3GlobalTempAlignAfterStake = await getAccount(
+        ctx.provider.connection,
+        ctx.user3TempAlignAccount,
       );
-      console.log("User3 balance after staking:", user3AfterStaking);
-      expect(user3AfterStaking.tempAlign).to.equal(50); // 100 minted - 50 staked = 50
-      expect(user3AfterStaking.tempRep).to.equal(50); // 50 staked = 50 tempRep
-      expect(user3AfterStaking.topicSpecificTokens.tempAlign).to.equal(50);
-      expect(user3AfterStaking.topicSpecificTokens.tempRep).to.equal(50);
-      expect(user3AfterStaking.topicSpecificTokens.lockedTempRep).to.equal(0);
+      const user3GlobalTempRepAfterStake = await getAccount(
+        ctx.provider.connection,
+        ctx.user3TempRepAccount,
+      );
+      expect(Number(user3GlobalTempAlignAfterStake.amount)).to.equal(
+        tokensToMint.toNumber() - user3StakeAmount.toNumber(),
+      ); // 50 left
+      expect(Number(user3GlobalTempRepAfterStake.amount)).to.equal(
+        user3StakeAmount.toNumber(),
+      ); // 50 minted
+      expect(user3BalanceAfterStake.tempAlignAmount.toNumber()).to.equal(
+        tokensToMint.toNumber() - user3StakeAmount.toNumber(),
+      ); // Balance reflects stake
+      expect(user3BalanceAfterStake.tempRepAmount.toNumber()).to.equal(
+        user3StakeAmount.toNumber(),
+      );
+      expect(user3BalanceAfterStake.lockedTempRepAmount.toNumber()).to.equal(0);
 
-      // Make sure we're in the commit phase before starting tests
-      await setupVotingPhase("commit", testSubmissionTopicLinkPda);
+      // Make sure the *test* submission is in the commit phase
+      await setupVotingPhase(
+        "commit",
+        ctx.testSubmissionTopicLinkPda,
+        ctx.testSubmissionPda,
+      );
     });
 
     it("Locks tokens when committing a vote", async () => {
-      // Check token balances before voting
-      const beforeBalances = await checkUserTokenBalances(
-        ctx.validatorProfilePda,
-        0
+      // Fetch validator balance before commit
+      const balanceBefore = await ctx.program.account.userTopicBalance.fetch(
+        ctx.validatorTopic1BalancePda,
       );
-      console.log("Validator before committing vote:", beforeBalances);
-      // Validator should have 50 tempAlign and 25 tempRep from section 08
-      expect(beforeBalances.tempAlign).to.equal(50);
-      expect(beforeBalances.tempRep).to.equal(25);
-      expect(beforeBalances.topicSpecificTokens.lockedTempRep).to.equal(0); // No locked tokens at this point
+      console.log("Validator UserTopicBalance before commit:", balanceBefore);
+      // Validator has 25 tempRep from previous tests (section 06/08 staking/finalization)
+      expect(balanceBefore.tempRepAmount.toNumber()).to.equal(25);
+      expect(balanceBefore.lockedTempRepAmount.toNumber()).to.equal(0);
 
-      // Calculate vote hash
-      const voteHash = createVoteHash(
+      // Create vote hash for validator on the *test* submission
+      const voteNonce = "test-nonce-lock-1";
+      ctx.testVoteHash = createVoteHash(
         ctx.validatorKeypair,
-        testSubmissionTopicLinkPda,
-        0, // Yes vote
-        "test-nonce-1"
+        ctx.testSubmissionTopicLinkPda,
+        0,
+        voteNonce,
       );
 
-      // Derive the vote commit PDA
-      const [testVoteCommitPda] = web3.PublicKey.findProgramAddressSync(
+      // Derive vote commit PDA for validator on *test* submission
+      [ctx.testVoteCommitPda] = web3.PublicKey.findProgramAddressSync(
         [
           Buffer.from("vote_commit"),
-          testSubmissionTopicLinkPda.toBuffer(),
+          ctx.testSubmissionTopicLinkPda.toBuffer(),
           ctx.validatorKeypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
-      // Commit the vote with 10 tokens
-      const voteAmount = 10;
+      const voteAmount = new BN(10);
       const isPermanentRep = false;
+      console.log(
+        `Validator committing ${voteAmount.toNumber()} tempRep on test submission ${ctx.testSubmissionPda.toBase58()}`,
+      );
 
       // Commit the vote
       const tx = await ctx.program.methods
-        .commitVote(voteHash, new anchor.BN(voteAmount), isPermanentRep)
+        .commitVote(ctx.testVoteHash, voteAmount, isPermanentRep)
         .accounts({
           state: ctx.statePda,
-          submissionTopicLink: testSubmissionTopicLinkPda,
+          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: testSubmissionPda,
-          voteCommit: testVoteCommitPda,
+          submission: ctx.testSubmissionPda,
+          voteCommit: ctx.testVoteCommitPda,
           userProfile: ctx.validatorProfilePda,
+          userTopicBalance: ctx.validatorTopic1BalancePda, // Account to update lock
+          validatorRepAta: ctx.validatorRepAta, // Needed even if false
           validator: ctx.validatorKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.validatorKeypair])
         .rpc();
+      console.log(" -> Validator commit TX:", tx);
 
-      console.log("Token locking vote commit transaction:", tx);
-
-      // Check token balances after voting
-      const afterBalances = await checkUserTokenBalances(
-        ctx.validatorProfilePda,
-        0
+      // Verify balances after commit
+      const balanceAfter = await ctx.program.account.userTopicBalance.fetch(
+        ctx.validatorTopic1BalancePda,
       );
-      console.log("Validator after committing vote:", afterBalances);
-
-      // Verify tokens were locked properly - precise numbers
-      expect(afterBalances.topicSpecificTokens.lockedTempRep).to.equal(10); // 10 tokens locked for this vote
-      expect(afterBalances.topicSpecificTokens.tempRep).to.equal(15); // 25 - 10 = 15 remaining available
-      expect(afterBalances.tempAlign).to.equal(50); // tempAlign remains unchanged
-
-      // Store for later tests
-      ctx.voteHash = voteHash;
-      ctx.voteCommitPda = testVoteCommitPda;
+      console.log("Validator UserTopicBalance after commit:", balanceAfter);
+      expect(balanceAfter.tempRepAmount.toNumber()).to.equal(
+        balanceBefore.tempRepAmount.toNumber() - voteAmount.toNumber(),
+      ); // 25 - 10 = 15
+      expect(balanceAfter.lockedTempRepAmount.toNumber()).to.equal(
+        balanceBefore.lockedTempRepAmount.toNumber() + voteAmount.toNumber(),
+      ); // 0 + 10 = 10
     });
 
-    it("Properly handles multiple votes with different token amounts (quadratic voting calculation)", async () => {
-      // Calculate vote hash for user3
-      const user3VoteHash = createVoteHash(
+    it("Properly handles multiple votes and calculates quadratic voting power", async () => {
+      // Fetch user3 balance before commit
+      const user3BalanceBefore =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.user3Topic1BalancePda,
+        );
+      console.log("User3 UserTopicBalance before commit:", user3BalanceBefore);
+      // User3 has 50 tempRep from staking in the `before` block
+      expect(user3BalanceBefore.tempRepAmount.toNumber()).to.equal(50);
+      expect(user3BalanceBefore.lockedTempRepAmount.toNumber()).to.equal(0);
+
+      // Create vote hash for user3 on the *test* submission
+      const voteNonce = "user3-nonce-lock";
+      ctx.user3VoteHash = createVoteHash(
         ctx.user3Keypair,
-        testSubmissionTopicLinkPda,
-        0, // Yes vote
-        "user3-nonce"
+        ctx.testSubmissionTopicLinkPda,
+        0,
+        voteNonce,
       );
 
-      // Derive the vote commit PDA for user3
-      [secondVoteCommitPda] = web3.PublicKey.findProgramAddressSync(
+      // Derive vote commit PDA for user3 on *test* submission
+      [ctx.user3VoteCommitPda] = web3.PublicKey.findProgramAddressSync(
         [
           Buffer.from("vote_commit"),
-          testSubmissionTopicLinkPda.toBuffer(),
+          ctx.testSubmissionTopicLinkPda.toBuffer(),
           ctx.user3Keypair.publicKey.toBuffer(),
         ],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
-      // Commit the vote from user3 with a different amount (36 tokens = 6 voting power)
-      const voteAmount = 36; // sqrt(36) = 6 voting power
-
-      // Check user3's balance before voting
-      const beforeVote = await checkUserTokenBalances(ctx.user3ProfilePda, 0);
-      console.log("User3 before committing vote:", beforeVote);
-      expect(beforeVote.tempRep).to.equal(50); // 50 from staking
-      expect(beforeVote.topicSpecificTokens.lockedTempRep).to.equal(0);
+      const voteAmount = new BN(36); // sqrt(36) = 6 voting power
+      const isPermanentRep = false;
+      console.log(
+        `User3 committing ${voteAmount.toNumber()} tempRep on test submission ${ctx.testSubmissionPda.toBase58()}`,
+      );
 
       // Commit user3's vote
       const tx = await ctx.program.methods
-        .commitVote(user3VoteHash, new anchor.BN(voteAmount), false)
+        .commitVote(ctx.user3VoteHash, voteAmount, isPermanentRep)
         .accounts({
           state: ctx.statePda,
-          submissionTopicLink: testSubmissionTopicLinkPda,
+          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: testSubmissionPda,
-          voteCommit: secondVoteCommitPda,
+          submission: ctx.testSubmissionPda,
+          voteCommit: ctx.user3VoteCommitPda,
           userProfile: ctx.user3ProfilePda,
+          userTopicBalance: ctx.user3Topic1BalancePda, // Account to update lock
+          validatorRepAta: ctx.user3RepAta, // Needed even if false
           validator: ctx.user3Keypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.user3Keypair])
         .rpc();
+      console.log(" -> User3 commit TX:", tx);
 
-      console.log("User3 vote commit transaction:", tx);
+      // Verify User3 balances after commit
+      const user3BalanceAfter =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.user3Topic1BalancePda,
+        );
+      console.log("User3 UserTopicBalance after commit:", user3BalanceAfter);
+      expect(user3BalanceAfter.tempRepAmount.toNumber()).to.equal(
+        user3BalanceBefore.tempRepAmount.toNumber() - voteAmount.toNumber(),
+      ); // 50 - 36 = 14
+      expect(user3BalanceAfter.lockedTempRepAmount.toNumber()).to.equal(
+        user3BalanceBefore.lockedTempRepAmount.toNumber() +
+          voteAmount.toNumber(),
+      ); // 0 + 36 = 36
 
-      // Save user3's vote hash for later
-      secondVoteHash = user3VoteHash;
-
-      // Verify user3's tokens were locked properly
-      const user3AfterVote = await checkUserTokenBalances(
-        ctx.user3ProfilePda,
-        0
+      // --- Reveal Phase ---
+      await setupVotingPhase(
+        "reveal",
+        ctx.testSubmissionTopicLinkPda,
+        ctx.testSubmissionPda,
       );
-      console.log("User3 after committing vote:", user3AfterVote);
-      expect(user3AfterVote.topicSpecificTokens.lockedTempRep).to.equal(
-        voteAmount
-      ); // 36 tokens locked
-      expect(user3AfterVote.topicSpecificTokens.tempRep).to.equal(14); // 50 - 36 = 14 remaining available
 
-      // Move to reveal phase
-      await setupVotingPhase("reveal", testSubmissionTopicLinkPda);
-
-      // Reveal validator's vote first
+      // Reveal validator's vote
+      console.log("Revealing validator's vote (10 tokens)");
       const revealTx1 = await ctx.program.methods
-        .revealVote(
-          ctx.VOTE_CHOICE_YES, // Yes vote
-          "test-nonce-1" // Nonce used in commit
-        )
+        .revealVote(ctx.VOTE_CHOICE_YES, "test-nonce-lock-1")
         .accounts({
           state: ctx.statePda,
-          submissionTopicLink: testSubmissionTopicLinkPda,
+          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: testSubmissionPda,
-          voteCommit: ctx.voteCommitPda,
+          submission: ctx.testSubmissionPda,
+          voteCommit: ctx.testVoteCommitPda, // Use validator's commit PDA for test sub
           userProfile: ctx.validatorProfilePda,
           validator: ctx.validatorKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
         })
         .signers([ctx.validatorKeypair])
         .rpc();
-
-      console.log("Validator vote reveal transaction:", revealTx1);
+      console.log(" -> Validator reveal TX:", revealTx1);
 
       // Reveal user3's vote
+      console.log("Revealing user3's vote (36 tokens)");
       const revealTx2 = await ctx.program.methods
-        .revealVote(
-          ctx.VOTE_CHOICE_YES, // Yes vote
-          "user3-nonce" // Nonce used in commit
-        )
+        .revealVote(ctx.VOTE_CHOICE_YES, "user3-nonce-lock")
         .accounts({
           state: ctx.statePda,
-          submissionTopicLink: testSubmissionTopicLinkPda,
+          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: testSubmissionPda,
-          voteCommit: secondVoteCommitPda,
+          submission: ctx.testSubmissionPda,
+          voteCommit: ctx.user3VoteCommitPda, // Use user3's commit PDA for test sub
           userProfile: ctx.user3ProfilePda,
           validator: ctx.user3Keypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
         })
         .signers([ctx.user3Keypair])
         .rpc();
+      console.log(" -> User3 reveal TX:", revealTx2);
 
-      console.log("User3 vote reveal transaction:", revealTx2);
-
-      // Check that the quadratic voting calculation was done correctly
+      // Check quadratic voting power on the link account
       const linkAcc = await ctx.program.account.submissionTopicLink.fetch(
-        testSubmissionTopicLinkPda
+        ctx.testSubmissionTopicLinkPda,
       );
-
-      // Validator used 10 tokens = sqrt(10) ≈ 3.16, rounded to 3
-      // User3 used 36 tokens = sqrt(36) = 6
-      // Total yes voting power should be approximately 9
-      expect(linkAcc.yesVotingPower.toNumber()).to.equal(9);
+      console.log("Link account after reveals:", linkAcc);
+      const expectedPowerValidator = Math.floor(Math.sqrt(10)); // sqrt(10) ~= 3
+      const expectedPowerUser3 = Math.floor(Math.sqrt(36)); // sqrt(36) = 6
+      console.log(
+        `Expected voting power: Validator=${expectedPowerValidator}, User3=${expectedPowerUser3}`,
+      );
+      expect(linkAcc.yesVotingPower.toNumber()).to.equal(
+        expectedPowerValidator + expectedPowerUser3,
+      ); // 3 + 6 = 9
       expect(linkAcc.noVotingPower.toNumber()).to.equal(0);
+      expect(linkAcc.totalCommittedVotes.toNumber()).to.equal(2); // Both committed
+      expect(linkAcc.totalRevealedVotes.toNumber()).to.equal(2); // Both revealed
 
-      // Check token balances after reveals - tokens should still be locked
-      const validatorAfterReveal = await checkUserTokenBalances(
-        ctx.validatorProfilePda,
-        0
+      // Check balances after reveal - locked amounts should remain until finalization
+      const validatorBalanceAfterReveal =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.validatorTopic1BalancePda,
+        );
+      console.log(
+        "Validator UserTopicBalance after reveal:",
+        validatorBalanceAfterReveal,
       );
-      const user3AfterReveal = await checkUserTokenBalances(
-        ctx.user3ProfilePda,
-        0
+      expect(validatorBalanceAfterReveal.tempRepAmount.toNumber()).to.equal(15); // Still 15 available
+      expect(
+        validatorBalanceAfterReveal.lockedTempRepAmount.toNumber(),
+      ).to.equal(10); // Still 10 locked
+
+      const user3BalanceAfterReveal =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.user3Topic1BalancePda,
+        );
+      console.log(
+        "User3 UserTopicBalance after reveal:",
+        user3BalanceAfterReveal,
       );
-
-      console.log("Validator tokens after reveals:", validatorAfterReveal);
-      console.log("User3 tokens after reveals:", user3AfterReveal);
-
-      // Validator should still have 10 tokens locked after reveal
-      expect(validatorAfterReveal.topicSpecificTokens.tempRep).to.equal(15); // 25 - 10 = 15
-      expect(validatorAfterReveal.topicSpecificTokens.lockedTempRep).to.equal(
-        10
-      );
-
-      // User3 should still have 36 tokens locked after reveal
-      expect(user3AfterReveal.topicSpecificTokens.tempRep).to.equal(14); // 50 - 36 = 14
-      expect(user3AfterReveal.topicSpecificTokens.lockedTempRep).to.equal(36);
+      expect(user3BalanceAfterReveal.tempRepAmount.toNumber()).to.equal(14); // Still 14 available
+      expect(user3BalanceAfterReveal.lockedTempRepAmount.toNumber()).to.equal(
+        36,
+      ); // Still 36 locked
     });
 
     it("Unlocks tokens after vote finalization", async () => {
-      // Move to finalized phase
-      await setupVotingPhase("finalized", testSubmissionTopicLinkPda);
-
-      // Check token balances before finalization
-      const validatorBeforeFinalization = await checkUserTokenBalances(
-        ctx.validatorProfilePda,
-        0
+      // --- Finalization Phase ---
+      await setupVotingPhase(
+        "finalized",
+        ctx.testSubmissionTopicLinkPda,
+        ctx.testSubmissionPda,
       );
+
+      // Fetch balances before finalization
+      const validatorBalanceBefore =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.validatorTopic1BalancePda,
+        );
+      const user3BalanceBefore =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.user3Topic1BalancePda,
+        );
+      const contribBalanceBefore =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.contributorTopic1BalancePda,
+        );
+      const contribGlobalAlignBefore = await getAccount(
+        ctx.provider.connection,
+        ctx.contributorAlignAta,
+      );
+      const validatorGlobalRepBefore = await getAccount(
+        ctx.provider.connection,
+        ctx.validatorRepAta,
+      );
+      const user3GlobalRepBefore = await getAccount(
+        ctx.provider.connection,
+        ctx.user3RepAta,
+      );
+
+      console.log("--- Before Finalization ---");
+      console.log("Validator Balance:", validatorBalanceBefore);
+      console.log("User3 Balance:", user3BalanceBefore);
+      console.log("Contributor Balance:", contribBalanceBefore);
+
+      // Finalize the submission first (contributor gets Align tokens)
       console.log(
-        "Validator before finalization:",
-        validatorBeforeFinalization
+        `Finalizing test submission ${ctx.testSubmissionPda.toBase58()}`,
       );
-
-      // Validator should still have:
-      // - 15 available tempRep (25 initial - 10 locked)
-      // - 10 locked tempRep
-      expect(validatorBeforeFinalization.topicSpecificTokens.tempRep).to.equal(
-        15
-      );
-      expect(
-        validatorBeforeFinalization.topicSpecificTokens.lockedTempRep
-      ).to.equal(10);
-
-      // Finalize the submission first
-      const finalizeTx = await ctx.program.methods
+      const finalizeSubTx = await ctx.program.methods
         .finalizeSubmission()
         .accounts({
           state: ctx.statePda,
-          submissionTopicLink: testSubmissionTopicLinkPda,
+          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: testSubmissionPda,
+          submission: ctx.testSubmissionPda,
           contributorProfile: ctx.contributorProfilePda,
+          userTopicBalance: ctx.contributorTopic1BalancePda, // Contributor's balance updated
           contributorTempAlignAccount: ctx.contributorTempAlignAccount,
           contributorAlignAta: ctx.contributorAlignAta,
           tempAlignMint: ctx.tempAlignMintPda,
@@ -613,31 +677,39 @@ export function runTokenLockingTests(ctx: TestContext): void {
         })
         .signers([ctx.authorityKeypair])
         .rpc();
+      console.log(" -> Finalize Submission TX:", finalizeSubTx);
 
-      console.log("Finalize submission transaction:", finalizeTx);
-
-      // Check contributor balance after submission finalization
-      const contributorAfterFinalization = await checkUserTokenBalances(
-        ctx.contributorProfilePda,
-        0
+      // Verify contributor got Align tokens
+      const contribBalanceAfter =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.contributorTopic1BalancePda,
+        );
+      const contribGlobalAlignAfter = await getAccount(
+        ctx.provider.connection,
+        ctx.contributorAlignAta,
       );
+      const tokensMinted = (
+        await ctx.program.account.state.fetch(ctx.statePda)
+      ).tokensToMint.toNumber();
+      expect(contribBalanceAfter.tempAlignAmount.toNumber()).to.equal(0); // Entitlement consumed
+      expect(Number(contribGlobalAlignAfter.amount)).to.equal(
+        Number(contribGlobalAlignBefore.amount) + tokensMinted,
+      ); // Received 100 Align
+
+      // Finalize validator's vote
       console.log(
-        "Contributor after finalization:",
-        contributorAfterFinalization
+        `Finalizing validator's vote on test submission (VoteCommit: ${ctx.testVoteCommitPda.toBase58()})`,
       );
-      // tempAlign should be burned, align tokens should be increased
-      expect(contributorAfterFinalization.tempAlign).to.equal(0); // All tempAlign burned
-
-      // Now finalize the vote
-      const finalizeVoteTx = await ctx.program.methods
+      const finalizeVoteTxVal = await ctx.program.methods
         .finalizeVote()
         .accounts({
           state: ctx.statePda,
-          submissionTopicLink: testSubmissionTopicLinkPda,
+          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: testSubmissionPda,
-          voteCommit: ctx.voteCommitPda,
+          submission: ctx.testSubmissionPda,
+          voteCommit: ctx.testVoteCommitPda, // Validator's vote commit for test sub
           validatorProfile: ctx.validatorProfilePda,
+          userTopicBalance: ctx.validatorTopic1BalancePda, // Validator's balance updated
           validatorTempRepAccount: ctx.validatorTempRepAccount,
           validatorRepAta: ctx.validatorRepAta,
           tempRepMint: ctx.tempRepMintPda,
@@ -648,48 +720,24 @@ export function runTokenLockingTests(ctx: TestContext): void {
         })
         .signers([ctx.authorityKeypair])
         .rpc();
+      console.log(" -> Finalize Validator Vote TX:", finalizeVoteTxVal);
 
-      console.log("Finalize vote transaction:", finalizeVoteTx);
-
-      // Check validator token balances after finalization
-      const validatorAfterFinalization = await checkUserTokenBalances(
-        ctx.validatorProfilePda,
-        0
-      );
-      console.log("Validator after finalization:", validatorAfterFinalization);
-
-      // Verify locked tokens were released
-      expect(
-        validatorAfterFinalization.topicSpecificTokens.lockedTempRep
-      ).to.equal(0); // All tokens should be unlocked
-      expect(validatorAfterFinalization.topicSpecificTokens.tempRep).to.equal(
-        15
-      ); // 15 available tokens remain unchanged
-
-      // If vote agreed with consensus (yes vote), tokens should be converted to permanent Rep
-      const voteCommit = await ctx.program.account.voteCommit.fetch(
-        ctx.voteCommitPda
-      );
-      expect(voteCommit.finalized).to.be.true;
-
-      // Since we voted yes and the submission was accepted (vote with consensus),
-      // The 10 tempRep tokens we used should be converted to permanent Rep tokens
-      // Validator should have exactly 25 from previous test + 10 from this test = 35 permanent Rep
-      expect(validatorAfterFinalization.permanentRep).to.equal(35);
-
-      // Also verify user3's vote was finalized with proper token handling
       // Finalize user3's vote
-      const finalizeUser3VoteTx = await ctx.program.methods
+      console.log(
+        `Finalizing user3's vote on test submission (VoteCommit: ${ctx.user3VoteCommitPda.toBase58()})`,
+      );
+      const finalizeVoteTxU3 = await ctx.program.methods
         .finalizeVote()
         .accounts({
           state: ctx.statePda,
-          submissionTopicLink: testSubmissionTopicLinkPda,
+          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
-          submission: testSubmissionPda,
-          voteCommit: secondVoteCommitPda,
-          validatorProfile: ctx.user3ProfilePda,
-          validatorTempRepAccount: ctx.user3TempRepAccount,
-          validatorRepAta: ctx.user3RepAta,
+          submission: ctx.testSubmissionPda,
+          voteCommit: ctx.user3VoteCommitPda, // User3's vote commit for test sub
+          validatorProfile: ctx.user3ProfilePda, // User3's profile
+          userTopicBalance: ctx.user3Topic1BalancePda, // User3's balance updated
+          validatorTempRepAccount: ctx.user3TempRepAccount, // User3's temp rep account
+          validatorRepAta: ctx.user3RepAta, // User3's rep ATA
           tempRepMint: ctx.tempRepMintPda,
           repMint: ctx.repMintPda,
           authority: ctx.authorityKeypair.publicKey,
@@ -698,64 +746,70 @@ export function runTokenLockingTests(ctx: TestContext): void {
         })
         .signers([ctx.authorityKeypair])
         .rpc();
+      console.log(" -> Finalize User3 Vote TX:", finalizeVoteTxU3);
 
-      console.log("Finalize user3 vote transaction:", finalizeUser3VoteTx);
-
-      // Check user3's token balances after finalization
-      const user3AfterFinalization = await checkUserTokenBalances(
-        ctx.user3ProfilePda,
-        0
+      // --- Verification ---
+      // Check validator balances after finalization
+      const validatorBalanceAfter =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.validatorTopic1BalancePda,
+        );
+      const validatorGlobalRepAfter = await getAccount(
+        ctx.provider.connection,
+        ctx.validatorRepAta,
       );
-      console.log("User3 after finalization:", user3AfterFinalization);
-      expect(user3AfterFinalization.topicSpecificTokens.lockedTempRep).to.equal(
-        0
-      ); // All tokens should be unlocked
-      expect(user3AfterFinalization.tempRep).to.equal(14); // 14 available tokens remain unchanged
-      // User3 voted with 36 tokens, so should have exactly 36 permanent Rep
-      expect(user3AfterFinalization.permanentRep).to.equal(36);
-    });
-
-    it("Correctly tracks token amounts across multiple votes", async () => {
-      // We've already tested multiple votes with validator and user3
-      // This test just verifies the final balances after all operations
-
-      const validatorAfterFinalization = await checkUserTokenBalances(
-        ctx.validatorProfilePda,
-        0
+      console.log(
+        "Validator UserTopicBalance after finalization:",
+        validatorBalanceAfter,
       );
-      // Validator should have no locked tokens
-      expect(
-        validatorAfterFinalization.topicSpecificTokens.lockedTempRep
-      ).to.equal(0);
-
-      // Check final balances for user3
-      const user3AfterFinalization = await checkUserTokenBalances(
-        ctx.user3ProfilePda,
-        0
+      console.log(
+        "Validator Global Rep ATA after finalization:",
+        Number(validatorGlobalRepAfter.amount),
       );
-      // User3 should have no locked tokens
-      expect(user3AfterFinalization.topicSpecificTokens.lockedTempRep).to.equal(
-        0
+      expect(validatorBalanceAfter.lockedTempRepAmount.toNumber()).to.equal(0); // Unlocked
+      expect(validatorBalanceAfter.tempRepAmount.toNumber()).to.equal(
+        validatorBalanceBefore.tempRepAmount.toNumber(),
+      ); // Available unchanged
+      // Voted 10 tempRep, submission accepted -> +10 permanent Rep
+      expect(Number(validatorGlobalRepAfter.amount)).to.equal(
+        Number(validatorGlobalRepBefore.amount) + 10,
       );
 
-      // Verify total tempRep and permanent Rep balances
-      // Validator should have 15 tempRep remaining and 35 permanent Rep
-      expect(validatorAfterFinalization.topicSpecificTokens.tempRep).to.equal(
-        15
+      // Check user3 balances after finalization
+      const user3BalanceAfter =
+        await ctx.program.account.userTopicBalance.fetch(
+          ctx.user3Topic1BalancePda,
+        );
+      const user3GlobalRepAfter = await getAccount(
+        ctx.provider.connection,
+        ctx.user3RepAta,
       );
-      expect(validatorAfterFinalization.permanentRep).to.equal(35);
-
-      // User3 should have 14 tempRep remaining and 36 permanent Rep
-      expect(user3AfterFinalization.tempRep).to.equal(14);
-      expect(user3AfterFinalization.permanentRep).to.equal(36);
-
-      // Check contributor's align balance after all operations
-      const contributorAfterFinalization = await checkUserTokenBalances(
-        ctx.contributorProfilePda,
-        0
+      console.log(
+        "User3 UserTopicBalance after finalization:",
+        user3BalanceAfter,
       );
-      expect(contributorAfterFinalization.permanentAlign).to.equal(150);
-      expect(contributorAfterFinalization.tempAlign).to.equal(0);
+      console.log(
+        "User3 Global Rep ATA after finalization:",
+        Number(user3GlobalRepAfter.amount),
+      );
+      expect(user3BalanceAfter.lockedTempRepAmount.toNumber()).to.equal(0); // Unlocked
+      expect(user3BalanceAfter.tempRepAmount.toNumber()).to.equal(
+        user3BalanceBefore.tempRepAmount.toNumber(),
+      ); // Available unchanged
+      // Voted 36 tempRep, submission accepted -> +36 permanent Rep
+      expect(Number(user3GlobalRepAfter.amount)).to.equal(
+        Number(user3GlobalRepBefore.amount) + 36,
+      );
+
+      // Verify vote commits are finalized
+      const voteCommitVal = await ctx.program.account.voteCommit.fetch(
+        ctx.testVoteCommitPda,
+      );
+      const voteCommitU3 = await ctx.program.account.voteCommit.fetch(
+        ctx.user3VoteCommitPda,
+      );
+      expect(voteCommitVal.finalized).to.be.true;
+      expect(voteCommitU3.finalized).to.be.true;
     });
   });
 }

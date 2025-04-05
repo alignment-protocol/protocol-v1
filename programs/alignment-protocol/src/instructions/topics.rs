@@ -1,4 +1,4 @@
-use crate::contexts::{CreateTopic, CreateUserProfile};
+use crate::contexts::CreateTopic;
 use crate::data::{MAX_TOPIC_DESCRIPTION_LENGTH, MAX_TOPIC_NAME_LENGTH};
 use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
@@ -27,7 +27,6 @@ pub fn create_topic(
     let topic = &mut ctx.accounts.topic;
     let state = &mut ctx.accounts.state;
 
-    topic.id = state.topic_count;
     topic.name = name.clone();
     topic.description = description.clone();
     topic.authority = ctx.accounts.authority.key();
@@ -47,7 +46,7 @@ pub fn create_topic(
         .checked_add(1)
         .ok_or(ErrorCode::Overflow)?;
 
-    msg!("Created new topic: {} (ID: {})", name, topic.id);
+    msg!("Created new topic: {}", name);
     msg!("Description: {}", description);
     msg!(
         "Commit phase duration: {} seconds",
@@ -58,16 +57,5 @@ pub fn create_topic(
         topic.reveal_phase_duration
     );
 
-    Ok(())
-}
-
-pub fn create_user_profile(ctx: Context<CreateUserProfile>) -> Result<()> {
-    // Initialize the user profile fields
-    let user_profile = &mut ctx.accounts.user_profile;
-    user_profile.user = ctx.accounts.user.key();
-    user_profile.permanent_rep_amount = 0;
-    user_profile.bump = ctx.bumps.user_profile;
-
-    msg!("Created user profile for {}", ctx.accounts.user.key());
     Ok(())
 }

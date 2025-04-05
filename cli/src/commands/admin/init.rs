@@ -15,10 +15,7 @@ use crate::commands::common::pda::{get_mint_pda, get_state_pda};
 /// Check if the protocol state is already initialized
 pub fn is_state_initialized(program: &Program<Rc<Keypair>>) -> bool {
     let (state_pda, _) = get_state_pda(program);
-    match program.account::<StateAccount>(state_pda) {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    program.account::<StateAccount>(state_pda).is_ok()
 }
 
 /// Check if all token mints have been initialized

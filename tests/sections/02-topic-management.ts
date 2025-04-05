@@ -9,7 +9,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
       // Derive the topic PDA for the first topic (ID = 0)
       [ctx.topic1Pda] = web3.PublicKey.findProgramAddressSync(
         [Buffer.from("topic"), Buffer.from([0, 0, 0, 0, 0, 0, 0, 0])],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Create the first topic
@@ -18,7 +18,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
           ctx.TOPIC1_NAME,
           ctx.TOPIC1_DESCRIPTION,
           null, // Use default commit phase duration
-          null // Use default reveal phase duration
+          null, // Use default reveal phase duration
         )
         .accounts({
           state: ctx.statePda,
@@ -34,11 +34,10 @@ export function runTopicManagementTests(ctx: TestContext): void {
 
       // Fetch and verify the topic data
       const topicAcc = await ctx.program.account.topic.fetch(ctx.topic1Pda);
-      expect(topicAcc.id.toNumber()).to.equal(0);
       expect(topicAcc.name).to.equal(ctx.TOPIC1_NAME);
       expect(topicAcc.description).to.equal(ctx.TOPIC1_DESCRIPTION);
       expect(topicAcc.authority.toString()).to.equal(
-        ctx.authorityKeypair.publicKey.toString()
+        ctx.authorityKeypair.publicKey.toString(),
       );
       expect(topicAcc.submissionCount.toNumber()).to.equal(0);
       expect(topicAcc.isActive).to.be.true;
@@ -49,10 +48,10 @@ export function runTopicManagementTests(ctx: TestContext): void {
 
       // Verify the default durations were set correctly
       expect(topicAcc.commitPhaseDuration.toNumber()).to.equal(
-        stateAcc.defaultCommitPhaseDuration.toNumber()
+        stateAcc.defaultCommitPhaseDuration.toNumber(),
       );
       expect(topicAcc.revealPhaseDuration.toNumber()).to.equal(
-        stateAcc.defaultRevealPhaseDuration.toNumber()
+        stateAcc.defaultRevealPhaseDuration.toNumber(),
       );
     });
 
@@ -60,7 +59,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
       // Derive the topic PDA for the second topic (ID = 1)
       [ctx.topic2Pda] = web3.PublicKey.findProgramAddressSync(
         [Buffer.from("topic"), Buffer.from([1, 0, 0, 0, 0, 0, 0, 0])],
-        ctx.program.programId
+        ctx.program.programId,
       );
 
       // Create the second topic with custom phase durations
@@ -72,7 +71,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
           ctx.TOPIC2_NAME,
           ctx.TOPIC2_DESCRIPTION,
           new anchor.BN(customCommitDuration),
-          new anchor.BN(customRevealDuration)
+          new anchor.BN(customRevealDuration),
         )
         .accounts({
           state: ctx.statePda,
@@ -88,11 +87,10 @@ export function runTopicManagementTests(ctx: TestContext): void {
 
       // Fetch and verify the topic data
       const topicAcc = await ctx.program.account.topic.fetch(ctx.topic2Pda);
-      expect(topicAcc.id.toNumber()).to.equal(1);
       expect(topicAcc.name).to.equal(ctx.TOPIC2_NAME);
       expect(topicAcc.description).to.equal(ctx.TOPIC2_DESCRIPTION);
       expect(topicAcc.authority.toString()).to.equal(
-        ctx.authorityKeypair.publicKey.toString()
+        ctx.authorityKeypair.publicKey.toString(),
       );
       expect(topicAcc.submissionCount.toNumber()).to.equal(0);
       expect(topicAcc.isActive).to.be.true;
@@ -103,10 +101,10 @@ export function runTopicManagementTests(ctx: TestContext): void {
 
       // Verify the custom durations were set correctly
       expect(topicAcc.commitPhaseDuration.toNumber()).to.equal(
-        customCommitDuration
+        customCommitDuration,
       );
       expect(topicAcc.revealPhaseDuration.toNumber()).to.equal(
-        customRevealDuration
+        customRevealDuration,
       );
     });
   });

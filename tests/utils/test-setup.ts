@@ -1,4 +1,4 @@
-import { Program, AnchorProvider, web3 } from "@coral-xyz/anchor";
+import { Program, AnchorProvider, web3, BN } from "@coral-xyz/anchor";
 import { AlignmentProtocol } from "../../target/types/alignment_protocol";
 
 // Setup utility functions and shared variables
@@ -45,14 +45,35 @@ export interface TestContext {
   contributorProfilePda: web3.PublicKey;
   validatorProfilePda: web3.PublicKey;
   user3ProfilePda: web3.PublicKey;
+
+  // User Topic Balances
+  contributorTopic1BalancePda: web3.PublicKey;
+  validatorTopic1BalancePda: web3.PublicKey;
+  user3Topic1BalancePda: web3.PublicKey;
+
   // Submission tracking
   submissionPda: web3.PublicKey;
+  validatorSubmissionPda: web3.PublicKey;
+  testSubmissionPda: web3.PublicKey;
+  user3SubmissionPda: web3.PublicKey;
+  validationSubmissionPda: web3.PublicKey;
   submissionTopicLinkPda: web3.PublicKey;
+  validatorSubmissionTopicLinkPda: web3.PublicKey;
+  testSubmissionTopicLinkPda: web3.PublicKey;
+  user3SubmissionTopicLinkPda: web3.PublicKey;
+  validationSubmissionTopicLinkPda: web3.PublicKey;
   crossTopicLinkPda: web3.PublicKey;
 
   // Vote tracking
   voteCommitPda: web3.PublicKey;
+  testVoteCommitPda: web3.PublicKey;
+  user3VoteCommitPda: web3.PublicKey;
+  validationVoteCommitPda: web3.PublicKey;
+
   voteHash: number[];
+  testVoteHash: number[];
+  user3VoteHash: number[];
+  validationVoteHash: number[];
 
   // Constants
   TOPIC1_NAME: string;
@@ -62,4 +83,6 @@ export interface TestContext {
   SUBMISSION_DATA: string;
   VOTE_NONCE: string;
   VOTE_CHOICE_YES: any;
+  VOTE_CHOICE_NO: any;
+  VOTE_NONCE_VALIDATION: string;
 }

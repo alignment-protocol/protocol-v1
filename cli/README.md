@@ -7,6 +7,7 @@ The Alignment Protocol is a decentralized data quality validation system, enabli
 ## Installation
 
 ### Prerequisites
+
 - [Rust and Cargo](https://www.rust-lang.org/tools/install)
 - [Solana CLI tools](https://docs.solana.com/cli/install-solana-cli-tools)
 
@@ -228,13 +229,13 @@ The protocol uses four types of tokens:
 ## Protocol Workflow
 
 1. **Protocol Deployment**: Protocol is deployed and initialized by administrators
-2. **Topic Creation**: Create topics for data submissions 
+2. **Topic Creation**: Create topics for data submissions
 3. **User Setup**: Create user profile with all necessary token accounts
 4. **Data Submission**: Contributors submit data to topics and receive tempAlign tokens
 5. **Voting**:
    - **Commit Phase**: Validators commit hidden votes using a hash
    - **Reveal Phase**: Validators reveal their votes with the original data
-6. **Submission Finalization**: 
+6. **Submission Finalization**:
    - If accepted, contributor's tempAlign tokens convert to permanent Align tokens
    - If rejected, tempAlign tokens remain locked
 7. **Vote Finalization**:
@@ -267,7 +268,7 @@ The CLI is structured into logical modules:
 
 1. `main.rs` - Entry point that routes commands to the appropriate handlers
 2. `cli.rs` - CLI command structure and argument parsing
-3. `client.rs` - Client setup and program connection 
+3. `client.rs` - Client setup and program connection
 4. `commands/` - Command implementations and utilities
    - `user/` - User commands implementations
      - `topic.rs` - User topic-related commands
