@@ -214,4 +214,21 @@ pub mod alignment_protocol {
             reveal_phase_end,
         )
     }
+
+    /// Instruction handler: Request AI validation for a submission
+    ///
+    /// Allows the original contributor to spend tempRep to have an AI vote on their submission.
+    pub fn request_ai_validation(
+        ctx: Context<RequestAiValidation>,
+        temp_rep_to_stake: u64,
+    ) -> Result<()> {
+        instructions::ai::request_ai_validation(ctx, temp_rep_to_stake)
+    }
+
+    /// Instruction handler: Submit AI vote result (called by Oracle)
+    ///
+    /// Allows the authorized off-chain Oracle to submit the AI's decision, adding voting power.
+    pub fn submit_ai_vote(ctx: Context<SubmitAiVote>, ai_decision: VoteChoice) -> Result<()> {
+        instructions::ai::submit_ai_vote(ctx, ai_decision)
+    }
 }

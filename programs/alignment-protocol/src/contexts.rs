@@ -887,3 +887,84 @@ pub struct StakeTopicSpecificTokens<'info> {
     /// Token program for CPI calls
     pub token_program: Program<'info, Token>,
 }
+
+// --- NEW CONTEXTS FOR AI VALIDATION ---
+
+#[derive(Accounts)]
+#[instruction(temp_rep_to_stake: u64)]
+pub struct RequestAiValidation<'info> {
+    #[account(mut)]
+    pub requester: Signer<'info>,
+
+    /// The submission made by the requester
+    #[account()]
+    pub submission: Account<'info, Submission>,
+
+    /// The topic the submission belongs to (needed for UserTopicBalance PDA derivation)
+    #[account()]
+    pub topic: Account<'info, Topic>,
+
+    /// The link between the submission and the topic
+    #[account(
+        seeds = [b"link", topic.key().as_ref(), submission.key().as_ref()],
+        bump = submission_topic_link.bump,
+    )]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+
+    /// User's balance account for this specific topic (to deduct tempRep)
+    #[account(
+        mut, // Need mutable access to deduct tokens
+        seeds = [b"balance", requester.key().as_ref(), topic.key().as_ref()],
+        bump = user_topic_balance.bump,
+        // Constraint: Ensure user owns this balance account
+        constraint = user_topic_balance.user == requester.key() @ ErrorCode::UserAccountMismatch,
+        // Constraint: Ensure it's for the correct topic
+        constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic,
+        // Constraint: Check if enough balance (checked in instruction logic)
+    )]
+    pub user_topic_balance: Account<'info, UserTopicBalance>,
+
+    /// The new AI Validation Request account to be created
+    #[account(
+        init,
+        payer = requester,
+        space = 8 + 32 + 32 + 8 + 8 + 1 + 1 + 1 + 8 + 1, // Recalculated space: Discriminator + link_pk + requester_pk + staked_amount + timestamp + status_enum(1+variant) + decision_option_enum(1+1+variant) + power + bump
+        seeds = [b"ai_request", submission_topic_link.key().as_ref()],
+        bump
+    )]
+    pub ai_validation_request: Account<'info, AiValidationRequest>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SubmitAiVote<'info> {
+    #[account(mut)]
+    pub oracle: Signer<'info>, // The off-chain service's keypair
+
+    #[account(
+        seeds = [b"state"], bump = state.bump,
+        // Constraint checked in instruction logic using oracle_pubkey field
+    )]
+    pub state: Account<'info, State>, // Needed to verify the oracle's public key
+
+    /// The AI Request being fulfilled.
+    #[account(
+        mut, // Needs to be mutable to update status
+        seeds = [b"ai_request", submission_topic_link.key().as_ref()], // Must match seeds used in RequestAiValidation
+        bump = ai_validation_request.bump,
+        // Constraint: Ensure it belongs to the link (checked in instruction logic)
+    )]
+    pub ai_validation_request: Account<'info, AiValidationRequest>,
+
+    /// The SubmissionTopicLink being voted on.
+    #[account(
+        mut, // Needs to be mutable to update vote counts
+        // Constraint: Ensure link matches request (checked in instruction logic)
+    )]
+    pub submission_topic_link: Account<'info, SubmissionTopicLink>,
+    // Optional: Include Topic if needed for context or validation rules in future
+    // #[account(constraint = submission_topic_link.topic == topic.key())]
+    // pub topic: Account<'info, Topic>,
+}
+// --- END OF NEW CONTEXTS ---
