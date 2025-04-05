@@ -72,6 +72,16 @@ fn main() -> Result<()> {
                 submission_pda,
                 topic_id,
             } => user::submission::cmd_finalize_submission(&program, submission_pda, topic_id)?,
+            SubmissionCommands::RequestAiValidation {
+                submission_pda,
+                topic_id,
+                amount,
+            } => user::submission::cmd_request_ai_validation(
+                &program,
+                submission_pda,
+                topic_id,
+                amount,
+            )?,
         },
         Commands::Vote { subcommand } => match subcommand {
             VoteCommands::Commit {

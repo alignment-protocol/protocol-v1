@@ -183,6 +183,21 @@ pub enum SubmissionCommands {
         #[arg(index = 2)]
         topic_id: u64,
     },
+
+    /// Request AI validation for your submission (costs tempRep)
+    RequestAiValidation {
+        /// Submission PDA (Pubkey as String)
+        #[arg(long)]
+        submission_pda: String,
+
+        /// Topic ID
+        #[arg(long)]
+        topic_id: u64,
+
+        /// Amount of tempRep to stake/spend for the validation
+        #[arg(long)]
+        amount: u64,
+    },
 }
 
 #[derive(Subcommand)]
