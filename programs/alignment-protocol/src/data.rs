@@ -23,6 +23,9 @@ pub struct State {
     /// The protocol authority (admin, DAO, etc.)
     pub authority: Pubkey,
 
+    /// The authorized public key for the AI Oracle service
+    pub oracle_pubkey: Pubkey,
+
     /// Bump seed for the state PDA
     pub bump: u8,
 
