@@ -5,6 +5,7 @@ use anchor_lang::prelude::Pubkey;
 use anchor_spl::token::ID as TokenProgramID;
 use anyhow::{anyhow, Result};
 use std::rc::Rc;
+use std::str::FromStr;
 
 use alignment_protocol::{
     accounts as AccountsAll, data::State as StateAccount, instruction as InstructionAll,
@@ -34,16 +35,21 @@ pub fn are_mints_initialized(program: &Program<Rc<Keypair>>) -> bool {
 }
 
 /// Initialize protocol state account
-pub fn cmd_init_state(program: &Program<Rc<Keypair>>) -> Result<()> {
+pub fn cmd_init_state(program: &Program<Rc<Keypair>>, oracle_pubkey_str: String) -> Result<()> {
     // Check if state is already initialized
     if is_state_initialized(program) {
         println!("Protocol state is already initialized.");
         return Ok(());
     }
 
+    // Parse the oracle pubkey string
+    let oracle_pubkey = Pubkey::from_str(&oracle_pubkey_str)
+        .map_err(|e| anyhow!("Invalid oracle pubkey provided: {}", e))?;
+
     let (state_pda, _) = get_state_pda(program);
 
     println!("Initializing protocol state account...");
+    println!("  Oracle Pubkey: {}", oracle_pubkey);
 
     // Get the rent sysvar
     let rent = anchor_client::solana_sdk::sysvar::rent::ID;
@@ -55,11 +61,10 @@ pub fn cmd_init_state(program: &Program<Rc<Keypair>>) -> Result<()> {
         rent,
     };
 
-    // No arguments needed, bumps are handled by Anchor
     let tx_sig = program
         .request()
         .accounts(accounts)
-        .args(InstructionAll::InitializeState {})
+        .args(InstructionAll::InitializeState { oracle_pubkey })
         .send()?;
 
     println!("Protocol state account initialized (txSig: {})", tx_sig);
@@ -255,7 +260,7 @@ pub fn cmd_init_rep_mint(program: &Program<Rc<Keypair>>) -> Result<()> {
 }
 
 /// Initialize all protocol accounts
-pub fn cmd_init_all(program: &Program<Rc<Keypair>>) -> Result<()> {
+pub fn cmd_init_all(program: &Program<Rc<Keypair>>, oracle_pubkey_str: String) -> Result<()> {
     println!("Initializing all protocol accounts...");
 
     // Check if everything is already initialized
@@ -265,13 +270,17 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>) -> Result<()> {
     }
 
     // Initialize state first
-    match cmd_init_state(program) {
+    match cmd_init_state(program, oracle_pubkey_str) {
         Ok(_) => println!("[DEBUG] State initialization successful"),
         Err(e) => {
             println!("[DEBUG] State initialization failed: {}", e);
             return Err(e);
         }
     }
+
+    // Add a small delay to allow state account to be confirmed if necessary
+    println!("Waiting briefly before initializing mints...");
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     // Then initialize all token mints
     match cmd_init_temp_align_mint(program) {
@@ -281,6 +290,7 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>) -> Result<()> {
             return Err(e);
         }
     }
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     match cmd_init_align_mint(program) {
         Ok(_) => println!("[DEBUG] Align mint initialization successful"),
@@ -289,6 +299,7 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>) -> Result<()> {
             return Err(e);
         }
     }
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     match cmd_init_temp_rep_mint(program) {
         Ok(_) => println!("[DEBUG] TempRep mint initialization successful"),
@@ -297,6 +308,7 @@ pub fn cmd_init_all(program: &Program<Rc<Keypair>>) -> Result<()> {
             return Err(e);
         }
     }
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     match cmd_init_rep_mint(program) {
         Ok(_) => println!("[DEBUG] Rep mint initialization successful"),

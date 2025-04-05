@@ -28,8 +28,8 @@ pub mod alignment_protocol {
     use super::*;
 
     /// Instruction handler: initialize the protocol state (Part 1)
-    pub fn initialize_state(ctx: Context<InitializeState>) -> Result<()> {
-        instructions::initialize::initialize_state(ctx)
+    pub fn initialize_state(ctx: Context<InitializeState>, oracle_pubkey: Pubkey) -> Result<()> {
+        instructions::initialize::initialize_state(ctx, oracle_pubkey)
     }
 
     /// Instruction handler: initialize temp_align_mint (Part 2a)

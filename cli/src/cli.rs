@@ -401,7 +401,11 @@ pub enum DebugCommands {
 #[derive(Subcommand)]
 pub enum InitCommands {
     /// [ADMIN] Initialize protocol state account
-    State,
+    State {
+        /// Public key of the authorized AI Oracle service
+        #[arg(long, required = true)]
+        oracle_pubkey: String,
+    },
 
     /// [ADMIN] Initialize temporary alignment token mint
     TempAlignMint,
