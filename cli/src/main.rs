@@ -143,6 +143,9 @@ fn main() -> Result<()> {
                 topic_id,
                 validator,
             } => user::query::cmd_query_vote(&program, submission_id, topic_id, validator)?,
+            QueryCommands::TopicBalance { topic_id, user } => {
+                user::query::cmd_view_user_topic_balance(&program, topic_id, user)?
+            }
         },
         Commands::Debug { subcommand } => match subcommand {
             DebugCommands::TokenAccount { token_type, user } => {
