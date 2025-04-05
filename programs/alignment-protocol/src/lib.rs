@@ -221,14 +221,19 @@ pub mod alignment_protocol {
     pub fn request_ai_validation(
         ctx: Context<RequestAiValidation>,
         temp_rep_to_stake: u64,
+        expected_ai_request_index: u64,
     ) -> Result<()> {
-        instructions::ai::request_ai_validation(ctx, temp_rep_to_stake)
+        instructions::ai::request_ai_validation(ctx, temp_rep_to_stake, expected_ai_request_index)
     }
 
     /// Instruction handler: Submit AI vote result (called by Oracle)
     ///
     /// Allows the authorized off-chain Oracle to submit the AI's decision, adding voting power.
-    pub fn submit_ai_vote(ctx: Context<SubmitAiVote>, ai_decision: VoteChoice) -> Result<()> {
-        instructions::ai::submit_ai_vote(ctx, ai_decision)
+    pub fn submit_ai_vote(
+        ctx: Context<SubmitAiVote>,
+        ai_request_index: u64,
+        ai_decision: VoteChoice,
+    ) -> Result<()> {
+        instructions::ai::submit_ai_vote(ctx, ai_request_index, ai_decision)
     }
 }

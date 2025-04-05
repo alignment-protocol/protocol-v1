@@ -134,4 +134,11 @@ pub enum ErrorCode {
 
     #[msg("The AI validation request account does not correspond to the provided SubmissionTopicLink.")]
     MismatchedAiRequestLink,
+
+    #[msg("This submission has already been finalized.")]
+    SubmissionAlreadyFinalized,
+
+    // State Mismatch Errors (Start: 2024)
+    #[msg("AI request index mismatch. State may have changed.")]
+    StateMismatch,
 }

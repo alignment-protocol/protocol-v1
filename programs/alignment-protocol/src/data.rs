@@ -256,6 +256,8 @@ pub struct AiValidationRequest {
     pub ai_decision: Option<VoteChoice>,
     /// The AI's voting power derived from temp_rep_staked (populated upon completion)
     pub ai_voting_power: u64,
+    /// The index (from link counter) used for this request's PDA
+    pub request_index: u64,
     /// Bump seed for the PDA
     pub bump: u8,
 }
