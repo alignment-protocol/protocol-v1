@@ -277,9 +277,23 @@ pub fn cmd_request_ai_validation(
         &program.id(),
     );
 
-    // AiValidationRequest PDA
-    let (ai_request_pda, _ai_request_bump) =
-        Pubkey::find_program_address(&[b"ai_request", link_pda.as_ref()], &program.id());
+    // Fetch the SubmissionTopicLink account to get the current total_committed_votes
+    let link_data: alignment_protocol::SubmissionTopicLink = program.account(link_pda)?;
+    let expected_ai_request_index = link_data.total_committed_votes; // Get index BEFORE sending TX
+    println!(
+        "  Current total_committed_votes on link (used for expected index): {}",
+        expected_ai_request_index
+    );
+
+    // AiValidationRequest PDA (Needs the specific index)
+    let (ai_request_pda, _ai_request_bump) = Pubkey::find_program_address(
+        &[
+            b"ai_request",
+            link_pda.as_ref(),
+            &expected_ai_request_index.to_le_bytes(), // Use the fetched index for derivation
+        ],
+        &program.id(),
+    );
 
     println!("Derived PDAs:");
     println!("  Topic: {}", topic_pda);
@@ -301,6 +315,7 @@ pub fn cmd_request_ai_validation(
         })
         .args(InstructionAll::RequestAiValidation {
             temp_rep_to_stake: amount,
+            expected_ai_request_index, // <-- Pass the fetched index
         });
 
     let signature = builder

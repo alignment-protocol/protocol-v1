@@ -8,13 +8,13 @@ skip-lint = false
 alignment-protocol = "FtHfXYCwuVEb8LVkNwNMmqMVooyg2fxkoT8i9bkEcvKW"
 
 [programs.devnet]
-alignment-protocol = "3NYwpp7xv6m35he2sbWTDKPyzepwQiJq5YkD2AzdHmRc"
+alignment-protocol = "T4E39enXA8obNv8iT8Sx58UoiaEcWCpg1SqBr33d28V"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

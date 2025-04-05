@@ -890,8 +890,9 @@ pub struct StakeTopicSpecificTokens<'info> {
 
 // --- NEW CONTEXTS FOR AI VALIDATION ---
 
+/// Account constraints for requesting AI validation for a submission
 #[derive(Accounts)]
-#[instruction(temp_rep_to_stake: u64)]
+#[instruction(temp_rep_to_stake: u64, expected_ai_request_index: u64)]
 pub struct RequestAiValidation<'info> {
     #[account(mut)]
     pub requester: Signer<'info>,
@@ -906,6 +907,7 @@ pub struct RequestAiValidation<'info> {
 
     /// The link between the submission and the topic
     #[account(
+        mut,
         seeds = [b"submission_topic_link", submission.key().as_ref(), topic.key().as_ref()],
         bump = submission_topic_link.bump,
     )]
@@ -913,14 +915,11 @@ pub struct RequestAiValidation<'info> {
 
     /// User's balance account for this specific topic (to deduct tempRep)
     #[account(
-        mut, // Need mutable access to deduct tokens
+        mut,
         seeds = [b"user_topic_balance", requester.key().as_ref(), topic.key().as_ref()],
         bump = user_topic_balance.bump,
-        // Constraint: Ensure user owns this balance account
         constraint = user_topic_balance.user == requester.key() @ ErrorCode::UserAccountMismatch,
-        // Constraint: Ensure it's for the correct topic
         constraint = user_topic_balance.topic == topic.key() @ ErrorCode::InvalidTopic,
-        // Constraint: Check if enough balance (checked in instruction logic)
     )]
     pub user_topic_balance: Account<'info, UserTopicBalance>,
 
@@ -928,8 +927,22 @@ pub struct RequestAiValidation<'info> {
     #[account(
         init,
         payer = requester,
-        space = 8 + 32 + 32 + 8 + 8 + 1 + 1 + 1 + 8 + 1, // Recalculated space: Discriminator + link_pk + requester_pk + staked_amount + timestamp + status_enum(1+variant) + decision_option_enum(1+1+variant) + power + bump
-        seeds = [b"ai_request", submission_topic_link.key().as_ref()],
+        space = 8 + // Discriminator
+                32 + // submission_topic_link: Pubkey
+                32 + // requester: Pubkey
+                 8 + // temp_rep_staked: u64
+                 8 + // request_timestamp: u64
+                 1 + // status: AiValidationStatus (enum discriminator)
+                 2 + // ai_decision: Option<VoteChoice> (option + enum discriminators)
+                 8 + // ai_voting_power: u64
+                 8 + // request_index: u64 (the index used for PDA derivation)
+                 1 , // bump: u8
+                // TOTAL = 108 bytes
+        seeds = [
+            b"ai_request",
+            submission_topic_link.key().as_ref(),
+            expected_ai_request_index.to_le_bytes().as_ref()
+        ],
         bump
     )]
     pub ai_validation_request: Account<'info, AiValidationRequest>,
@@ -938,6 +951,7 @@ pub struct RequestAiValidation<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(ai_request_index: u64)]
 pub struct SubmitAiVote<'info> {
     #[account(mut)]
     pub oracle: Signer<'info>, // The off-chain service's keypair
@@ -951,15 +965,19 @@ pub struct SubmitAiVote<'info> {
     /// The AI Request being fulfilled.
     #[account(
         mut, // Needs to be mutable to update status
-        seeds = [b"ai_request", submission_topic_link.key().as_ref()], // Must match seeds used in RequestAiValidation
-        bump = ai_validation_request.bump,
+        seeds = [
+            b"ai_request",
+            submission_topic_link.key().as_ref(),
+            ai_request_index.to_le_bytes().as_ref() // Use the passed index
+        ],
+        bump, // Specify bump for Anchor to derive the PDA address using canonical bump
         // Constraint: Ensure it belongs to the link (checked in instruction logic)
     )]
     pub ai_validation_request: Account<'info, AiValidationRequest>,
 
     /// The SubmissionTopicLink being voted on.
     #[account(
-        mut, // Needs to be mutable to update vote counts
+        mut,
         // Constraint: Ensure link matches request (checked in instruction logic)
     )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,

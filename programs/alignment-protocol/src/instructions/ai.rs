@@ -6,15 +6,25 @@ use anchor_lang::prelude::*;
 
 pub fn request_ai_validation(
     ctx: Context<RequestAiValidation>,
-    temp_rep_to_stake: u64, // Amount of tempRep user commits
+    temp_rep_to_stake: u64,         // Amount of tempRep user commits
+    expected_ai_request_index: u64, // <-- Add expected index argument
 ) -> Result<()> {
     let clock = Clock::get()?;
     let current_timestamp_u64 = clock.unix_timestamp as u64; // Cast to u64
     let requester = &ctx.accounts.requester;
     let submission = &ctx.accounts.submission;
-    let link = &ctx.accounts.submission_topic_link;
+    let link = &mut ctx.accounts.submission_topic_link;
     let user_balance = &mut ctx.accounts.user_topic_balance;
     let ai_request = &mut ctx.accounts.ai_validation_request;
+
+    // --- State Check ---
+    let current_ai_request_index = link.total_committed_votes;
+    require_eq!(
+        current_ai_request_index,
+        expected_ai_request_index,
+        ErrorCode::StateMismatch
+    );
+    // --- End State Check ---
 
     // Validation Checks:
     // 1. Requester must be the original contributor of the submission
@@ -54,23 +64,36 @@ pub fn request_ai_validation(
     user_balance.temp_rep_amount = user_balance
         .temp_rep_amount
         .checked_sub(temp_rep_to_stake)
-        .ok_or(ErrorCode::Overflow)?; // Using existing error
+        .ok_or(ErrorCode::Overflow)?;
+
+    // --- Add this line BEFORE incrementing the counter ---
+    let index_for_this_request = current_ai_request_index;
+    // --- End of added line ---
 
     // 2. Initialize the AiValidationRequest account
     ai_request.submission_topic_link = link.key();
     ai_request.requester = requester.key();
-    ai_request.temp_rep_staked = temp_rep_to_stake; // Record the amount staked/spent
-    ai_request.request_timestamp = current_timestamp_u64; // Assign u64
-    ai_request.status = AiValidationStatus::Pending; // Initial status for the oracle to pick up
+    ai_request.temp_rep_staked = temp_rep_to_stake;
+    ai_request.request_timestamp = current_timestamp_u64;
+    ai_request.status = AiValidationStatus::Pending;
     ai_request.ai_decision = None;
     ai_request.ai_voting_power = 0;
+    ai_request.request_index = index_for_this_request;
     ai_request.bump = ctx.bumps.ai_validation_request;
 
+    // IMPORTANT: Increment the counter on the link *after* successful request init
+    // and *after* reading the value for request_index.
+    link.total_committed_votes = link
+        .total_committed_votes
+        .checked_add(1)
+        .ok_or(ErrorCode::Overflow)?;
+
     msg!(
-        "AI Validation requested for link {} by user {}. Staked/Spent {} tempRep.",
+        "AI Validation requested for link {} by user {}. Staked/Spent {} tempRep. Request index: {}",
         link.key(),
         requester.key(),
-        temp_rep_to_stake
+        temp_rep_to_stake,
+        index_for_this_request
     );
 
     Ok(())
@@ -78,6 +101,7 @@ pub fn request_ai_validation(
 
 pub fn submit_ai_vote(
     ctx: Context<SubmitAiVote>,
+    _ai_request_index: u64,  // Renamed to silence unused variable warning
     ai_decision: VoteChoice, // The decision from the AI (Yes/No)
 ) -> Result<()> {
     let clock = Clock::get()?;
