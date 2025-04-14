@@ -181,7 +181,7 @@
 | Status | Priority | Task                                                                                                                          |
 | :----: | :------: | :---------------------------------------------------------------------------------------------------------------------------- |
 |   🔄   |    -     | CLI tool implementation (basic framework exists) - (`cli/`)                                                                   |
-|   ❌   |    🟠    | **CLI commands for all current protocol functions:**                                                                          |
+|   ✅   |    -     | **CLI commands for all current protocol functions:**                                                                          |
 |   ✅   |    -     | &nbsp;&nbsp;&nbsp;&nbsp;└─ `initialize_state`, `initialize_*_mint`, `update_tokens_to_mint`                                   |
 |   ✅   |    -     | &nbsp;&nbsp;&nbsp;&nbsp;└─ `create_topic`                                                                                     |
 |   ✅   |    -     | &nbsp;&nbsp;&nbsp;&nbsp;└─ `create_user_profile`, `create_user_*_account`, `initialize_user_topic_balance`, `create_user_ata` |
@@ -199,7 +199,7 @@
 |   ❌   |    🔴    | &nbsp;&nbsp;&nbsp;&nbsp;└─ User topic creation                                                                                |
 |   ❌   |    🔴    | &nbsp;&nbsp;&nbsp;&nbsp;└─ Sub-submission creation / management                                                               |
 |   ❌   |    🔴    | &nbsp;&nbsp;&nbsp;&nbsp;└─ `claim_ai_stake`                                                                                   |
-|   ❌   |    🔴    | **CLI "explorer" functionality:**                                                                                             |
+|   🔄   |    🟠    | **CLI "explorer" functionality:**                                                                                             |
 |   🔄   |    🟠    | &nbsp;&nbsp;&nbsp;&nbsp;└─ Browse topics (needs hierarchy support)                                                            |
 |   🔄   |    🟠    | &nbsp;&nbsp;&nbsp;&nbsp;└─ Browse submissions (needs hierarchy support)                                                       |
 |   ✅   |    🟠    | &nbsp;&nbsp;&nbsp;&nbsp;└─ View user profiles and token balances (`UserProfile`, `UserTopicBalance`, ATAs)                    |
@@ -272,3 +272,5 @@
 - 🟢 Explore Challenge/Dispute windows
 - 🟢 Explore Weighted/Random subset voting
 - 🟢 Explore Off-chain indexing/aggregator needs
+
+---
