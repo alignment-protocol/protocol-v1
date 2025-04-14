@@ -92,36 +92,50 @@
 
 ## 7. Finalize Submission & Votes (Topic-Specific)
 
-- ✅ Implement `finalize_submission` instruction (callable by anyone after reveal phase)
-- ✅ Determine outcome (`Accepted`/`Rejected`) based on `yes/no_voting_power`
-- ✅ Update `SubmissionTopicLink.status`
-- ✅ If Accepted: Burn contributor's topic `tempAlign` and mint permanent `Align` to ATA
-- ✅ If Rejected: Burn contributor's topic `tempAlign` with no replacement
+- 🔄 Implement `finalize_submission` instruction (callable by anyone after reveal phase) - _(Requires Rework)_
+  - ✅ Determine outcome (`Accepted`/`Rejected`) based _initially_ on `yes/no_voting_power` (human votes only)
+  - ✅ Update `SubmissionTopicLink.status` based on human vote outcome _if no AI validation requested_
+  - ✅ If Accepted: Burn contributor's topic `tempAlign` and mint permanent `Align` to ATA (_if no AI validation_)
+  - ✅ If Rejected: Burn contributor's topic `tempAlign` with no replacement (_if no AI validation_)
+  - 🔴 ❌ **New Logic for AI Integration:**
+    - 🔴 ❌ Fetch relevant `AiValidationRequest` account(s).
+    - 🔴 ❌ If AI validation exists:
+      - 🔴 ❌ Calculate `ai_power` from `AiValidationRequest.temp_rep_staked` (using `calculate_ai_voting_power` logic).
+      - 🔴 ❌ Calculate combined `total_yes = human_yes + ai_power (if ai=Yes)` and `total_no = human_no + ai_power (if ai=No)`.
+      - 🔴 ❌ Determine `final_status` (Accepted/Rejected) based on comparing `total_yes` vs `total_no`.
+      - 🔴 ❌ Update `SubmissionTopicLink.status` with this `final_status`.
+      - 🔴 ❌ Process contributor's `tempAlign` (burn/mint `Align`) based on this `final_status`.
+      - 🔴 ❌ Update `AiValidationRequest` status (e.g., `Finalized`).
+      - 🔴 ❌ Mark staked `tempRep` in `AiValidationRequest` as `Returned` (if `final_status == ai_decision`) or `Claimable` (if `final_status != ai_decision`).
 - ✅ Implement `finalize_vote` instruction (callable by anyone after submission finalization)
-- ✅ Process validator rewards/penalties based on `VoteCommit.vote_choice` vs `SubmissionTopicLink.status`
-- ✅ If correct (`tempRep` vote): Burn locked `tempRep`, mint permanent `Rep` to ATA
-- ✅ If incorrect (`tempRep` vote): Burn locked `tempRep` with no replacement
-- ✅ If correct (`Rep` vote): Return/handle escrowed `Rep` (🟠 Needs clarification/refinement)
-- ✅ If incorrect (`Rep` vote): Burn/handle escrowed `Rep` (🟠 Needs clarification/refinement)
-- ✅ Update `VoteCommit.finalized` status
+  - ✅ Process validator rewards/penalties based on `VoteCommit.vote_choice` vs `SubmissionTopicLink.final_status` _(Ensure this uses the final, potentially AI-influenced, status)_
+  - ✅ If correct (`tempRep` vote): Burn locked `tempRep`, mint permanent `Rep` to ATA
+  - ✅ If incorrect (`tempRep` vote): Burn locked `tempRep` with no replacement
+  - ✅ If correct (`Rep` vote): Return/handle escrowed `Rep` (🟠 Needs clarification/refinement)
+  - ✅ If incorrect (`Rep` vote): Burn/handle escrowed `Rep` (🟠 Needs clarification/refinement)
+  - ✅ Update `VoteCommit.finalized` status
+- 🔴 ❌ Implement `claim_ai_stake` instruction (callable by eligible human validators)
+  - 🔴 ❌ Allow validator whose `VoteCommit.vote_choice` matches the `final_status` to claim `tempRep` from the `AiValidationRequest` _only if_ `final_status != ai_decision` and stake is marked `Claimable`.
+  - 🟠 ❌ Define and implement distribution logic for `claim_ai_stake` (proportional, equal split, first-come?).
 
 ## 8. AI Validation (Optional)
 
 - ✅ Implement `request_ai_validation` instruction (callable by contributor)
-- ✅ Lock contributor's `tempRep` from `UserTopicBalance`
-- ✅ Create `AiValidationRequest` account (PDA)
-- ✅ Store link, requester, `temp_rep_staked`, timestamp, initial status (Pending)
-- ✅ Implement `submit_ai_vote` instruction (callable by `oracle_pubkey`)
-- ✅ Verify caller signature
-- ✅ Update `AiValidationRequest` status, `ai_decision`, calculate `ai_voting_power`
-- ✅ Add `ai_voting_power` to `SubmissionTopicLink` counters
+  - ✅ Lock contributor's `tempRep` from `UserTopicBalance`
+  - ✅ Create `AiValidationRequest` account (PDA) - _(See multiple request handling below)_
+  - ✅ Store link, requester, `temp_rep_staked`, timestamp, initial status (Pending)
+- 🔄 Implement `submit_ai_vote` instruction (callable by `oracle_pubkey`) - _(Logic Change)_
+  - ✅ Verify caller signature
+  - ✅ Update `AiValidationRequest` status, `ai_decision`.
+  - ❌ **Does NOT directly modify `SubmissionTopicLink.yes/no_voting_power` or `ai_voting_power` anymore.** (Weight applied during `finalize_submission`)
 - 🟠 ❌ Allow multiple AI validation requests per SubmissionTopicLink (using User-Specific Counter)
   - 🟠 ❌ Add `user_ai_request_count: u64` to `UserTopicBalance` struct
   - 🟠 ❌ Update `InitializeUserTopicBalance` context space allocation for the new counter (+8 bytes)
   - 🟠 ❌ Update `RequestAiValidation` context seeds to `[b"ai_request", link.key(), requester.key(), expected_index.to_le_bytes()]`
   - 🟠 ❌ Update `RequestAiValidation` instruction to take `expected_ai_request_index` (from client reading `user_topic_balance.user_ai_request_count`), store it in `AiValidationRequest`, and increment `user_topic_balance.user_ai_request_count` upon success.
   - 🟠 ❌ Update client to fetch `UserTopicBalance`, read `user_ai_request_count`, pass it as `expected_ai_request_index` argument, and derive the correct PDA.
-- 🟠 ❌ Clarify handling of contributor's staked `tempRep` in `AiValidationRequest` (Return? Burn? Based on AI vote or final outcome?)
+- 🟠 🔄 Clarify handling of contributor's staked `tempRep` in `AiValidationRequest` - _(Now handled via `finalize_submission` marking as Returned/Claimable, and new `claim_ai_stake` instruction)_
+- 🟠 ❌ Define `calculate_ai_voting_power` function logic (e.g., linear, quadratic based on `temp_rep_staked`).
 
 ## 9. Testing & Validation
 
@@ -133,13 +147,15 @@
 - ✅ Unit tests for voting (`commit_vote`, `reveal_vote`)
 - ✅ Unit tests for finalization (`finalize_submission`, `finalize_vote`)
 - ✅ Unit tests for cross-topic submission linking (`link_submission_to_topic`)
-- ✅ Unit tests for AI validation (`request_ai_validation`, `submit_ai_vote`)
+- ✅ Unit tests for AI validation (`request_ai_validation`, `submit_ai_vote`) - _(May need updates for new logic)_
 - ✅ End-to-end tests with basic single-topic workflow (`01` to `08` in `tests/sections/`)
-- 🔄 End-to-end tests covering advanced features (`09-token-locking-tests.ts`, `10-validation-tests.ts`)
+- 🔄 End-to-end tests covering advanced features (`09-token-locking-tests.ts`, `10-validation-tests.ts`) - _(Needs updates for AI changes)_
 - 🔴 ❌ Tests with multiple concurrent contributors and validators interacting within/across topics
 - 🔴 ❌ Tests for new features (subtopics, user topic creation, sub-submissions)
 - 🟠 ❌ Tests for AI validation update (multiple requests)
-- 🟢 ❌ Formal Security audits (especially token handling, PDA authorities, oracle interaction, permanent Rep voting)
+- 🔴 ❌ Tests for updated `finalize_submission` logic (combined human/AI power scenarios).
+- 🔴 ❌ Tests for `claim_ai_stake` instruction (eligibility, distribution).
+- 🟢 ❌ Formal Security audits (especially token handling, PDA authorities, oracle interaction, permanent Rep voting, AI stake handling)
 - 🟢 ❌ Performance / Load testing
 
 ## 10. Client/UI Development
@@ -162,10 +178,12 @@
   - 🔴 ❌ Subtopic creation / management
   - 🔴 ❌ User topic creation
   - 🔴 ❌ Sub-submission creation / management
+  - 🔴 ❌ `claim_ai_stake`
 - 🔴 ❌ CLI "explorer" functionality:
   - 🟠 🔄 Browse topics (needs hierarchy support)
   - 🟠 🔄 Browse submissions (needs hierarchy support)
   - 🟠 ✅ View user profiles and token balances (`UserProfile`, `UserTopicBalance`, ATAs)
+  - 🟠 ✅ View `AiValidationRequest` details.
   - 🟠 ❌ View network stats (`State`, aggregate topic/submission counts)
 - ✅ Deploy protocol to devnet for testing (Address exists)
 - 🟠 ❌ Web UI/dApp for user-friendly interaction
@@ -193,7 +211,7 @@
 
 - ✅ Foundational instructions: Init, Topics, Users, Submit, Stake, Vote, Finalize
 - ✅ Basic cross-topic linking
-- ✅ Basic AI Validation integration
+- ✅ Basic AI Validation integration _(Initial version)_
 - ✅ Core data structures implemented
 - ✅ Basic CLI commands and unit/integration tests
 
@@ -203,7 +221,8 @@
 - 🟠 Implement Sub-submissions
 - 🟠 Refine Permanent Rep Voting Mechanics (Escrow/Rewards/Slashing)
 - 🟠 Implement Multiple AI Requests per Submission
-- 🟠 Clarify AI Request TempRep Handling
+- 🔴 Refine AI Validation Integration (Separate recording, Combined Finalization, Stake Claiming)
+- 🟠 Clarify AI Request TempRep Handling - _(Addressed by new flow)_
 - 🟠 Explore Spam/Sybil Resistance Mechanisms
 - 🟠 Explore Advanced Staking/Reputation Mechanics (Lockups, Diminishing Returns)
 
@@ -219,9 +238,10 @@
 
 ## 13. Open Questions & Future Enhancements (To Investigate / Implement)
 
-- 🟠 Define specific voting power calculation (Confirm Quadratic)
-- 🟠 Define AI voting power calculation & staked tempRep handling
+- 🟠 Define specific voting power calculation (Confirm Quadratic for humans)
+- 🟠 Define AI voting power calculation (`calculate_ai_voting_power` function in Sec 8)
 - 🟠 Finalize permanent Rep voting rewards/slashing/escrow mechanism
+- 🟠 Define distribution logic for `claim_ai_stake` (See Sec 7)
 - 🟠 Define specific burning/slashing rules (Confirm amounts/destinations)
 - 🟢 Plan DAO integration strategy & scope
 - 🟢 Investigate spam/Sybil resistance options (Staking, Rate Limiting)
