@@ -1,4 +1,4 @@
-# Decentralized Data-Alignment Protocol
+# \[PRD\] alignment-protocol: A Decentralized Data-Alignment Protocol
 
 **Product Requirements Document (PRD)**
 

@@ -32,7 +32,7 @@
 |   ❌   |    🔴    | **Enable adding subtopics (parent-child relationship)**                                        |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Define data structure for parent/child topic link                               |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Implement instruction for creating subtopics                                    |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ Update logic for browsing/linking submissions within subtopic hierarchy         |
+|   ❌   |    🔴    | &nbsp;&nbsp;└─ Update logic for Browse/linking submissions within subtopic hierarchy           |
 |   ❌   |    🔴    | **Allow users (non-authority) to create topics**                                               |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Define rules/costs/constraints for user topic creation                          |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Implement instruction for user topic creation                                   |
@@ -178,36 +178,37 @@
 
 ## 10. Client/UI Development
 
-| Status | Priority | Task                                                                                                              |
-| :----: | :------: | :---------------------------------------------------------------------------------------------------------------- |
-|   🔄   |    -     | CLI tool implementation (basic framework exists) - (`cli/`)                                                       |
-|   ✅   |    -     | **CLI commands for all current protocol functions:**                                                              |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `initialize_state`, `initialize_*_mint`, `update_tokens_to_mint`                                   |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `create_topic`                                                                                     |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `create_user_profile`, `create_user_*_account`, `initialize_user_topic_balance`, `create_user_ata` |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `submit_data_to_topic`                                                                             |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `link_submission_to_topic`                                                                         |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `stake_topic_specific_tokens`                                                                      |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `commit_vote`                                                                                      |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `reveal_vote`                                                                                      |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `finalize_submission`                                                                              |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `finalize_vote`                                                                                    |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `request_ai_validation`                                                                            |
-|   ✅   |    -     | &nbsp;&nbsp;└─ `submit_ai_vote` (for testing/oracle simulation)                                                   |
-|   ❌   |    🔴    | **CLI commands for new protocol functions:**                                                                      |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ Subtopic creation / management                                                                     |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ User topic creation                                                                                |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ Sub-submission creation / management                                                               |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ `claim_ai_stake`                                                                                   |
-|   🔄   |    🟠    | **CLI "explorer" functionality:**                                                                                 |
-|   🔄   |    🟠    | &nbsp;&nbsp;└─ Browse topics (needs hierarchy support)                                                            |
-|   🔄   |    🟠    | &nbsp;&nbsp;└─ Browse submissions (needs hierarchy support)                                                       |
-|   ✅   |    🟠    | &nbsp;&nbsp;└─ View user profiles and token balances (`UserProfile`, `UserTopicBalance`, ATAs)                    |
-|   ✅   |    🟠    | &nbsp;&nbsp;└─ View `AiValidationRequest` details.                                                                |
-|   ❌   |    🟠    | &nbsp;&nbsp;└─ View network stats (`State`, aggregate topic/submission counts)                                    |
-|   ✅   |    -     | Deploy protocol to devnet for testing (Address exists)                                                            |
-|   ❌   |    🟠    | Web UI/dApp for user-friendly interaction                                                                         |
-|   ❌   |    🟠    | Wallet integration for UI/dApp                                                                                    |
+| Status | Priority | Task                                                                                                                                     |
+| :----: | :------: | :--------------------------------------------------------------------------------------------------------------------------------------- |
+|   🔄   |    -     | CLI tool implementation (basic framework exists) - (`cli/`)                                                                              |
+|   ✅   |    -     | **CLI commands for all current protocol functions:**                                                                                     |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `initialize_state`, `initialize_*_mint`, `update_tokens_to_mint`                                                          |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `create_topic`                                                                                                            |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `create_user_profile`, `create_user_*_account`, `initialize_user_topic_balance`, `create_user_ata`                        |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `submit_data_to_topic`                                                                                                    |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `link_submission_to_topic`                                                                                                |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `stake_topic_specific_tokens`                                                                                             |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `commit_vote`                                                                                                             |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `reveal_vote`                                                                                                             |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `finalize_submission`                                                                                                     |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `finalize_vote`                                                                                                           |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `request_ai_validation`                                                                                                   |
+|   ✅   |    -     | &nbsp;&nbsp;└─ `submit_ai_vote` (for testing/oracle simulation)                                                                          |
+|   ❌   |    🔴    | **CLI commands for new protocol functions:**                                                                                             |
+|   ❌   |    🔴    | &nbsp;&nbsp;└─ Subtopic creation / management                                                                                            |
+|   ❌   |    🔴    | &nbsp;&nbsp;└─ User topic creation                                                                                                       |
+|   ❌   |    🔴    | &nbsp;&nbsp;└─ Sub-submission creation / management                                                                                      |
+|   ❌   |    🔴    | &nbsp;&nbsp;└─ `claim_ai_stake`                                                                                                          |
+|   🔄   |    🟠    | **CLI "explorer" functionality:**                                                                                                        |
+|   🔄   |    🟠    | &nbsp;&nbsp;└─ Browse topics (needs hierarchy support)                                                                                   |
+|   🔄   |    🟠    | &nbsp;&nbsp;└─ Browse submissions (needs hierarchy support)                                                                              |
+|   ✅   |    🟠    | &nbsp;&nbsp;└─ View user profiles and token balances (`UserProfile`, `UserTopicBalance`, ATAs)                                           |
+|   ✅   |    🟠    | &nbsp;&nbsp;└─ View `AiValidationRequest` details.                                                                                       |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ View network stats (`State`, aggregate topic/submission counts)                                                           |
+|   ❌   |    🟠    | **Ensure protocol state structures and events are designed for efficient off-chain querying and indexing by applications (like Vedas).** |
+|   ✅   |    -     | Deploy protocol to devnet for testing (Address exists)                                                                                   |
+|   ❌   |    🟠    | Web UI/dApp for user-friendly interaction                                                                                                |
+|   ❌   |    🟠    | Wallet integration for UI/dApp                                                                                                           |
 
 ## 11. Documentation & Non-Functional Requirements
 
