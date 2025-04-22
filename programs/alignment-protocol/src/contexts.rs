@@ -11,12 +11,15 @@ use anchor_spl::{
 /// Account constraints for creating a new topic
 #[derive(Accounts)]
 pub struct CreateTopic<'info> {
-    #[account(mut, has_one = authority)]
+    /// Global protocol state (mutable for topic_count increment). Any signer can now create topics,
+    /// so we only require mut access without restricting to the stored authority.
+    #[account(mut)]
     pub state: Account<'info, State>,
 
+    /// The Topic PDA to be initialized. The fee payer is the creator signer.
     #[account(
         init,
-        payer = authority,
+        payer = creator,
         seeds = [
             b"topic",
             state.topic_count.to_le_bytes().as_ref(),
@@ -25,7 +28,7 @@ pub struct CreateTopic<'info> {
         space = 8 + // discriminator
                 4 + MAX_TOPIC_NAME_LENGTH + // name (string)
                 4 + MAX_TOPIC_DESCRIPTION_LENGTH + // description (string)
-                32 + // authority
+                32 + // authority (creator)
                 8 + // submission_count
                 8 + // commit_phase_duration
                 8 + // reveal_phase_duration
@@ -34,8 +37,9 @@ pub struct CreateTopic<'info> {
     )]
     pub topic: Account<'info, Topic>,
 
+    /// The wallet creating (and paying for) the topic.
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub creator: Signer<'info>,
 
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,

@@ -26,10 +26,12 @@ pub fn create_topic(
     // Initialize the topic
     let topic = &mut ctx.accounts.topic;
     let state = &mut ctx.accounts.state;
+    let creator = &ctx.accounts.creator;
 
     topic.name = name.clone();
     topic.description = description.clone();
-    topic.authority = ctx.accounts.authority.key();
+    // Record the wallet that created the topic for future reference/permissions.
+    topic.authority = creator.key();
     topic.submission_count = 0;
     topic.is_active = true;
     topic.bump = ctx.bumps.topic;

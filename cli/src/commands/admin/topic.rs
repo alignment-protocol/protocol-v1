@@ -33,7 +33,7 @@ pub fn cmd_create_topic(
     println!("Description: {}", description);
 
     let accounts = AccountsAll::CreateTopic {
-        authority: program.payer(),
+        creator: program.payer(),
         state: state_pda,
         topic: topic_pda,
         system_program: system_program::ID,

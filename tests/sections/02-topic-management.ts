@@ -23,7 +23,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
         .accounts({
           state: ctx.statePda,
           topic: ctx.topic1Pda,
-          authority: ctx.authorityKeypair.publicKey,
+          creator: ctx.authorityKeypair.publicKey, // still using authorityKeypair as creator in test
           systemProgram: web3.SystemProgram.programId,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
@@ -76,7 +76,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
         .accounts({
           state: ctx.statePda,
           topic: ctx.topic2Pda,
-          authority: ctx.authorityKeypair.publicKey,
+          creator: ctx.authorityKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
