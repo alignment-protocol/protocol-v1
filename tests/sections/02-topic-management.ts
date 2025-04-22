@@ -62,7 +62,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
         ctx.program.programId,
       );
 
-      // Create the second topic with custom phase durations
+      // Create the second topic with custom phase durations using a NON‑authority wallet
       const customCommitDuration = 12 * 60 * 60; // 12 hours in seconds
       const customRevealDuration = 12 * 60 * 60; // 12 hours in seconds
 
@@ -76,11 +76,11 @@ export function runTopicManagementTests(ctx: TestContext): void {
         .accounts({
           state: ctx.statePda,
           topic: ctx.topic2Pda,
-          creator: ctx.authorityKeypair.publicKey,
+          creator: ctx.contributorKeypair.publicKey, // non-admin creator
           systemProgram: web3.SystemProgram.programId,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair])
+        .signers([ctx.contributorKeypair])
         .rpc();
 
       console.log("Create second topic transaction signature:", tx);
@@ -89,8 +89,9 @@ export function runTopicManagementTests(ctx: TestContext): void {
       const topicAcc = await ctx.program.account.topic.fetch(ctx.topic2Pda);
       expect(topicAcc.name).to.equal(ctx.TOPIC2_NAME);
       expect(topicAcc.description).to.equal(ctx.TOPIC2_DESCRIPTION);
+      // Verify the creator field (authority) matches the non-admin wallet
       expect(topicAcc.authority.toString()).to.equal(
-        ctx.authorityKeypair.publicKey.toString(),
+        ctx.contributorKeypair.publicKey.toString(),
       );
       expect(topicAcc.submissionCount.toNumber()).to.equal(0);
       expect(topicAcc.isActive).to.be.true;
