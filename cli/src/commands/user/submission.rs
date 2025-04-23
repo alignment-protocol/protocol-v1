@@ -43,7 +43,10 @@ pub fn cmd_submit_data_to_topic(
             eprintln!(
                 "This usually means the user hasn't interacted with this specific topic yet."
             );
-            eprintln!("Please run 'alignment-protocol-cli user initialize-topic-balance --topic-index {}' first.", topic_index);
+            eprintln!(
+                "Please run 'alignment-protocol-cli user initialize-topic-balance {}' first.",
+                topic_index
+            );
             return Err(anyhow!("UserTopicBalance account not initialized: {}", e));
         }
     }
