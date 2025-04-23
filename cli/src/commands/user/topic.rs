@@ -140,3 +140,52 @@ pub fn cmd_initialize_user_topic_balance(
 
     Ok(())
 }
+
+/// Create a new topic (open to any wallet / fee‑payer)
+pub fn cmd_create_topic(
+    program: &Program<Rc<Keypair>>,
+    name: String,
+    description: String,
+    commit_duration: Option<u64>,
+    reveal_duration: Option<u64>,
+) -> Result<()> {
+    let (state_pda, _) = get_state_pda(program);
+
+    // Fetch current state to determine the next topic ID
+    let state_data: StateAccount = program.account(state_pda)?;
+    let topic_id = state_data.topic_count;
+
+    // Derive the PDA for the new topic
+    let (topic_pda, _) = get_topic_pda(program, topic_id);
+
+    println!("Creating new topic with ID {}", topic_id);
+    println!("Name: {}", name);
+    println!("Description: {}", description);
+
+    // Build account metas
+    let accounts = AccountsAll::CreateTopic {
+        creator: program.payer(), // the CLI payer is the creator & fee‑payer
+        state: state_pda,
+        topic: topic_pda,
+        system_program: anchor_client::solana_sdk::system_program::ID,
+        rent: anchor_client::solana_sdk::sysvar::rent::ID,
+    };
+
+    // Send transaction
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::CreateTopic {
+            name,
+            description,
+            commit_phase_duration: commit_duration,
+            reveal_phase_duration: reveal_duration,
+        })
+        .send()?;
+
+    println!("Topic created successfully (txSig: {})", tx_sig);
+    println!("Topic ID: {}", topic_id);
+    println!("Topic PDA: {}", topic_pda);
+
+    Ok(())
+}

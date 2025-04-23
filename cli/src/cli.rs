@@ -109,7 +109,7 @@ pub enum TopicCommands {
         id: u64,
     },
 
-    /// [ADMIN] Create a new topic
+    /// Create a new topic
     Create {
         /// Topic name
         #[arg(index = 1)]

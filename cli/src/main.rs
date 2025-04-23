@@ -40,8 +40,8 @@ fn main() -> Result<()> {
                 commit_duration,
                 reveal_duration,
             } => {
-                println!("[ADMIN] Creating new topic...");
-                admin::topic::cmd_create_topic(
+                println!("Creating new topic...");
+                user::topic::cmd_create_topic(
                     &program,
                     name,
                     description,
