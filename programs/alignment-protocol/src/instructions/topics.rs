@@ -61,3 +61,44 @@ pub fn create_topic(
 
     Ok(())
 }
+
+/// Update mutable fields of an existing topic (phase durations, activity flag).
+/// The signer must be either the protocol authority (state.authority) or the
+/// original topic creator (topic.authority).
+pub fn update_topic(
+    ctx: Context<crate::contexts::UpdateTopic>,
+    commit_phase_duration: Option<u64>,
+    reveal_phase_duration: Option<u64>,
+    is_active: Option<bool>,
+) -> Result<()> {
+    let state = &ctx.accounts.state;
+    let topic = &mut ctx.accounts.topic;
+    let signer = ctx.accounts.authority.key();
+
+    // Authorisation check
+    require!(
+        signer == state.authority || signer == topic.authority,
+        ErrorCode::InvalidAuthority
+    );
+
+    // Apply updates if provided
+    if let Some(new_commit) = commit_phase_duration {
+        topic.commit_phase_duration = new_commit;
+    }
+    if let Some(new_reveal) = reveal_phase_duration {
+        topic.reveal_phase_duration = new_reveal;
+    }
+    if let Some(active) = is_active {
+        topic.is_active = active;
+    }
+
+    msg!("Updated topic {} by {}", topic.key(), signer);
+    msg!(
+        "commit_phase_duration = {}, reveal_phase_duration = {}, is_active = {}",
+        topic.commit_phase_duration,
+        topic.reveal_phase_duration,
+        topic.is_active
+    );
+
+    Ok(())
+}

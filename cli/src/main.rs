@@ -49,6 +49,18 @@ fn main() -> Result<()> {
                     reveal_duration,
                 )?
             }
+            TopicCommands::Update {
+                id,
+                commit_duration,
+                reveal_duration,
+                active,
+            } => user::topic::cmd_update_topic(
+                &program,
+                id,
+                commit_duration,
+                reveal_duration,
+                active,
+            )?,
         },
         Commands::User { subcommand } => match subcommand {
             UserCommands::CreateProfile => user::user::cmd_create_user_profile(&program)?,

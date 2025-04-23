@@ -127,6 +127,25 @@ pub enum TopicCommands {
         #[arg(long)]
         reveal_duration: Option<u64>,
     },
+
+    /// Update an existing topic's settings
+    Update {
+        /// Topic ID
+        #[arg(index = 1)]
+        id: u64,
+
+        /// Optional new commit phase duration (seconds)
+        #[arg(long)]
+        commit_duration: Option<u64>,
+
+        /// Optional new reveal phase duration (seconds)
+        #[arg(long)]
+        reveal_duration: Option<u64>,
+
+        /// Activate or deactivate the topic
+        #[arg(long)]
+        active: Option<bool>,
+    },
 }
 
 #[derive(Subcommand)]

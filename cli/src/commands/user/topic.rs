@@ -189,3 +189,41 @@ pub fn cmd_create_topic(
 
     Ok(())
 }
+
+/// Update an existing topic's settings (durations / active flag)
+pub fn cmd_update_topic(
+    program: &Program<Rc<Keypair>>,
+    topic_id: u64,
+    commit_duration: Option<u64>,
+    reveal_duration: Option<u64>,
+    active: Option<bool>,
+) -> Result<()> {
+    let (state_pda, _) = get_state_pda(program);
+    let (topic_pda, _) = get_topic_pda(program, topic_id);
+
+    println!("Updating topic #{} (PDA: {})", topic_id, topic_pda);
+
+    if commit_duration.is_none() && reveal_duration.is_none() && active.is_none() {
+        println!("Nothing to update – provide at least one --commit-duration, --reveal-duration or --active flag");
+        return Ok(());
+    }
+
+    let accounts = AccountsAll::UpdateTopic {
+        authority: program.payer(),
+        state: state_pda,
+        topic: topic_pda,
+    };
+
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::UpdateTopic {
+            commit_phase_duration: commit_duration,
+            reveal_phase_duration: reveal_duration,
+            is_active: active,
+        })
+        .send()?;
+
+    println!("Topic updated successfully (txSig: {})", tx_sig);
+    Ok(())
+}

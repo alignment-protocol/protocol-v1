@@ -45,6 +45,20 @@ pub struct CreateTopic<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+/// Account constraints for updating an existing topic's configuration
+#[derive(Accounts)]
+pub struct UpdateTopic<'info> {
+    /// Global protocol state (read‑only except for verifying authority)
+    pub state: Account<'info, State>,
+
+    /// The topic to update
+    #[account(mut)]
+    pub topic: Account<'info, Topic>,
+
+    /// Signer must be either the global protocol authority or the topic creator
+    pub authority: Signer<'info>,
+}
+
 /// Account constraints for submitting data to a specific topic
 #[derive(Accounts)]
 #[instruction(data_reference: String, current_submission_index: u64)]
