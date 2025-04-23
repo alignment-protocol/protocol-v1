@@ -103,9 +103,12 @@ pub fn cmd_query_submissions(
 
     // Get topic PDA if topic filter is provided
     let topic_pda_filter = match topic {
-        Some(id) => {
-            let (topic_pda, _) = get_topic_pda(program, id);
-            println!("Filtering for topic ID {} (PDA: {})", id, topic_pda);
+        Some(topic_index) => {
+            let (topic_pda, _) = get_topic_pda(program, topic_index);
+            println!(
+                "Filtering for topic index {} (PDA: {})",
+                topic_index, topic_pda
+            );
             Some(topic_pda)
         }
         None => None,
@@ -172,17 +175,17 @@ pub fn cmd_query_submissions(
 pub fn cmd_query_submission_topic(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
         .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
 
     match program.account::<SubmissionTopicLinkAccount>(submission_topic_link_pda) {
         Ok(link) => {
-            println!("Submission {} in Topic #{}", submission_pda, topic_id);
+            println!("Submission {} in Topic #{}", submission_pda, topic_index);
             println!("Link PDA: {}", submission_topic_link_pda);
             println!("Status: {:?}", link.status);
             println!("\nVoting Phases:");
@@ -224,7 +227,7 @@ pub fn cmd_query_submission_topic(
 pub fn cmd_query_vote(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
     validator_str: Option<String>,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
@@ -234,7 +237,7 @@ pub fn cmd_query_vote(
         None => program.payer(),
     };
 
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
     let (vote_commit_pda, _) = get_vote_commit_pda(program, &submission_topic_link_pda, &validator);
@@ -243,7 +246,7 @@ pub fn cmd_query_vote(
         Ok(vote) => {
             println!(
                 "Vote by {} on Submission {} in Topic #{}",
-                validator, submission_pda, topic_id
+                validator, submission_pda, topic_index
             );
             println!("Vote Commit PDA: {}", vote_commit_pda);
             println!("Vote Hash: {:?}", vote.vote_hash);
@@ -277,7 +280,7 @@ pub fn cmd_query_vote(
 /// Query user balance for a specific topic
 pub fn cmd_view_user_topic_balance(
     program: &Program<Rc<Keypair>>,
-    topic_id: u64,
+    topic_index: u64,
     user_str: Option<String>,
 ) -> Result<()> {
     let user = match user_str {
@@ -285,12 +288,12 @@ pub fn cmd_view_user_topic_balance(
         None => program.payer(),
     };
 
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &user, &topic_pda);
 
     println!(
-        "Querying balance for User: {} on Topic ID: {}",
-        user, topic_id
+        "Querying balance for User: {} on Topic index: {}",
+        user, topic_index
     );
     println!("Topic PDA: {}", topic_pda);
     println!("UserTopicBalance PDA: {}", user_topic_balance_pda);

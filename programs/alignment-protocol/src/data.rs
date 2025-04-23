@@ -126,7 +126,7 @@ pub struct Topic {
     /// Description of the topic
     pub description: String,
 
-    /// Creator of the topic (authority or eventually DAO)
+    /// Creator of the topic
     pub authority: Pubkey,
 
     /// Count of submissions in this topic

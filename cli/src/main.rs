@@ -33,15 +33,17 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Topic { subcommand } => match subcommand {
             TopicCommands::List => user::topic::cmd_list_topics(&program)?,
-            TopicCommands::View { id } => user::topic::cmd_view_topic(&program, id)?,
+            TopicCommands::View { topic_index } => {
+                user::topic::cmd_view_topic(&program, topic_index)?
+            }
             TopicCommands::Create {
                 name,
                 description,
                 commit_duration,
                 reveal_duration,
             } => {
-                println!("[ADMIN] Creating new topic...");
-                admin::topic::cmd_create_topic(
+                println!("Creating new topic...");
+                user::topic::cmd_create_topic(
                     &program,
                     name,
                     description,
@@ -49,44 +51,58 @@ fn main() -> Result<()> {
                     reveal_duration,
                 )?
             }
+            TopicCommands::Update {
+                topic_index,
+                commit_duration,
+                reveal_duration,
+                active,
+            } => user::topic::cmd_update_topic(
+                &program,
+                topic_index,
+                commit_duration,
+                reveal_duration,
+                active,
+            )?,
         },
         Commands::User { subcommand } => match subcommand {
             UserCommands::CreateProfile => user::user::cmd_create_user_profile(&program)?,
             UserCommands::Profile { user } => user::user::cmd_view_user_profile(&program, user)?,
-            UserCommands::InitializeTopicBalance { topic_id } => {
-                user::topic::cmd_initialize_user_topic_balance(&program, topic_id)?
+            UserCommands::InitializeTopicBalance { topic_index } => {
+                user::topic::cmd_initialize_user_topic_balance(&program, topic_index)?
             }
         },
         Commands::Submission { subcommand } => match subcommand {
             SubmissionCommands::Submit {
-                topic_id,
+                topic_index,
                 data_reference,
-            } => user::submission::cmd_submit_data_to_topic(&program, topic_id, data_reference)?,
+            } => user::submission::cmd_submit_data_to_topic(&program, topic_index, data_reference)?,
             SubmissionCommands::Link {
                 submission_pda,
-                topic_id,
-            } => {
-                user::submission::cmd_link_submission_to_topic(&program, submission_pda, topic_id)?
-            }
+                topic_index,
+            } => user::submission::cmd_link_submission_to_topic(
+                &program,
+                submission_pda,
+                topic_index,
+            )?,
             SubmissionCommands::Finalize {
                 submission_pda,
-                topic_id,
-            } => user::submission::cmd_finalize_submission(&program, submission_pda, topic_id)?,
+                topic_index,
+            } => user::submission::cmd_finalize_submission(&program, submission_pda, topic_index)?,
             SubmissionCommands::RequestAiValidation {
                 submission_pda,
-                topic_id,
+                topic_index,
                 amount,
             } => user::submission::cmd_request_ai_validation(
                 &program,
                 submission_pda,
-                topic_id,
+                topic_index,
                 amount,
             )?,
         },
         Commands::Vote { subcommand } => match subcommand {
             VoteCommands::Commit {
                 submission_pda,
-                topic_id,
+                topic_index,
                 choice,
                 amount,
                 nonce,
@@ -94,7 +110,7 @@ fn main() -> Result<()> {
             } => user::vote::cmd_commit_vote(
                 &program,
                 submission_pda,
-                topic_id,
+                topic_index,
                 choice,
                 amount,
                 nonce,
@@ -102,17 +118,17 @@ fn main() -> Result<()> {
             )?,
             VoteCommands::Reveal {
                 submission_pda,
-                topic_id,
+                topic_index,
                 choice,
                 nonce,
-            } => user::vote::cmd_reveal_vote(&program, submission_pda, topic_id, choice, nonce)?,
+            } => user::vote::cmd_reveal_vote(&program, submission_pda, topic_index, choice, nonce)?,
             VoteCommands::Finalize {
                 submission_pda,
-                topic_id,
-            } => user::vote::cmd_finalize_vote(&program, submission_pda, topic_id)?,
+                topic_index,
+            } => user::vote::cmd_finalize_vote(&program, submission_pda, topic_index)?,
             VoteCommands::SetPhases {
                 submission_pda,
-                topic_id,
+                topic_index,
                 commit_start,
                 commit_end,
                 reveal_start,
@@ -122,7 +138,7 @@ fn main() -> Result<()> {
                 admin::vote::cmd_set_voting_phases(
                     &program,
                     submission_pda,
-                    topic_id,
+                    topic_index,
                     commit_start,
                     commit_end,
                     reveal_start,
@@ -131,9 +147,10 @@ fn main() -> Result<()> {
             }
         },
         Commands::Token { subcommand } => match subcommand {
-            TokenCommands::Stake { topic_id, amount } => {
-                user::token::cmd_stake_topic_specific_tokens(&program, topic_id, amount)?
-            }
+            TokenCommands::Stake {
+                topic_index,
+                amount,
+            } => user::token::cmd_stake_topic_specific_tokens(&program, topic_index, amount)?,
             TokenCommands::Mint {
                 token_type,
                 to,
@@ -151,15 +168,15 @@ fn main() -> Result<()> {
             }
             QueryCommands::SubmissionTopic {
                 submission_pda,
-                topic_id,
-            } => user::query::cmd_query_submission_topic(&program, submission_pda, topic_id)?,
+                topic_index,
+            } => user::query::cmd_query_submission_topic(&program, submission_pda, topic_index)?,
             QueryCommands::Vote {
                 submission_pda,
-                topic_id,
+                topic_index,
                 validator,
-            } => user::query::cmd_query_vote(&program, submission_pda, topic_id, validator)?,
-            QueryCommands::TopicBalance { topic_id, user } => {
-                user::query::cmd_view_user_topic_balance(&program, topic_id, user)?
+            } => user::query::cmd_query_vote(&program, submission_pda, topic_index, validator)?,
+            QueryCommands::TopicBalance { topic_index, user } => {
+                user::query::cmd_view_user_topic_balance(&program, topic_index, user)?
             }
         },
         Commands::Debug { subcommand } => match subcommand {

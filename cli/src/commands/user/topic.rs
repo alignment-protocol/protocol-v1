@@ -49,12 +49,12 @@ pub fn cmd_list_topics(program: &Program<Rc<Keypair>>) -> Result<()> {
 }
 
 /// View a specific topic
-pub fn cmd_view_topic(program: &Program<Rc<Keypair>>, id: u64) -> Result<()> {
-    let (topic_pda, _) = get_topic_pda(program, id);
+pub fn cmd_view_topic(program: &Program<Rc<Keypair>>, topic_index: u64) -> Result<()> {
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
 
     match program.account::<TopicAccount>(topic_pda) {
         Ok(topic) => {
-            println!("Topic #{} ({})", id, topic_pda);
+            println!("Topic #{} ({})", topic_index, topic_pda);
             println!("Name: {}", topic.name);
             println!("Description: {}", topic.description);
             println!("Authority: {}", topic.authority);
@@ -77,11 +77,11 @@ pub fn cmd_view_topic(program: &Program<Rc<Keypair>>, id: u64) -> Result<()> {
 /// Initialize UserTopicBalance account for the payer and a specific topic
 pub fn cmd_initialize_user_topic_balance(
     program: &Program<Rc<Keypair>>,
-    topic_id: u64,
+    topic_index: u64,
 ) -> Result<()> {
     let user = program.payer();
     let (user_profile_pda, _) = get_user_profile_pda(program, &user);
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &user, &topic_pda);
 
     // Check if user profile exists first (optional but good UX)
@@ -95,8 +95,8 @@ pub fn cmd_initialize_user_topic_balance(
     // Check if topic exists (optional but good UX)
     if program.rpc().get_account(&topic_pda).is_err() {
         return Err(anyhow::anyhow!(
-            "Topic with ID {} (PDA: {}) not found.",
-            topic_id,
+            "Topic with index {} (PDA: {}) not found.",
+            topic_index,
             topic_pda
         ));
     }
@@ -105,14 +105,14 @@ pub fn cmd_initialize_user_topic_balance(
     if program.rpc().get_account(&user_topic_balance_pda).is_ok() {
         println!(
             "UserTopicBalance account {} already exists for topic {}. No action needed.",
-            user_topic_balance_pda, topic_id
+            user_topic_balance_pda, topic_index
         );
         return Ok(());
     }
 
     println!(
-        "Initializing UserTopicBalance for user {} and topic ID {}",
-        user, topic_id
+        "Initializing UserTopicBalance for user {} and topic index {}",
+        user, topic_index
     );
     println!("  User Profile PDA: {}", user_profile_pda);
     println!("  Topic PDA: {}", topic_pda);
@@ -138,5 +138,92 @@ pub fn cmd_initialize_user_topic_balance(
         tx_sig
     );
 
+    Ok(())
+}
+
+/// Create a new topic (open to any wallet / fee‑payer)
+pub fn cmd_create_topic(
+    program: &Program<Rc<Keypair>>,
+    name: String,
+    description: String,
+    commit_duration: Option<u64>,
+    reveal_duration: Option<u64>,
+) -> Result<()> {
+    let (state_pda, _) = get_state_pda(program);
+
+    // Fetch current state to determine the next
+    let state_data: StateAccount = program.account(state_pda)?;
+    let topic_index = state_data.topic_count;
+
+    // Derive the PDA for the new topic
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
+
+    println!("Creating new topic with index {}", topic_index);
+    println!("Name: {}", name);
+    println!("Description: {}", description);
+
+    // Build account metas
+    let accounts = AccountsAll::CreateTopic {
+        creator: program.payer(), // the CLI payer is the creator & fee‑payer
+        state: state_pda,
+        topic: topic_pda,
+        system_program: anchor_client::solana_sdk::system_program::ID,
+        rent: anchor_client::solana_sdk::sysvar::rent::ID,
+    };
+
+    // Send transaction
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::CreateTopic {
+            name,
+            description,
+            commit_phase_duration: commit_duration,
+            reveal_phase_duration: reveal_duration,
+        })
+        .send()?;
+
+    println!("Topic created successfully (txSig: {})", tx_sig);
+    println!("Topic index: {}", topic_index);
+    println!("Topic PDA: {}", topic_pda);
+
+    Ok(())
+}
+
+/// Update an existing topic's settings (durations / active flag)
+pub fn cmd_update_topic(
+    program: &Program<Rc<Keypair>>,
+    topic_index: u64,
+    commit_duration: Option<u64>,
+    reveal_duration: Option<u64>,
+    active: Option<bool>,
+) -> Result<()> {
+    let (state_pda, _) = get_state_pda(program);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
+
+    println!("Updating topic #{} (PDA: {})", topic_index, topic_pda);
+
+    if commit_duration.is_none() && reveal_duration.is_none() && active.is_none() {
+        println!("Nothing to update – provide at least one --commit-duration, --reveal-duration or --active flag");
+        return Ok(());
+    }
+
+    let accounts = AccountsAll::UpdateTopic {
+        authority: program.payer(),
+        state: state_pda,
+        topic: topic_pda,
+    };
+
+    let tx_sig = program
+        .request()
+        .accounts(accounts)
+        .args(InstructionAll::UpdateTopic {
+            commit_phase_duration: commit_duration,
+            reveal_phase_duration: reveal_duration,
+            is_active: active,
+        })
+        .send()?;
+
+    println!("Topic updated successfully (txSig: {})", tx_sig);
     Ok(())
 }

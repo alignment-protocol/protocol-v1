@@ -104,12 +104,12 @@ pub enum TopicCommands {
 
     /// View a specific topic
     View {
-        /// Topic ID
-        #[arg(index = 1)]
-        id: u64,
+        /// Topic index (sequential number)
+        #[arg(index = 1, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
     },
 
-    /// [ADMIN] Create a new topic
+    /// Create a new topic
     Create {
         /// Topic name
         #[arg(index = 1)]
@@ -127,6 +127,25 @@ pub enum TopicCommands {
         #[arg(long)]
         reveal_duration: Option<u64>,
     },
+
+    /// Update an existing topic's settings
+    Update {
+        /// Topic index
+        #[arg(index = 1, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
+
+        /// Optional new commit phase duration (seconds)
+        #[arg(long)]
+        commit_duration: Option<u64>,
+
+        /// Optional new reveal phase duration (seconds)
+        #[arg(long)]
+        reveal_duration: Option<u64>,
+
+        /// Activate or deactivate the topic
+        #[arg(long)]
+        active: Option<bool>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -143,9 +162,9 @@ pub enum UserCommands {
 
     /// Initialize the UserTopicBalance account for a user and topic
     InitializeTopicBalance {
-        /// Topic ID to initialize balance for
-        #[arg(long)]
-        topic_id: u64,
+        /// Topic index to initialize balance for
+        #[arg(index = 1, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
     },
 }
 
@@ -153,9 +172,9 @@ pub enum UserCommands {
 pub enum SubmissionCommands {
     /// Submit data to a topic
     Submit {
-        /// Topic ID
-        #[arg(index = 1)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 1, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
 
         /// Data reference (IPFS hash, Arweave ID, etc.)
         #[arg(index = 2)]
@@ -168,9 +187,9 @@ pub enum SubmissionCommands {
         #[arg(index = 1)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(index = 2)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 2, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
     },
 
     /// Finalize a submission after voting
@@ -179,9 +198,9 @@ pub enum SubmissionCommands {
         #[arg(index = 1)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(index = 2)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 2, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
     },
 
     /// Request AI validation for your submission (costs tempRep)
@@ -190,9 +209,9 @@ pub enum SubmissionCommands {
         #[arg(long)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(long)]
-        topic_id: u64,
+        /// Topic index (mandatory positional)
+        #[arg(index = 1, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
 
         /// Amount of tempRep to stake/spend for the validation
         #[arg(long)]
@@ -208,9 +227,9 @@ pub enum VoteCommands {
         #[arg(index = 1)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(index = 2)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 2, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
 
         /// Vote choice (yes/no)
         #[arg(index = 3)]
@@ -235,9 +254,9 @@ pub enum VoteCommands {
         #[arg(index = 1)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(index = 2)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 2, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
 
         /// Vote choice (yes/no)
         #[arg(index = 3)]
@@ -254,9 +273,9 @@ pub enum VoteCommands {
         #[arg(index = 1)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(index = 2)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 2, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
     },
 
     /// [ADMIN] Set arbitrary timestamps for voting phases
@@ -265,9 +284,9 @@ pub enum VoteCommands {
         #[arg(index = 1)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(index = 2)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 2, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
 
         /// Commit phase start (Unix timestamp)
         #[arg(long)]
@@ -291,9 +310,9 @@ pub enum VoteCommands {
 pub enum TokenCommands {
     /// Stake temporary alignment tokens for a topic to earn reputation
     Stake {
-        /// Topic ID
-        #[arg(index = 1)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 1, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
 
         /// Amount of tokens to stake
         #[arg(index = 2)]
@@ -334,8 +353,8 @@ pub enum QueryCommands {
         #[arg(long)]
         by: String,
 
-        /// Filter by topic ID (Optional)
-        #[arg(long)]
+        /// Filter by topic index (Optional)
+        #[arg(long, value_name = "TOPIC_INDEX")]
         topic: Option<u64>,
     },
 
@@ -345,9 +364,9 @@ pub enum QueryCommands {
         #[arg(index = 1)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(index = 2)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 2, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
     },
 
     /// Get information about a vote
@@ -356,9 +375,9 @@ pub enum QueryCommands {
         #[arg(index = 1)]
         submission_pda: String,
 
-        /// Topic ID
-        #[arg(index = 2)]
-        topic_id: u64,
+        /// Topic index
+        #[arg(index = 2, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
 
         /// Validator public key (defaults to the CLI payer if not provided)
         #[arg(index = 3)]
@@ -367,9 +386,9 @@ pub enum QueryCommands {
 
     /// Get user balance for a specific topic
     TopicBalance {
-        /// Topic identifier (creation index used for PDA derivation)
-        #[arg(index = 1)]
-        topic_id: u64,
+        /// Topic index (creation index)
+        #[arg(index = 1, value_name = "TOPIC_INDEX")]
+        topic_index: u64,
 
         /// User public key (defaults to the CLI payer if not provided)
         #[arg(index = 2)]

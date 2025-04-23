@@ -14,8 +14,8 @@ pub fn get_mint_pda(program: &Program<Rc<Keypair>>, mint_type: &str) -> (Pubkey,
 }
 
 /// Get the PDA for a topic account
-pub fn get_topic_pda(program: &Program<Rc<Keypair>>, topic_id: u64) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[b"topic", &topic_id.to_le_bytes()], &program.id())
+pub fn get_topic_pda(program: &Program<Rc<Keypair>>, topic_index: u64) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"topic", &topic_index.to_le_bytes()], &program.id())
 }
 
 /// Get the PDA for a user profile account
