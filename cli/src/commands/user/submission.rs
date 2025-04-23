@@ -20,12 +20,12 @@ use crate::commands::common::pda::{
 /// Submit data to a topic
 pub fn cmd_submit_data_to_topic(
     program: &Program<Rc<Keypair>>,
-    topic_id: u64,
+    topic_index: u64,
     data_reference: String,
 ) -> Result<()> {
     let contributor = program.payer();
     let (state_pda, _) = get_state_pda(program);
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &contributor, &topic_pda);
 
     match program.rpc().get_account(&user_topic_balance_pda) {
@@ -43,7 +43,10 @@ pub fn cmd_submit_data_to_topic(
             eprintln!(
                 "This usually means the user hasn't interacted with this specific topic yet."
             );
-            eprintln!("Please run 'alignment-protocol-cli user initialize-topic-balance --topic-id {}' first.", topic_id);
+            eprintln!(
+                "Please run 'alignment-protocol-cli user initialize-topic-balance {}' first.",
+                topic_index
+            );
             return Err(anyhow!("UserTopicBalance account not initialized: {}", e));
         }
     }
@@ -96,7 +99,7 @@ pub fn cmd_submit_data_to_topic(
 
     println!(
         "Submitting data to topic #{} using user submission index {}",
-        topic_id, current_submission_index
+        topic_index, current_submission_index
     );
     println!("Data reference: {}", data_reference);
 
@@ -137,17 +140,17 @@ pub fn cmd_submit_data_to_topic(
 pub fn cmd_link_submission_to_topic(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
         .map_err(|e| anyhow!("Invalid Submission PDA format: {}", e))?;
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
 
     println!(
         "Linking submission {} to topic #{}",
-        submission_pda, topic_id
+        submission_pda, topic_index
     );
 
     let (state_pda, _) = get_state_pda(program);
@@ -177,13 +180,13 @@ pub fn cmd_link_submission_to_topic(
 pub fn cmd_finalize_submission(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
         .map_err(|e| anyhow!("Invalid Submission PDA format: {}", e))?;
     let contributor = program.payer();
     let (state_pda, _) = get_state_pda(program);
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
 
@@ -205,7 +208,7 @@ pub fn cmd_finalize_submission(
 
     println!(
         "Finalizing submission {} in topic #{}",
-        submission_pda, topic_id
+        submission_pda, topic_index
     );
 
     let accounts = AccountsAll::FinalizeSubmission {
@@ -238,12 +241,12 @@ pub fn cmd_finalize_submission(
 pub fn cmd_request_ai_validation(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
     amount: u64,
 ) -> Result<()> {
     println!("Requesting AI validation...");
     println!("  Submission PDA: {}", submission_pda_str);
-    println!("  Topic ID: {}", topic_id);
+    println!("  Topic index: {}", topic_index);
     println!("  Amount (tempRep): {}", amount);
 
     let requester = program.payer(); // Get the CLI user's keypair pubkey
@@ -255,7 +258,7 @@ pub fn cmd_request_ai_validation(
     // Derive necessary PDAs
     // Topic PDA (assuming derivation by index)
     let (topic_pda, _topic_bump) =
-        Pubkey::find_program_address(&[b"topic", &topic_id.to_le_bytes()], &program.id());
+        Pubkey::find_program_address(&[b"topic", &topic_index.to_le_bytes()], &program.id());
 
     // SubmissionTopicLink PDA
     let (link_pda, _link_bump) = Pubkey::find_program_address(

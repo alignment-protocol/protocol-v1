@@ -12,7 +12,7 @@ use crate::commands::common::pda::{get_state_pda, get_submission_topic_link_pda,
 pub fn cmd_set_voting_phases(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
     commit_start: Option<u64>,
     commit_end: Option<u64>,
     reveal_start: Option<u64>,
@@ -22,13 +22,13 @@ pub fn cmd_set_voting_phases(
         .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
 
     let (state_pda, _) = get_state_pda(program);
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
 
     println!(
         "Setting voting phases for submission {} in topic #{}",
-        submission_pda, topic_id
+        submission_pda, topic_index
     );
     if let Some(ts) = commit_start {
         println!("Commit phase start: {}", ts);

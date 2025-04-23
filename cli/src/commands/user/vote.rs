@@ -23,7 +23,7 @@ use crate::commands::common::vote::{generate_vote_hash, parse_vote_choice};
 pub fn cmd_commit_vote(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
     choice_str: String,
     amount: u64,
     nonce: String,
@@ -34,7 +34,7 @@ pub fn cmd_commit_vote(
 
     let validator = program.payer();
     let (user_profile_pda, _) = get_user_profile_pda(program, &validator);
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
     let (vote_commit_pda, _) = get_vote_commit_pda(program, &submission_topic_link_pda, &validator);
@@ -63,7 +63,7 @@ pub fn cmd_commit_vote(
 
     println!(
         "Committing {} vote on submission {} in topic #{}",
-        choice_str, submission_pda, topic_id
+        choice_str, submission_pda, topic_index
     );
     println!("Vote amount: {}", amount);
     println!(
@@ -107,7 +107,7 @@ pub fn cmd_commit_vote(
 pub fn cmd_reveal_vote(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
     choice_str: String,
     nonce: String,
 ) -> Result<()> {
@@ -115,7 +115,7 @@ pub fn cmd_reveal_vote(
         .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
 
     let validator = program.payer();
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
     let (vote_commit_pda, _) = get_vote_commit_pda(program, &submission_topic_link_pda, &validator);
@@ -134,7 +134,7 @@ pub fn cmd_reveal_vote(
 
     println!(
         "Revealing {} vote on submission {} in topic #{}",
-        choice_str, submission_pda, topic_id
+        choice_str, submission_pda, topic_index
     );
     println!("Nonce: {}", nonce);
 
@@ -166,7 +166,7 @@ pub fn cmd_reveal_vote(
 pub fn cmd_finalize_vote(
     program: &Program<Rc<Keypair>>,
     submission_pda_str: String,
-    topic_id: u64,
+    topic_index: u64,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
         .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
@@ -174,7 +174,7 @@ pub fn cmd_finalize_vote(
     let validator = program.payer();
     let (state_pda, _) = get_state_pda(program);
     let (validator_profile_pda, _) = get_user_profile_pda(program, &validator);
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (submission_topic_link_pda, _) =
         get_submission_topic_link_pda(program, &submission_pda, &topic_pda);
     let (vote_commit_pda, _) = get_vote_commit_pda(program, &submission_topic_link_pda, &validator);
@@ -190,7 +190,7 @@ pub fn cmd_finalize_vote(
 
     println!(
         "Finalizing vote on submission {} in topic #{}",
-        submission_pda, topic_id
+        submission_pda, topic_index
     );
 
     let accounts = AccountsAll::FinalizeVote {

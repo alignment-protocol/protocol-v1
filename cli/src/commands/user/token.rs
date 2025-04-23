@@ -15,12 +15,12 @@ use crate::commands::common::pda::{
 /// Stake temporary alignment tokens for a topic to earn reputation
 pub fn cmd_stake_topic_specific_tokens(
     program: &Program<Rc<Keypair>>,
-    topic_id: u64,
+    topic_index: u64,
     amount: u64,
 ) -> Result<()> {
     let user = program.payer();
     let (user_profile_pda, _) = get_user_profile_pda(program, &user);
-    let (topic_pda, _) = get_topic_pda(program, topic_id);
+    let (topic_pda, _) = get_topic_pda(program, topic_index);
     let (state_pda, _) = get_state_pda(program);
     let (user_topic_balance_pda, _) = get_user_topic_balance_pda(program, &user, &topic_pda);
 
@@ -54,7 +54,7 @@ pub fn cmd_stake_topic_specific_tokens(
 
     println!(
         "Staking {} temp alignment tokens for topic #{}",
-        amount, topic_id
+        amount, topic_index
     );
 
     let accounts = AccountsAll::StakeTopicSpecificTokens {

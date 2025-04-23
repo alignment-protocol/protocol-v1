@@ -111,6 +111,21 @@ pub mod alignment_protocol {
         )
     }
 
+    /// Instruction handler: Update an existing topic (durations, activity flag)
+    pub fn update_topic(
+        ctx: Context<UpdateTopic>,
+        commit_phase_duration: Option<u64>,
+        reveal_phase_duration: Option<u64>,
+        is_active: Option<bool>,
+    ) -> Result<()> {
+        instructions::topics::update_topic(
+            ctx,
+            commit_phase_duration,
+            reveal_phase_duration,
+            is_active,
+        )
+    }
+
     /// Instruction handler: Initialize a user's topic-specific balance account
     pub fn initialize_user_topic_balance(ctx: Context<InitializeUserTopicBalance>) -> Result<()> {
         instructions::users::initialize_user_topic_balance(ctx)
