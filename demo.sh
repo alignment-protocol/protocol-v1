@@ -33,7 +33,7 @@ pe './align user create-profile'
 comment "# (Admin) Create a test topic:"
 pe './align topic create "Test Topic" "A test topic for protocol demonstration"'
 
-comment "# List topics to confirm creation and get topic ID:"
+comment "# List topics to confirm creation and get topic index:"
 pe './align topic list'
 
 comment "# (User #1) Initialize user topic balance before making submissions:"
