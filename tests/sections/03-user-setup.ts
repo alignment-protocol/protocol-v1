@@ -15,14 +15,10 @@ export function runUserSetupTests(ctx: TestContext): void {
       let tx = await ctx.program.methods
         .createUserProfile()
         .accounts({
-          state: ctx.statePda,
-          userProfile: ctx.contributorProfilePda,
           user: ctx.contributorKeypair.publicKey,
-          payer: ctx.contributorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create contributor profile transaction signature:", tx);
@@ -31,14 +27,10 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserProfile()
         .accounts({
-          state: ctx.statePda,
-          userProfile: ctx.validatorProfilePda,
           user: ctx.validatorKeypair.publicKey,
-          payer: ctx.validatorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create validator profile transaction signature:", tx);
@@ -47,14 +39,10 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserProfile()
         .accounts({
-          state: ctx.statePda,
-          userProfile: ctx.user3ProfilePda,
           user: ctx.user3Keypair.publicKey,
-          payer: ctx.user3Keypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create user3 profile transaction signature:", tx);
