@@ -781,15 +781,11 @@ pub struct CreateUserTempRepAccount<'info> {
 /// read-only.  This enables fee subsidisation without a wallet pop-up.
 #[derive(Accounts)]
 pub struct CreateUserProfile<'info> {
-    /// Global protocol state PDA (read-only).
-    #[account(seeds = [b"state"], bump)]
-    pub state: Account<'info, State>,
-
     /// The user profile PDA to be initialised.
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + 8 + 32 + 32 + 32 + 32 + 1, // discriminator + UserProfile fields
+        space = 8 + 32 + 8 + (32 * 4) + 1, // discriminator + UserProfile fields
         seeds = [b"user_profile", user.key().as_ref()],
         bump
     )]
