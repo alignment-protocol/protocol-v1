@@ -212,7 +212,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           tokenProgram: TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -242,7 +242,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           tokenProgram: TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -272,7 +272,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           tokenProgram: TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -302,7 +302,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           tokenProgram: TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -332,7 +332,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           tokenProgram: TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -362,7 +362,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           tokenProgram: TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -393,7 +393,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create contributor's Align ATA transaction signature:", tx);
@@ -421,7 +421,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create contributor's Rep ATA transaction signature:", tx);
@@ -449,7 +449,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           associatedTokenProgram: web3.ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create validator's Align ATA transaction signature:", tx);
@@ -477,7 +477,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           associatedTokenProgram: web3.ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create validator's Rep ATA transaction signature:", tx);
@@ -505,7 +505,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create user3's Align ATA transaction signature:", tx);
@@ -533,7 +533,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create user3's Rep ATA transaction signature:", tx);

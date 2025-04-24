@@ -642,13 +642,12 @@ pub struct CreateUserAta<'info> {
     /// The state account containing all mint references
     pub state: Account<'info, State>,
 
-    /// The person paying for creating the ATA
+    /// Signer that covers the rent
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// The user for whom we want to create an ATA
-    #[account(mut)]
-    pub user: Signer<'info>,
+    /// The user for whom we want to create an ATA (read-only, unsigned)
+    pub user: SystemAccount<'info>,
 
     /// The user's profile, needs mut to store the new ATA address
     #[account(
@@ -691,8 +690,8 @@ pub struct CreateUserTempAlignAccount<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// The user for whom we're creating the account (but not the account owner)
-    pub user: Signer<'info>,
+    /// The user for whom we're creating the account (read-only, no signature required)
+    pub user: SystemAccount<'info>,
 
     /// The user's profile, needs mut to store the new token account address
     #[account(
@@ -738,8 +737,8 @@ pub struct CreateUserTempRepAccount<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// The user for whom we're creating the account (but not the account owner)
-    pub user: Signer<'info>,
+    /// The user for whom we're creating the account (read-only, unsigned)
+    pub user: SystemAccount<'info>,
 
     /// The user's profile, needs mut to store the new token account address
     #[account(
