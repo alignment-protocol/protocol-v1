@@ -28,6 +28,7 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     // Step 1: Create user profile
     println!("Step 1: Creating user profile...");
     let accounts = AccountsAll::CreateUserProfile {
+        payer: user,
         user,
         state: state_pda,
         user_profile: user_profile_pda,

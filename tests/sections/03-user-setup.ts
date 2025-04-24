@@ -18,6 +18,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           state: ctx.statePda,
           userProfile: ctx.contributorProfilePda,
           user: ctx.contributorKeypair.publicKey,
+          payer: ctx.contributorKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
@@ -33,6 +34,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           state: ctx.statePda,
           userProfile: ctx.validatorProfilePda,
           user: ctx.validatorKeypair.publicKey,
+          payer: ctx.validatorKeypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
@@ -48,6 +50,7 @@ export function runUserSetupTests(ctx: TestContext): void {
           state: ctx.statePda,
           userProfile: ctx.user3ProfilePda,
           user: ctx.user3Keypair.publicKey,
+          payer: ctx.user3Keypair.publicKey,
           systemProgram: web3.SystemProgram.programId,
           rent: web3.SYSVAR_RENT_PUBKEY,
         })
