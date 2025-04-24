@@ -30,7 +30,6 @@ pub fn cmd_create_user_profile(program: &Program<Rc<Keypair>>) -> Result<()> {
     let accounts = AccountsAll::CreateUserProfile {
         payer: user,
         user,
-        state: state_pda,
         user_profile: user_profile_pda,
         system_program: system_program::ID,
     };
