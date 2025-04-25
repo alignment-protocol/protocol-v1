@@ -277,3 +277,50 @@
 - 🟢 Explore Off-chain indexing/aggregator needs
 
 ---
+
+## 14. Relayer Subsidy & Meta-Transaction Support
+
+With the introduction of the `feat/remove-user-signer` branch we began decoupling **who signs / pays** from
+**who owns / is affected**. The next milestones formalise this split so that we can offer **gasless UX**
+without compromising on user intent or protocol security.
+
+| Status | Priority | Task                                                                                                                                                            |
+| :----: | :------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   ✅   |    –     | **Audit every on-chain instruction and classify it as**<br/>A. Setup (safe, value-less)<br/>B. Sensitive (requires user intent)<br/>C. Admin / Oracle-only      |
+|   ✅   |    –     | Remove `user: Signer` → `SystemAccount` + explicit `payer: Signer` for all **Category A** instructions (profile/ATA/temp-account creation)                      |
+|   🔄   |    🔴    | Implement **meta-transaction verification helper** inside the program crate (ed25519 `instructions_sysvar` parsing, payload digest, domain separator)           |
+|   🔄   |    🔴    | Add **Nonce PDA** `["meta_nonce", user, nonce]` to prevent replay of meta-tx payloads                                                                           |
+|   🔄   |    🔴    | Refactor each **Category B** instruction to accept:<br/>`meta: { user_pubkey, payload, nonce }` and call the verify helper instead of relying on `user: Signer` |
+|   🔄   |    🟠    | Extend CLI & SDK to build and relay meta-transactions (off-chain sign → relayer pays)                                                                           |
+|   🟠   |    🟠    | Add optional **Relayer Registry** PDA so only designated subsidisers can pay for sensitive calls if desired                                                     |
+|   🟠   |    🟢    | Benchmark compute-unit overhead of ed25519 verify + nonce check; tune CU budget & set fixed fee payer lamports                                                  |
+|   🟢   |    🟢    | Explore **session-key PDA** pattern to collapse multiple actions into one wallet prompt (optional UX enhancement)                                               |
+
+### 14.1 Current Instruction Classification (source-of-truth)
+
+| Category                     | Instruction(s)                                                                                                                                                                                                              | Proof of intent enforced                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **A – Setup / Gas-only**     | `create_user_profile`, `initialize_user_topic_balance`, `create_user_ata`, `create_user_temp_align_account`, `create_user_temp_rep_account`, `create_topic`, `finalize_submission`, `finalize_vote`, misc. PDA initialisers | None – any fee-payer may execute                                        |
+| **B – User-intent required** | `submit_data_to_topic`, `stake_topic_specific_tokens`, `commit_vote`, `reveal_vote`, `request_ai_validation`, `submit_ai_vote`                                                                                              | EITHER `user: Signer` **or** meta-tx payload + ed25519 verify (planned) |
+| **C – Admin / Oracle**       | `initialize_state` & other mint initialisers, `update_topic`, `link_submission_to_topic`, `set_voting_phases`, oracle-only AI calls                                                                                         | Authority signer stays mandatory                                        |
+
+> NOTE Any new instruction MUST be added to the table above with its required proof mechanism before merge.
+
+### 14.2 Meta-Transaction Payload Format (v0)
+
+```
+sha256( "ALIGN_META_TX" || instruction_discriminator[8] || serialized_args || nonce:u64 || recent_blockhash )
+```
+
+- 32-byte domain separator eliminates cross-protocol replay.
+- `recent_blockhash` (< 150 slots) gives stateless expiry if the nonce PDA is ever full.
+- `nonce` is a strictly-increasing counter stored in `["meta_nonce", user]` to guarantee one-time usage.
+
+### 14.3 Timeline
+
+1. Week N – Land meta-tx helper + Nonce PDA scaffolding.
+2. Week N+1 – Migrate `stake_topic_specific_tokens` and `commit_vote` to meta-tx (high reuse).
+3. Week N+2 – Migrate remaining Category B instructions; release updated CLI.
+4. Week N+3 – Optional: implement relayer whitelist & session-key PDAs; UX polish.
+
+---
