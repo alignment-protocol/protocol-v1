@@ -15,13 +15,10 @@ export function runUserSetupTests(ctx: TestContext): void {
       let tx = await ctx.program.methods
         .createUserProfile()
         .accounts({
-          state: ctx.statePda,
-          userProfile: ctx.contributorProfilePda,
           user: ctx.contributorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create contributor profile transaction signature:", tx);
@@ -30,13 +27,10 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserProfile()
         .accounts({
-          state: ctx.statePda,
-          userProfile: ctx.validatorProfilePda,
           user: ctx.validatorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create validator profile transaction signature:", tx);
@@ -45,13 +39,10 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserProfile()
         .accounts({
-          state: ctx.statePda,
-          userProfile: ctx.user3ProfilePda,
           user: ctx.user3Keypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create user3 profile transaction signature:", tx);
@@ -199,17 +190,11 @@ export function runUserSetupTests(ctx: TestContext): void {
       let tx = await ctx.program.methods
         .createUserTempAlignAccount()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.contributorKeypair.publicKey,
-          userProfile: ctx.contributorProfilePda,
           mint: ctx.tempAlignMintPda,
-          tokenAccount: ctx.contributorTempAlignAccount,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -229,17 +214,11 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserTempRepAccount()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.contributorKeypair.publicKey,
-          userProfile: ctx.contributorProfilePda,
           mint: ctx.tempRepMintPda,
-          tokenAccount: ctx.contributorTempRepAccount,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -259,17 +238,11 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserTempAlignAccount()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.validatorKeypair.publicKey,
-          userProfile: ctx.validatorProfilePda,
           mint: ctx.tempAlignMintPda,
-          tokenAccount: ctx.validatorTempAlignAccount,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -289,17 +262,11 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserTempRepAccount()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.validatorKeypair.publicKey,
-          userProfile: ctx.validatorProfilePda,
           mint: ctx.tempRepMintPda,
-          tokenAccount: ctx.validatorTempRepAccount,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -319,17 +286,11 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserTempAlignAccount()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.user3Keypair.publicKey,
-          userProfile: ctx.user3ProfilePda,
           mint: ctx.tempAlignMintPda,
-          tokenAccount: ctx.user3TempAlignAccount,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -349,17 +310,11 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserTempRepAccount()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.user3Keypair.publicKey,
-          userProfile: ctx.user3ProfilePda,
           mint: ctx.tempRepMintPda,
-          tokenAccount: ctx.user3TempRepAccount,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(
@@ -379,18 +334,12 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserAta()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.contributorKeypair.publicKey,
-          userProfile: ctx.contributorProfilePda,
           mint: ctx.alignMintPda,
           userAta: ctx.contributorAlignAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create contributor's Align ATA transaction signature:", tx);
@@ -407,18 +356,12 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserAta()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.contributorKeypair.publicKey,
-          userProfile: ctx.contributorProfilePda,
           mint: ctx.repMintPda,
           userAta: ctx.contributorRepAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create contributor's Rep ATA transaction signature:", tx);
@@ -435,18 +378,12 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserAta()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.validatorKeypair.publicKey,
-          userProfile: ctx.validatorProfilePda,
           mint: ctx.alignMintPda,
           userAta: ctx.validatorAlignAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: web3.ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create validator's Align ATA transaction signature:", tx);
@@ -463,18 +400,12 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserAta()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.validatorKeypair.publicKey,
-          userProfile: ctx.validatorProfilePda,
           mint: ctx.repMintPda,
           userAta: ctx.validatorRepAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: web3.ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create validator's Rep ATA transaction signature:", tx);
@@ -491,18 +422,12 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserAta()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.user3Keypair.publicKey,
-          userProfile: ctx.user3ProfilePda,
           mint: ctx.alignMintPda,
           userAta: ctx.user3AlignAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create user3's Align ATA transaction signature:", tx);
@@ -519,18 +444,12 @@ export function runUserSetupTests(ctx: TestContext): void {
       tx = await ctx.program.methods
         .createUserAta()
         .accounts({
-          state: ctx.statePda,
           payer: ctx.authorityKeypair.publicKey,
           user: ctx.user3Keypair.publicKey,
-          userProfile: ctx.user3ProfilePda,
           mint: ctx.repMintPda,
           userAta: ctx.user3RepAta,
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
-        .signers([ctx.authorityKeypair, ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create user3's Rep ATA transaction signature:", tx);

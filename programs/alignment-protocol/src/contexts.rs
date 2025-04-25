@@ -640,15 +640,15 @@ pub struct UpdateTokensToMint<'info> {
 #[derive(Accounts)]
 pub struct CreateUserAta<'info> {
     /// The state account containing all mint references
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
-    /// The person paying for creating the ATA
+    /// Signer that covers the rent
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// The user for whom we want to create an ATA
-    #[account(mut)]
-    pub user: Signer<'info>,
+    /// The user for whom we want to create an ATA (read-only, unsigned)
+    pub user: SystemAccount<'info>,
 
     /// The user's profile, needs mut to store the new ATA address
     #[account(
@@ -691,8 +691,8 @@ pub struct CreateUserTempAlignAccount<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// The user for whom we're creating the account (but not the account owner)
-    pub user: Signer<'info>,
+    /// The user for whom we're creating the account (read-only, no signature required)
+    pub user: SystemAccount<'info>,
 
     /// The user's profile, needs mut to store the new token account address
     #[account(
@@ -738,8 +738,8 @@ pub struct CreateUserTempRepAccount<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// The user for whom we're creating the account (but not the account owner)
-    pub user: Signer<'info>,
+    /// The user for whom we're creating the account (read-only, unsigned)
+    pub user: SystemAccount<'info>,
 
     /// The user's profile, needs mut to store the new token account address
     #[account(
@@ -774,27 +774,32 @@ pub struct CreateUserTempRepAccount<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-/// Account constraints for creating a user profile
+/// Account constraints for creating a user profile.
+///
+/// Previously the profile PDA was paid for and signed by the end-user, which required
+/// their signature on every transaction.  This updated version removes that
+/// requirement: any signer may act as the `payer`, while the `user` account is now
+/// read-only.  This enables fee subsidisation without a wallet pop-up.
 #[derive(Accounts)]
 pub struct CreateUserProfile<'info> {
-    #[account(seeds = [b"state"], bump)]
-    pub state: Account<'info, State>,
-
-    /// The user profile account to be initialized.
+    /// The user profile PDA to be initialised.
     #[account(
         init,
-        payer = user,
-        space = 8 + 32 + 8 + 32 + 32 + 32 + 32 + 1, // New calculated space: 177 bytes
+        payer = payer,
+        space = 8 + 32 + 8 + (32 * 4) + 1, // discriminator + UserProfile fields
         seeds = [b"user_profile", user.key().as_ref()],
         bump
     )]
     pub user_profile: Account<'info, UserProfile>,
 
-    /// The user creating the profile (payer and owner)
-    #[account(mut)]
-    pub user: Signer<'info>,
+    /// The user's public key – no signature required.
+    pub user: SystemAccount<'info>,
 
-    /// System program - required for account initialization
+    /// Signer that funds the account creation (e.g. backend subsidiser).
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    /// System program.
     pub system_program: Program<'info, System>,
 }
 
