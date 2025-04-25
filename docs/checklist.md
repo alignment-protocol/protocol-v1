@@ -31,6 +31,7 @@
 |   ✅   |    -     | Authority-only topic creation _(initial implementation – now superseded by user-topic creation)_           |
 |   ✅   |    🟢    | Update existing topics (phase durations, activity flag) - (`update_topic`)                                 |
 |   ❌   |    🟠    | Add `min_votes` (quorum) field to `Topic` and enforce it in `finalize_submission`                          |
+|   ❌   |    🟢    | Evaluate alternative Topic PDA seeds for high-frequency creation (include creator pubkey or name hash)     |
 |   ❌   |    🔴    | **Enable adding subtopics (parent-child relationship)**                                                    |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Define data structure for parent/child topic link                                           |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Implement instruction for creating subtopics                                                |
