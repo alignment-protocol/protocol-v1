@@ -211,6 +211,11 @@
 |   ❌   |    🟠    | &nbsp;&nbsp;└─ View network stats (`State`, aggregate topic/submission counts)                                                           |
 |   🔄   |    🟠    | **Standardise CLI topic argument style** – Mandatory topic ⇒ first positional param; optional topic filter ⇒ `--topic` flag.             |
 |   ❌   |    🟠    | **Ensure protocol state structures and events are designed for efficient off-chain querying and indexing by applications (like Vedas).** |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Review PDA layouts & add query-friendly fields (store both `topic` & `submission` keys, status flags)                     |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Emit structured events for key transitions using `emit!` (TopicCreated, SubmissionLinked, VoteCommitted, etc.)            |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Publish event schema & byte-offset table for indexers                                                                     |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Provide `getProgramAccounts` + `memcmp` TypeScript snippets for common filters                                            |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Build reference off-chain indexer / integrate with a provider (Helius, The Graph)                                         |
 |   ✅   |    -     | Deploy protocol to devnet for testing (Address exists)                                                                                   |
 |   ❌   |    🟠    | Web UI/dApp for user-friendly interaction                                                                                                |
 |   ❌   |    🟠    | Wallet integration for UI/dApp                                                                                                           |
