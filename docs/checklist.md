@@ -30,6 +30,7 @@
 |   ✅   |    -     | Increment `State.topic_count` on creation                                                                  |
 |   ✅   |    -     | Authority-only topic creation _(initial implementation – now superseded by user-topic creation)_           |
 |   ✅   |    🟢    | Update existing topics (phase durations, activity flag) - (`update_topic`)                                 |
+|   ❌   |    🟠    | Add `min_votes` (quorum) field to `Topic` and enforce it in `finalize_submission`                          |
 |   ❌   |    🔴    | **Enable adding subtopics (parent-child relationship)**                                                    |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Define data structure for parent/child topic link                                           |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Implement instruction for creating subtopics                                                |
@@ -276,6 +277,7 @@
 - 🟢 Explore Challenge/Dispute windows
 - 🟢 Explore Weighted/Random subset voting
 - 🟢 Explore Off-chain indexing/aggregator needs
+- 🟢 Decide on quorum / minimum-votes rule (min_votes field behaviour, handling of unmet quorum)
 
 ---
 
