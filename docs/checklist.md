@@ -135,6 +135,9 @@
 |   ❌   |    🔴    | **Implement `claim_ai_stake` instruction (callable by eligible human validators)**                                                                                                                                  |
 |   ❌   |    🔴    | &nbsp;&nbsp;└─ Allow validator whose `VoteCommit.vote_choice` matches the `final_status` to claim `tempRep` from the `AiValidationRequest` _only if_ `final_status != ai_decision` and stake is marked `Claimable`. |
 |   ❌   |    🟠    | &nbsp;&nbsp;└─ Define and implement distribution logic for `claim_ai_stake` (proportional, equal split, first-come?).                                                                                               |
+|   ❌   |    🟢    | **Add finalization incentive:** reward small configurable fee (e.g., tokens or lamports) to the tx payer of `finalize_submission` / `finalize_vote`.                                                                |
+|   ❌   |    🟢    | &nbsp;&nbsp;└─ Expose `finalization_reward` param in `State`; adjust CPI mints or lamport transfers.                                                                                                                |
+|   ❌   |    🟢    | &nbsp;&nbsp;└─ Optional: write off-chain keeper/bot and integration doc to auto-finalize submissions & votes.                                                                                                       |
 
 ## 8. AI Validation (Optional)
 
@@ -196,6 +199,7 @@
 |   ✅   |    -     | &nbsp;&nbsp;└─ `reveal_vote`                                                                                                             |
 |   ✅   |    -     | &nbsp;&nbsp;└─ `finalize_submission`                                                                                                     |
 |   ✅   |    -     | &nbsp;&nbsp;└─ `finalize_vote`                                                                                                           |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Fix `finalize_vote` CLI: allow third-party finaliser by taking `--voter <pubkey>` (derive correct VoteCommit PDA)         |
 |   ✅   |    -     | &nbsp;&nbsp;└─ `request_ai_validation`                                                                                                   |
 |   ✅   |    -     | &nbsp;&nbsp;└─ `submit_ai_vote` (for testing/oracle simulation)                                                                          |
 |   ❌   |    🔴    | **CLI commands for new protocol functions:**                                                                                             |
