@@ -640,6 +640,7 @@ pub struct UpdateTokensToMint<'info> {
 #[derive(Accounts)]
 pub struct CreateUserAta<'info> {
     /// The state account containing all mint references
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
     /// Signer that covers the rent
