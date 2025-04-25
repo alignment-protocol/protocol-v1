@@ -23,19 +23,20 @@
 
 ## 2. Topic Management
 
-| Status | Priority | Task                                                                                           |
-| :----: | :------: | :--------------------------------------------------------------------------------------------- |
-|   ✅   |    -     | Create `Topic` account (PDA) - (`create_topic`)                                                |
-|   ✅   |    -     | Store `name`, `description`, `authority`, counts, phase durations, `is_active` flag in `Topic` |
-|   ✅   |    -     | Increment `State.topic_count` on creation                                                      |
-|   ✅   |    -     | Authority-only topic creation                                                                  |
-|   ❌   |    🔴    | **Enable adding subtopics (parent-child relationship)**                                        |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ Define data structure for parent/child topic link                               |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ Implement instruction for creating subtopics                                    |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ Update logic for Browse/linking submissions within subtopic hierarchy           |
-|   ❌   |    🔴    | **Allow users (non-authority) to create topics**                                               |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ Define rules/costs/constraints for user topic creation                          |
-|   ❌   |    🔴    | &nbsp;&nbsp;└─ Implement instruction for user topic creation                                   |
+| Status | Priority | Task                                                                                                       |
+| :----: | :------: | :--------------------------------------------------------------------------------------------------------- |
+|   ✅   |    -     | Create `Topic` account (PDA) - (`create_topic`)                                                            |
+|   ✅   |    -     | Store `name`, `description`, `authority`, counts, phase durations, `is_active` flag in `Topic`             |
+|   ✅   |    -     | Increment `State.topic_count` on creation                                                                  |
+|   ✅   |    -     | Authority-only topic creation _(initial implementation – now superseded by user-topic creation)_           |
+|   ✅   |    🟢    | Update existing topics (phase durations, activity flag) - (`update_topic`)                                 |
+|   ❌   |    🔴    | **Enable adding subtopics (parent-child relationship)**                                                    |
+|   ❌   |    🔴    | &nbsp;&nbsp;└─ Define data structure for parent/child topic link                                           |
+|   ❌   |    🔴    | &nbsp;&nbsp;└─ Implement instruction for creating subtopics                                                |
+|   ❌   |    🔴    | &nbsp;&nbsp;└─ Update logic for Browse/linking submissions within subtopic hierarchy                       |
+|   ✅   |    -     | **Allow users (non-authority) to create topics**                                                           |
+|   ✅   |    -     | &nbsp;&nbsp;└─ Define rules/constraints for user topic creation _(any signer may now call `create_topic`)_ |
+|   ✅   |    -     | &nbsp;&nbsp;└─ Implement instruction for user topic creation (`create_topic`)                              |
 
 ## 3. User Setup
 
@@ -67,7 +68,7 @@
 |   ❌   |    🟠    | &nbsp;&nbsp;└─ Define data structure for parent/child submission link (e.g., `parent_submission` field in `Submission`?) |
 |   ❌   |    🟠    | &nbsp;&nbsp;└─ Implement instruction for creating sub-submissions                                                        |
 |   ❌   |    🟠    | &nbsp;&nbsp;└─ Update voting/finalization logic to potentially consider submission hierarchy                             |
-|   ❌   |    🟠    | Enforce data reference validation or format checks (optional)                                                            |
+|   ✅   |    -     | Enforce data reference validation (length & non-empty checks in `submit_data_to_topic`)                                  |
 |   ❌   |    🟢    | Add optional spam prevention mechanism (e.g., stake requirement for submission)                                          |
 
 ## 5. Stake tempAlign Tokens for tempRep (Topic-Specific)
@@ -93,6 +94,7 @@
 |   ✅   |    -     | Handle voting with permanent `Rep` tokens (check ATA balance) - (`commit_vote`)                     |
 |   ✅   |    -     | Increment `total_committed_votes` in `SubmissionTopicLink`                                          |
 |   ✅   |    -     | Enforce commit phase time window                                                                    |
+|   ✅   |    -     | Prevent self-voting (validator cannot vote on own submissions)                                      |
 |   ✅   |    -     | Implement `reveal_vote` instruction                                                                 |
 |   ✅   |    -     | Verify hash against stored `vote_hash`                                                              |
 |   ✅   |    -     | Update `VoteCommit` status (`revealed`, `vote_choice`)                                              |
@@ -261,7 +263,7 @@
 
 ## 13. Open Questions & Future Enhancements (To Investigate / Implement)
 
-- 🟠 Define specific voting power calculation (Confirm Quadratic for humans)
+- ✅ Confirmed quadratic voting power calculation for human votes (implemented in `calculate_quadratic_voting_power`)
 - 🟠 Define AI voting power calculation (`calculate_ai_voting_power` function in Sec 8)
 - 🟠 Finalize permanent Rep voting rewards/slashing/escrow mechanism
 - 🟠 Define distribution logic for `claim_ai_stake` (See Sec 7)
