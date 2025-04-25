@@ -148,12 +148,12 @@
 |   ✅   |    -     | &nbsp;&nbsp;└─ Verify caller signature                                                                                                                                                      |
 |   ✅   |    -     | &nbsp;&nbsp;└─ Update `AiValidationRequest` status, `ai_decision`.                                                                                                                          |
 |   ❌   |    -     | &nbsp;&nbsp;└─ **Does NOT directly modify `SubmissionTopicLink.yes/no_voting_power` or `ai_voting_power` anymore.** (Weight applied during `finalize_submission`)                           |
-|   ❌   |    🟠    | **Allow multiple AI validation requests per SubmissionTopicLink (via `ai_request_count` counter on the link)**                                                                              |
-|   ❌   |    🟠    | &nbsp;&nbsp;└─ Add `ai_request_count: u64` to `SubmissionTopicLink` struct and initialise to 0                                                                                              |
-|   ❌   |    🟠    | &nbsp;&nbsp;└─ Bump `SubmissionTopicLink` space allocation (+8 bytes) wherever it is created                                                                                                |
-|   ❌   |    🟠    | &nbsp;&nbsp;└─ Update `RequestAiValidation` context: `submission_topic_link` becomes `mut`; seeds = `[b"ai_request", link.key(), link.ai_request_count.to_le_bytes()]`                      |
-|   ❌   |    🟠    | &nbsp;&nbsp;└─ In `request_ai_validation` instruction, increment `submission_topic_link.ai_request_count` after successful init                                                             |
-|   ❌   |    🟠    | &nbsp;&nbsp;└─ Client: fetch `SubmissionTopicLink`, read `ai_request_count`, derive PDA, pass `expected_index` arg                                                                          |
+|   ❌   |    🟠    | **Allow multiple AI validation requests per SubmissionTopicLink (per-user counter on `UserTopicBalance`)**                                                                                  |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Add `user_ai_request_count: u64` to `UserTopicBalance` struct (init = 0)                                                                                                     |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Bump `InitializeUserTopicBalance` space allocation (+8 bytes)                                                                                                                |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Update `RequestAiValidation` context: make `user_topic_balance` `mut`; seeds = `[b"ai_request", link.key(), requester.key(), expected_index.to_le_bytes()]`                  |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ In `request_ai_validation`, after init, increment `user_topic_balance.user_ai_request_count`                                                                                 |
+|   ❌   |    🟠    | &nbsp;&nbsp;└─ Client: fetch `UserTopicBalance`, read `user_ai_request_count`, derive PDA, pass `expected_ai_request_index` argument                                                        |
 |   🔄   |    🟠    | Clarify handling of contributor's staked `tempRep` in `AiValidationRequest` - _(Now handled via `finalize_submission` marking as Returned/Claimable, and new `claim_ai_stake` instruction)_ |
 |   ❌   |    🟠    | Define `calculate_ai_voting_power` function logic (e.g., linear, quadratic based on `temp_rep_staked`).                                                                                     |
 
