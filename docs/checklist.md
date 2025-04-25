@@ -207,6 +207,7 @@
 |   ✅   |    🟠    | &nbsp;&nbsp;└─ View user profiles and token balances (`UserProfile`, `UserTopicBalance`, ATAs)                                           |
 |   ✅   |    🟠    | &nbsp;&nbsp;└─ View `AiValidationRequest` details.                                                                                       |
 |   ❌   |    🟠    | &nbsp;&nbsp;└─ View network stats (`State`, aggregate topic/submission counts)                                                           |
+|   🔄   |    🟠    | **Standardise CLI topic argument style** – Mandatory topic ⇒ first positional param; optional topic filter ⇒ `--topic` flag.             |
 |   ❌   |    🟠    | **Ensure protocol state structures and events are designed for efficient off-chain querying and indexing by applications (like Vedas).** |
 |   ✅   |    -     | Deploy protocol to devnet for testing (Address exists)                                                                                   |
 |   ❌   |    🟠    | Web UI/dApp for user-friendly interaction                                                                                                |
