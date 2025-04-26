@@ -127,7 +127,7 @@ pub struct Topic {
     pub description: String,
 
     /// Creator of the topic
-    pub authority: Pubkey,
+    pub creator: Pubkey,
 
     /// Count of submissions in this topic
     pub submission_count: u64,

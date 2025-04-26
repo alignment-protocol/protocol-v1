@@ -31,7 +31,7 @@ pub fn create_topic(
     topic.name = name.clone();
     topic.description = description.clone();
     // Record the wallet that created the topic for future reference/permissions.
-    topic.authority = creator.key();
+    topic.creator = creator.key();
     topic.submission_count = 0;
     topic.is_active = true;
     topic.bump = ctx.bumps.topic;
@@ -77,7 +77,7 @@ pub fn update_topic(
 
     // Authorisation check
     require!(
-        signer == state.authority || signer == topic.authority,
+        signer == state.authority || signer == topic.creator,
         ErrorCode::InvalidAuthority
     );
 
