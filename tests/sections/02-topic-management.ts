@@ -22,10 +22,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
         )
         .accounts({
           state: ctx.statePda,
-          topic: ctx.topic1Pda,
           creator: ctx.authorityKeypair.publicKey, // still using authorityKeypair as creator in test
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.authorityKeypair])
         .rpc();
@@ -36,7 +33,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
       const topicAcc = await ctx.program.account.topic.fetch(ctx.topic1Pda);
       expect(topicAcc.name).to.equal(ctx.TOPIC1_NAME);
       expect(topicAcc.description).to.equal(ctx.TOPIC1_DESCRIPTION);
-      expect(topicAcc.authority.toString()).to.equal(
+      expect(topicAcc.creator.toString()).to.equal(
         ctx.authorityKeypair.publicKey.toString(),
       );
       expect(topicAcc.submissionCount.toNumber()).to.equal(0);
@@ -75,10 +72,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
         )
         .accounts({
           state: ctx.statePda,
-          topic: ctx.topic2Pda,
           creator: ctx.contributorKeypair.publicKey, // non-admin creator
-          systemProgram: web3.SystemProgram.programId,
-          rent: web3.SYSVAR_RENT_PUBKEY,
         })
         .signers([ctx.contributorKeypair])
         .rpc();
@@ -90,7 +84,7 @@ export function runTopicManagementTests(ctx: TestContext): void {
       expect(topicAcc.name).to.equal(ctx.TOPIC2_NAME);
       expect(topicAcc.description).to.equal(ctx.TOPIC2_DESCRIPTION);
       // Verify the creator field (authority) matches the non-admin wallet
-      expect(topicAcc.authority.toString()).to.equal(
+      expect(topicAcc.creator.toString()).to.equal(
         ctx.contributorKeypair.publicKey.toString(),
       );
       expect(topicAcc.submissionCount.toNumber()).to.equal(0);
