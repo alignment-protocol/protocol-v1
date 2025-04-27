@@ -100,12 +100,10 @@ export function runTokenLockingTests(ctx: TestContext): void {
           .initializeUserTopicBalance()
           .accounts({
             user: ctx.user3Keypair.publicKey,
-            userProfile: ctx.user3ProfilePda,
             topic: ctx.topic1Pda,
-            userTopicBalance: ctx.user3Topic1BalancePda,
-            systemProgram: web3.SystemProgram.programId,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.user3Keypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         console.log(" -> Initialize User3 Topic 1 Balance TX:", initTx);
       }
@@ -240,19 +238,12 @@ export function runTokenLockingTests(ctx: TestContext): void {
           testSubmissionIndex,
         )
         .accounts({
-          state: ctx.statePda,
           topic: ctx.topic1Pda,
           tempAlignMint: ctx.tempAlignMintPda,
-          contributorTempAlignAccount: ctx.contributorTempAlignAccount, // Target for mint
-          submission: ctx.testSubmissionPda,
-          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
-          contributorProfile: ctx.contributorProfilePda,
-          userTopicBalance: ctx.contributorTopic1BalancePda, // Account to update
           contributor: ctx.contributorKeypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> Contributor test submission TX:", createSubmissionTx);
 
@@ -303,19 +294,12 @@ export function runTokenLockingTests(ctx: TestContext): void {
           user3SubmissionIndex,
         )
         .accounts({
-          state: ctx.statePda,
           topic: ctx.topic1Pda,
           tempAlignMint: ctx.tempAlignMintPda,
-          contributorTempAlignAccount: ctx.user3TempAlignAccount, // Target for mint
-          submission: ctx.user3SubmissionPda,
-          submissionTopicLink: ctx.user3SubmissionTopicLinkPda,
-          contributorProfile: ctx.user3ProfilePda,
-          userTopicBalance: ctx.user3Topic1BalancePda, // Account to update
           contributor: ctx.user3Keypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> User3 submission TX:", user3SubmitTx);
 

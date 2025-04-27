@@ -23,13 +23,10 @@ export function runStakingTests(ctx: TestContext): void {
           .initializeUserTopicBalance()
           .accounts({
             user: ctx.validatorKeypair.publicKey,
-            userProfile: ctx.validatorProfilePda,
             topic: ctx.topic1Pda,
-            userTopicBalance: ctx.validatorTopic1BalancePda,
-            systemProgram: web3.SystemProgram.programId,
-            // rent: web3.SYSVAR_RENT_PUBKEY, // Implicit
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.validatorKeypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         console.log("Initialize Validator Topic 1 Balance TX:", tx);
         // Verify initialization (optional, but good practice)
@@ -187,19 +184,12 @@ export function runStakingTests(ctx: TestContext): void {
           validatorSubmissionIndex,
         ) // Pass index
         .accounts({
-          state: ctx.statePda,
           topic: ctx.topic1Pda,
           tempAlignMint: ctx.tempAlignMintPda,
-          contributorTempAlignAccount: ctx.validatorTempAlignAccount,
-          submission: ctx.validatorSubmissionPda,
-          submissionTopicLink: ctx.validatorSubmissionTopicLinkPda,
-          contributorProfile: ctx.validatorProfilePda,
-          userTopicBalance: ctx.validatorTopic1BalancePda,
           contributor: ctx.validatorKeypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log(

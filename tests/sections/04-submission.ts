@@ -23,13 +23,10 @@ export function runSubmissionTests(ctx: TestContext): void {
           .initializeUserTopicBalance()
           .accounts({
             user: ctx.contributorKeypair.publicKey,
-            userProfile: ctx.contributorProfilePda,
             topic: ctx.topic1Pda,
-            userTopicBalance: ctx.contributorTopic1BalancePda,
-            systemProgram: web3.SystemProgram.programId,
-            rent: web3.SYSVAR_RENT_PUBKEY,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.contributorKeypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         console.log("Initialize Contributor Topic 1 Balance TX:", tx);
 
@@ -85,19 +82,12 @@ export function runSubmissionTests(ctx: TestContext): void {
       const tx = await ctx.program.methods
         .submitDataToTopic(ctx.SUBMISSION_DATA, currentSubmissionIndex)
         .accounts({
-          state: ctx.statePda,
           topic: ctx.topic1Pda,
           tempAlignMint: ctx.tempAlignMintPda,
-          contributorTempAlignAccount: ctx.contributorTempAlignAccount,
-          submission: ctx.submissionPda,
-          submissionTopicLink: ctx.submissionTopicLinkPda,
-          contributorProfile: ctx.contributorProfilePda,
-          userTopicBalance: ctx.contributorTopic1BalancePda,
           contributor: ctx.contributorKeypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Submit data transaction signature:", tx);
