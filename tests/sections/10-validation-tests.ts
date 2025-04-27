@@ -136,19 +136,12 @@ export function runValidationTests(ctx: TestContext): void {
       const tx = await ctx.program.methods
         .submitDataToTopic(submissionData, submissionIndex)
         .accounts({
-          state: ctx.statePda,
           topic: ctx.topic1Pda,
           tempAlignMint: ctx.tempAlignMintPda,
-          contributorTempAlignAccount: userTempAlignAccount,
-          submission: ctx.validationSubmissionPda,
-          submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
-          contributorProfile: userProfilePda,
-          userTopicBalance: userTopicBalancePda,
           contributor: user.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([user])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> Created validation submission TX:", tx);
 

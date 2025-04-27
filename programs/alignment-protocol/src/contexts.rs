@@ -76,6 +76,10 @@ pub struct SubmitDataToTopic<'info> {
     )]
     pub temp_align_mint: Account<'info, Mint>,
 
+    /// The signer covering the rent for new PDAs (payer)
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
     /// The protocol-owned tempAlign token account for this contributor
     #[account(
         mut,
@@ -89,7 +93,7 @@ pub struct SubmitDataToTopic<'info> {
     /// The new Submission account - Seeds now use user key + user counter index
     #[account(
         init,
-        payer = contributor,
+        payer = payer,
         seeds = [
             b"submission",
             contributor.key().as_ref(),
@@ -104,7 +108,7 @@ pub struct SubmitDataToTopic<'info> {
     /// The link between submission and topic - Seeds use the derived submission key
     #[account(
         init,
-        payer = contributor,
+        payer = payer,
         seeds = [
             b"submission_topic_link",
             submission.key().as_ref(),
@@ -136,9 +140,8 @@ pub struct SubmitDataToTopic<'info> {
     )]
     pub user_topic_balance: Account<'info, UserTopicBalance>,
 
-    /// The user making the submission
-    #[account(mut)]
-    pub contributor: Signer<'info>,
+    /// The user whose submission this is (does not need to sign; the payer covers fees)
+    pub contributor: SystemAccount<'info>,
 
     #[account(address = anchor_spl::token::ID)]
     pub token_program: Program<'info, Token>,
@@ -795,7 +798,7 @@ pub struct CreateUserProfile<'info> {
     /// The user's public key – no signature required.
     pub user: SystemAccount<'info>,
 
-    /// Signer that funds the account creation (e.g. backend subsidiser).
+    /// The payer funding account creation
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -806,9 +809,8 @@ pub struct CreateUserProfile<'info> {
 /// Account constraints for initializing a user's balance account for a specific topic
 #[derive(Accounts)]
 pub struct InitializeUserTopicBalance<'info> {
-    /// The user initializing this balance account
-    #[account(mut)]
-    pub user: Signer<'info>,
+    /// The user for whom the balance account is being created (does not need to sign)
+    pub user: SystemAccount<'info>,
 
     /// The user's profile (needed for constraint check, maybe not mutation)
     #[account(
@@ -821,10 +823,14 @@ pub struct InitializeUserTopicBalance<'info> {
     /// The topic this balance is associated with
     pub topic: Account<'info, Topic>,
 
+    /// The signer paying for account creation
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
     /// The user's topic-specific balance account to be initialized.
     #[account(
         init,
-        payer = user,
+        payer = payer,
         space = 8 + 32 + 32 + 8 + 8 + 8 + 1, // Space: Discriminator + user + topic + 3*u64 + bump
         seeds = [b"user_topic_balance", user.key().as_ref(), topic.key().as_ref()],
         bump,
