@@ -42,7 +42,7 @@ The Alignment Protocol implements a community-driven data quality validation sys
 The protocol is deployed on Solana devnet at address:
 
 ```
-T4E39enXA8obNv8iT8Sx58UoiaEcWCpg1SqBr33d28V
+F4GjdxR17xHhCMb7i93eoe3BjXZ8LdZj8BJw2bnGeHwk
 ```
 
 ## CLI Usage
@@ -60,7 +60,7 @@ The CLI provides a unified interface for both user and admin operations:
 ./alignment-protocol-cli topic create "Topic Name" "Description"
 
 # Interacting with devnet deployment
-./alignment-protocol-cli --cluster devnet --program-id T4E39enXA8obNv8iT8Sx58UoiaEcWCpg1SqBr33d28V query state
+./alignment-protocol-cli --cluster devnet --program-id F4GjdxR17xHhCMb7i93eoe3BjXZ8LdZj8BJw2bnGeHwk query state
 ```
 
 Use `./alignment-protocol-cli --help` to see all available commands.
