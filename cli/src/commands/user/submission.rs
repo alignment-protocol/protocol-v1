@@ -104,6 +104,7 @@ pub fn cmd_submit_data_to_topic(
     println!("Data reference: {}", data_reference);
 
     let accounts = AccountsAll::SubmitDataToTopic {
+        payer: program.payer(),
         contributor,
         topic: topic_pda,
         submission: submission_pda,

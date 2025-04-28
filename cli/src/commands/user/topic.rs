@@ -57,7 +57,7 @@ pub fn cmd_view_topic(program: &Program<Rc<Keypair>>, topic_index: u64) -> Resul
             println!("Topic #{} ({})", topic_index, topic_pda);
             println!("Name: {}", topic.name);
             println!("Description: {}", topic.description);
-            println!("Authority: {}", topic.authority);
+            println!("Creator: {}", topic.creator);
             println!("Active: {}", topic.is_active);
             println!("Submissions: {}", topic.submission_count);
             println!(
@@ -119,6 +119,7 @@ pub fn cmd_initialize_user_topic_balance(
     println!("  UserTopicBalance PDA: {}", user_topic_balance_pda);
 
     let accounts = AccountsAll::InitializeUserTopicBalance {
+        payer: program.payer(),
         user,
         user_profile: user_profile_pda,
         topic: topic_pda,
