@@ -13,13 +13,18 @@ use anchor_spl::{
 pub struct CreateTopic<'info> {
     /// Global protocol state (mutable for topic_count increment). Any signer can now create topics,
     /// so we only require mut access without restricting to the stored authority.
-    #[account(mut)]
+    #[account(mut, seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
-    /// The Topic PDA to be initialized. The fee payer is the creator signer.
+    /// The Topic PDA to be initialized. Rent is paid by a dedicated `payer`
+    /// account so that the logical topic creator can be separated from the
+    /// wallet that covers the transaction fees.  This allows a relayer or
+    /// backend service to subsidise account creation while still recording
+    /// the end-user as the topic `creator` on-chain.
     #[account(
         init,
-        payer = creator,
+        // Use the standalone `payer` account to fund the new Topic PDA.
+        payer = payer,
         seeds = [
             b"topic",
             state.topic_count.to_le_bytes().as_ref(),
@@ -37,9 +42,14 @@ pub struct CreateTopic<'info> {
     )]
     pub topic: Account<'info, Topic>,
 
-    /// The wallet creating (and paying for) the topic.
+    /// Wallet that funds the account creation. Must sign and be mutable
+    /// because its lamports balance decreases.
     #[account(mut)]
-    pub creator: Signer<'info>,
+    pub payer: Signer<'info>,
+
+    /// The logical creator of the topic. Stored on-chain for attribution
+    /// but does not need to sign or pay.
+    pub creator: SystemAccount<'info>,
 
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
@@ -152,7 +162,10 @@ pub struct SubmitDataToTopic<'info> {
 /// Account constraints for linking an existing submission to a topic
 #[derive(Accounts)]
 pub struct LinkSubmissionToTopic<'info> {
-    #[account(mut)]
+    /// Global protocol state PDA. Mutable so we can increment `topic_count`.
+    /// Anyone may invoke `create_topic`, therefore we only enforce the PDA
+    /// derivation ("state") and do **not** restrict by authority.
+    #[account(mut, seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
     #[account(mut, constraint = topic.is_active)]

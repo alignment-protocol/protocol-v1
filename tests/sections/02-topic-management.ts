@@ -21,8 +21,8 @@ export function runTopicManagementTests(ctx: TestContext): void {
           null, // Use default reveal phase duration
         )
         .accounts({
-          state: ctx.statePda,
-          creator: ctx.authorityKeypair.publicKey, // still using authorityKeypair as creator in test
+          creator: ctx.authorityKeypair.publicKey,
+          payer: ctx.authorityKeypair.publicKey,
         })
         .signers([ctx.authorityKeypair])
         .rpc();
@@ -71,10 +71,10 @@ export function runTopicManagementTests(ctx: TestContext): void {
           new anchor.BN(customRevealDuration),
         )
         .accounts({
-          state: ctx.statePda,
-          creator: ctx.contributorKeypair.publicKey, // non-admin creator
+          creator: ctx.contributorKeypair.publicKey,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Create second topic transaction signature:", tx);

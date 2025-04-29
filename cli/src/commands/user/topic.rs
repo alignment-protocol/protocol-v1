@@ -165,6 +165,7 @@ pub fn cmd_create_topic(
 
     // Build account metas
     let accounts = AccountsAll::CreateTopic {
+        payer: program.payer(),
         creator: program.payer(), // the CLI payer is the creator & fee‑payer
         state: state_pda,
         topic: topic_pda,
