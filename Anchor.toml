@@ -8,7 +8,7 @@ skip-lint = false
 alignment-protocol = "FtHfXYCwuVEb8LVkNwNMmqMVooyg2fxkoT8i9bkEcvKW"
 
 [programs.devnet]
-alignment-protocol = "F4GjdxR17xHhCMb7i93eoe3BjXZ8LdZj8BJw2bnGeHwk"
+alignment-protocol = "ArVxFdoxzCsMDb1K3jXsQTrDP4mbfHMxKiZLjZpznB5c"
 
 [registry]
 url = "https://api.apr.dev"
