@@ -75,6 +75,7 @@ pub fn cmd_commit_vote(
 
     let accounts = AccountsAll::CommitVote {
         validator,
+        payer: validator,
         user_profile: user_profile_pda,
         submission_topic_link: submission_topic_link_pda,
         submission: submission_pda,
