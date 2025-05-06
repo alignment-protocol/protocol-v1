@@ -200,9 +200,19 @@ pub struct LinkSubmissionToTopic<'info> {
 /// Account constraints for committing a vote on a submission within a topic
 #[derive(Accounts)]
 pub struct CommitVote<'info> {
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
-    #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
+    #[account(
+        mut,
+        seeds = [
+            b"submission_topic_link",
+            submission.key().as_ref(),
+            topic.key().as_ref(),
+        ],
+        bump = submission_topic_link.bump,
+        constraint = submission_topic_link.status == SubmissionStatus::Pending
+    )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
 
     pub topic: Account<'info, Topic>,
