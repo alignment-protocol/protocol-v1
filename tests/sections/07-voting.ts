@@ -257,16 +257,12 @@ export function runVotingTests(ctx: TestContext): void {
       const tx = await ctx.program.methods
         .revealVote(voteChoice, voteNonce)
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.submissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.submissionPda,
-          voteCommit: ctx.voteCommitPda,
-          userProfile: ctx.validatorProfilePda, // Needed for constraint check
           validator: ctx.validatorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Vote reveal transaction signature:", tx);

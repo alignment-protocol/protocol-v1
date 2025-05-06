@@ -140,11 +140,10 @@ pub fn cmd_reveal_vote(
     println!("Nonce: {}", nonce);
 
     let (state_pda, _) = get_state_pda(program);
-    let (user_profile_pda, _) = get_user_profile_pda(program, &validator);
 
     let accounts = AccountsAll::RevealVote {
         validator,
-        user_profile: user_profile_pda,
+        payer: validator,
         submission_topic_link: submission_topic_link_pda,
         submission: submission_pda,
         state: state_pda,

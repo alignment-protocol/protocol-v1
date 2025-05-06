@@ -415,16 +415,12 @@ export function runValidationTests(ctx: TestContext): void {
         await ctx.program.methods
           .revealVote(ctx.VOTE_CHOICE_YES, nonce)
           .accounts({
-            state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            voteCommit: ctx.validationVoteCommitPda,
-            userProfile: ctx.validatorProfilePda,
             validator: ctx.validatorKeypair.publicKey,
-            systemProgram: web3.SystemProgram.programId,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.validatorKeypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         expect.fail("Revealing vote during commit phase should be rejected");
       } catch (error) {
@@ -451,16 +447,12 @@ export function runValidationTests(ctx: TestContext): void {
         await ctx.program.methods
           .revealVote(ctx.VOTE_CHOICE_YES, "incorrect-nonce") // Wrong nonce
           .accounts({
-            state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            voteCommit: ctx.validationVoteCommitPda, // The vote committed earlier
-            userProfile: ctx.validatorProfilePda,
             validator: ctx.validatorKeypair.publicKey,
-            systemProgram: web3.SystemProgram.programId,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.validatorKeypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         expect.fail("Revealing with incorrect nonce should be rejected");
       } catch (error) {
@@ -474,16 +466,12 @@ export function runValidationTests(ctx: TestContext): void {
       await ctx.program.methods
         .revealVote(ctx.VOTE_CHOICE_YES, ctx.VOTE_NONCE_VALIDATION) // Use correct nonce stored earlier
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.validationSubmissionPda,
-          voteCommit: ctx.validationVoteCommitPda,
-          userProfile: ctx.validatorProfilePda,
           validator: ctx.validatorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> Revealed vote successfully.");
       const voteCommit = await ctx.program.account.voteCommit.fetch(
@@ -511,16 +499,12 @@ export function runValidationTests(ctx: TestContext): void {
         await ctx.program.methods
           .revealVote(ctx.VOTE_CHOICE_YES, ctx.VOTE_NONCE_VALIDATION) // Correct nonce/choice
           .accounts({
-            state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            voteCommit: ctx.validationVoteCommitPda, // The already revealed vote
-            userProfile: ctx.validatorProfilePda,
             validator: ctx.validatorKeypair.publicKey,
-            systemProgram: web3.SystemProgram.programId,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.validatorKeypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         expect.fail("Revealing an already revealed vote should be rejected");
       } catch (error) {
@@ -618,16 +602,12 @@ export function runValidationTests(ctx: TestContext): void {
         await ctx.program.methods
           .revealVote(ctx.VOTE_CHOICE_YES, nonce) // Use the correct nonce
           .accounts({
-            state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            voteCommit: user3VoteCommitPda, // Target User3's vote commit
-            userProfile: voterProfilePda, // User3's profile
-            validator: voter.publicKey, // User3 is signer
-            systemProgram: web3.SystemProgram.programId,
+            validator: voter.publicKey, // User3 is voter (not signer)
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([voter])
+          .signers([ctx.authorityKeypair])
           .rpc();
         expect.fail(
           "Revealing vote after reveal phase ended should be rejected",
