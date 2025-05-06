@@ -194,18 +194,13 @@ export function runValidationTests(ctx: TestContext): void {
         await ctx.program.methods
           .commitVote(selfVoteHash, new BN(1), false)
           .accounts({
-            state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda, // Submission created by contributor
-            voteCommit: selfVoteCommitPda,
-            userProfile: userProfilePda, // Contributor's profile
-            userTopicBalance: userTopicBalancePda, // Contributor's balance
             validatorRepAta: userRepAta, // Contributor's rep ATA
             validator: user.publicKey, // Contributor is the signer
-            systemProgram: web3.SystemProgram.programId,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([user])
+          .signers([ctx.authorityKeypair])
           .rpc();
         expect.fail("Self-voting should have been rejected");
       } catch (error) {
@@ -240,18 +235,13 @@ export function runValidationTests(ctx: TestContext): void {
         await ctx.program.methods
           .commitVote(zeroVoteHash, new BN(0), false)
           .accounts({
-            state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            voteCommit: zeroVoteCommitPda,
-            userProfile: ctx.validatorProfilePda,
-            userTopicBalance: ctx.validatorTopic1BalancePda,
             validatorRepAta: ctx.validatorRepAta,
             validator: ctx.validatorKeypair.publicKey,
-            systemProgram: web3.SystemProgram.programId,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.validatorKeypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         expect.fail("Voting with 0 tokens should have been rejected");
       } catch (error) {
@@ -293,18 +283,13 @@ export function runValidationTests(ctx: TestContext): void {
         await ctx.program.methods
           .commitVote(insufficientVoteHash, new BN(excessAmount), false)
           .accounts({
-            state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            voteCommit: insufficientVoteCommitPda,
-            userProfile: ctx.validatorProfilePda,
-            userTopicBalance: ctx.validatorTopic1BalancePda,
             validatorRepAta: ctx.validatorRepAta,
             validator: ctx.validatorKeypair.publicKey,
-            systemProgram: web3.SystemProgram.programId,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.validatorKeypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         expect.fail("Voting with insufficient tokens should be rejected");
       } catch (error) {
@@ -348,18 +333,13 @@ export function runValidationTests(ctx: TestContext): void {
         await ctx.program.methods
           .commitVote(wrongPhaseVoteHash, new BN(1), false)
           .accounts({
-            state: ctx.statePda,
-            submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
-            voteCommit: wrongPhaseVoteCommitPda,
-            userProfile: ctx.validatorProfilePda,
-            userTopicBalance: ctx.validatorTopic1BalancePda,
             validatorRepAta: ctx.validatorRepAta,
             validator: ctx.validatorKeypair.publicKey,
-            systemProgram: web3.SystemProgram.programId,
+            payer: ctx.authorityKeypair.publicKey,
           })
-          .signers([ctx.validatorKeypair])
+          .signers([ctx.authorityKeypair])
           .rpc();
         expect.fail("Committing vote during reveal phase should be rejected");
       } catch (error) {
@@ -417,18 +397,13 @@ export function runValidationTests(ctx: TestContext): void {
       await ctx.program.methods
         .commitVote(ctx.validationVoteHash, new BN(5), false)
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.validationSubmissionPda,
-          voteCommit: ctx.validationVoteCommitPda,
-          userProfile: ctx.validatorProfilePda,
-          userTopicBalance: ctx.validatorTopic1BalancePda,
           validatorRepAta: ctx.validatorRepAta,
           validator: ctx.validatorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> Committed vote successfully.");
 
@@ -610,18 +585,13 @@ export function runValidationTests(ctx: TestContext): void {
       await ctx.program.methods
         .commitVote(voteHash, voteAmount, false)
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.validationSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.validationSubmissionPda,
-          voteCommit: user3VoteCommitPda, // Use User3's PDA derived with standard seeds
-          userProfile: voterProfilePda,
-          userTopicBalance: voterTopicBalancePda,
           validatorRepAta: voterRepAta, // Pass User3's Rep ATA
           validator: voter.publicKey, // User3 is the signer/validator here
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([voter])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(
         " -> Committed User3 vote successfully:",

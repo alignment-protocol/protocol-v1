@@ -200,9 +200,19 @@ pub struct LinkSubmissionToTopic<'info> {
 /// Account constraints for committing a vote on a submission within a topic
 #[derive(Accounts)]
 pub struct CommitVote<'info> {
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
-    #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
+    #[account(
+        mut,
+        seeds = [
+            b"submission_topic_link",
+            submission.key().as_ref(),
+            topic.key().as_ref(),
+        ],
+        bump = submission_topic_link.bump,
+        constraint = submission_topic_link.status == SubmissionStatus::Pending
+    )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
 
     pub topic: Account<'info, Topic>,
@@ -211,7 +221,7 @@ pub struct CommitVote<'info> {
 
     #[account(
         init,
-        payer = validator,
+        payer = payer,
         seeds = [
             b"vote_commit",
             submission_topic_link.key().as_ref(),
@@ -255,9 +265,12 @@ pub struct CommitVote<'info> {
     )]
     pub validator_rep_ata: Account<'info, TokenAccount>,
 
-    /// The validator committing the vote
+    /// The account committing the vote (does not pay fees)
+    pub validator: SystemAccount<'info>,
+
+    /// The payer covering transaction fees and rent. Signs the transaction.
     #[account(mut)]
-    pub validator: Signer<'info>,
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,

@@ -51,7 +51,6 @@ export function runVotingTests(ctx: TestContext): void {
           topic: ctx.topic1Pda,
           submission: ctx.submissionPda, // Submission associated with the link
           authority: ctx.authorityKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
         })
         .signers([ctx.authorityKeypair])
         .rpc();
@@ -118,19 +117,13 @@ export function runVotingTests(ctx: TestContext): void {
       const tx = await ctx.program.methods
         .commitVote(voteHash, voteAmount, isPermanentRep)
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.submissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.submissionPda,
-          voteCommit: ctx.voteCommitPda,
-          userProfile: ctx.validatorProfilePda,
-          userTopicBalance: ctx.validatorTopic1BalancePda, // ADDED
           validatorRepAta: ctx.validatorRepAta, // ADDED
           validator: ctx.validatorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
-          // rent: web3.SYSVAR_RENT_PUBKEY, // Implicit
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Vote commit transaction signature:", tx);
