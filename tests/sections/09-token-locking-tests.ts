@@ -414,18 +414,13 @@ export function runTokenLockingTests(ctx: TestContext): void {
       const tx = await ctx.program.methods
         .commitVote(ctx.testVoteHash, voteAmount, isPermanentRep)
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.testSubmissionPda,
-          voteCommit: ctx.testVoteCommitPda,
-          userProfile: ctx.validatorProfilePda,
-          userTopicBalance: ctx.validatorTopic1BalancePda, // Account to update lock
           validatorRepAta: ctx.validatorRepAta, // Needed even if false
           validator: ctx.validatorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> Validator commit TX:", tx);
 
@@ -482,18 +477,13 @@ export function runTokenLockingTests(ctx: TestContext): void {
       const tx = await ctx.program.methods
         .commitVote(ctx.user3VoteHash, voteAmount, isPermanentRep)
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.testSubmissionPda,
-          voteCommit: ctx.user3VoteCommitPda,
-          userProfile: ctx.user3ProfilePda,
-          userTopicBalance: ctx.user3Topic1BalancePda, // Account to update lock
           validatorRepAta: ctx.user3RepAta, // Needed even if false
           validator: ctx.user3Keypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> User3 commit TX:", tx);
 
