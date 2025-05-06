@@ -513,16 +513,12 @@ export function runTokenLockingTests(ctx: TestContext): void {
       const revealTx1 = await ctx.program.methods
         .revealVote(ctx.VOTE_CHOICE_YES, "test-nonce-lock-1")
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.testSubmissionPda,
-          voteCommit: ctx.testVoteCommitPda, // Use validator's commit PDA for test sub
-          userProfile: ctx.validatorProfilePda,
           validator: ctx.validatorKeypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> Validator reveal TX:", revealTx1);
 
@@ -531,16 +527,12 @@ export function runTokenLockingTests(ctx: TestContext): void {
       const revealTx2 = await ctx.program.methods
         .revealVote(ctx.VOTE_CHOICE_YES, "user3-nonce-lock")
         .accounts({
-          state: ctx.statePda,
-          submissionTopicLink: ctx.testSubmissionTopicLinkPda,
           topic: ctx.topic1Pda,
           submission: ctx.testSubmissionPda,
-          voteCommit: ctx.user3VoteCommitPda, // Use user3's commit PDA for test sub
-          userProfile: ctx.user3ProfilePda,
           validator: ctx.user3Keypair.publicKey,
-          systemProgram: web3.SystemProgram.programId,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> User3 reveal TX:", revealTx2);
 
