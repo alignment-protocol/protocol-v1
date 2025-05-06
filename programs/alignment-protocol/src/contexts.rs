@@ -306,8 +306,12 @@ pub struct RevealVote<'info> {
     pub user_profile: Account<'info, UserProfile>,
 
     /// The validator revealing the vote (must match the original committer)
-    #[account(mut, constraint = user_profile.user == validator.key())]
-    pub validator: Signer<'info>,
+    #[account(constraint = user_profile.user == validator.key())]
+    pub validator: SystemAccount<'info>,
+
+    /// The payer covering transaction fees (signer)
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }
