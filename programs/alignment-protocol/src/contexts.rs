@@ -279,9 +279,19 @@ pub struct CommitVote<'info> {
 /// Account constraints for revealing a previously committed vote
 #[derive(Accounts)]
 pub struct RevealVote<'info> {
+    #[account(seeds = [b"state"], bump)]
     pub state: Account<'info, State>,
 
-    #[account(mut, constraint = submission_topic_link.status == SubmissionStatus::Pending)]
+    #[account(
+        mut,
+        seeds = [
+            b"submission_topic_link",
+            submission.key().as_ref(),
+            topic.key().as_ref(),
+        ],
+        bump = submission_topic_link.bump,
+        constraint = submission_topic_link.status == SubmissionStatus::Pending
+    )]
     pub submission_topic_link: Account<'info, SubmissionTopicLink>,
 
     pub topic: Account<'info, Topic>,
@@ -297,16 +307,10 @@ pub struct RevealVote<'info> {
         ],
         bump = vote_commit.bump,
         constraint = !vote_commit.revealed,
-        constraint = vote_commit.validator == validator.key(),
-        constraint = vote_commit.submission_topic_link == submission_topic_link.key()
     )]
     pub vote_commit: Account<'info, VoteCommit>,
 
-    #[account(mut)]
-    pub user_profile: Account<'info, UserProfile>,
-
-    /// The validator revealing the vote (must match the original committer)
-    #[account(constraint = user_profile.user == validator.key())]
+    /// The original voter (readonly, no signature required)
     pub validator: SystemAccount<'info>,
 
     /// The payer covering transaction fees (signer)
