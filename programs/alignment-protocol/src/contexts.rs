@@ -211,7 +211,7 @@ pub struct CommitVote<'info> {
 
     #[account(
         init,
-        payer = validator,
+        payer = payer,
         seeds = [
             b"vote_commit",
             submission_topic_link.key().as_ref(),
@@ -255,9 +255,12 @@ pub struct CommitVote<'info> {
     )]
     pub validator_rep_ata: Account<'info, TokenAccount>,
 
-    /// The validator committing the vote
+    /// The account committing the vote (does not pay fees)
+    pub validator: SystemAccount<'info>,
+
+    /// The payer covering transaction fees and rent. Signs the transaction.
     #[account(mut)]
-    pub validator: Signer<'info>,
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
