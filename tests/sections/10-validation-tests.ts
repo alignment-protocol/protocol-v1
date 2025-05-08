@@ -9,7 +9,7 @@ import * as crypto from "crypto";
 function createVoteHash(
   voter: web3.Keypair,
   submissionTopicLink: web3.PublicKey,
-  choice: number, // 0 = Yes, 1 = No
+  choice: number, // 1 for Yes, 0 for No (as per on-chain enum)
   nonce: string,
 ): number[] {
   const message = Buffer.concat([
@@ -176,7 +176,7 @@ export function runValidationTests(ctx: TestContext): void {
       const selfVoteHash = createVoteHash(
         user,
         ctx.validationSubmissionTopicLinkPda,
-        0,
+        1, // Assuming Yes for hashing consistency
         nonce,
       );
 
@@ -218,7 +218,7 @@ export function runValidationTests(ctx: TestContext): void {
       const zeroVoteHash = createVoteHash(
         ctx.validatorKeypair,
         ctx.validationSubmissionTopicLinkPda,
-        0,
+        1, // Assuming Yes for hashing consistency
         nonce,
       );
       const [zeroVoteCommitPda] = web3.PublicKey.findProgramAddressSync(
@@ -258,7 +258,7 @@ export function runValidationTests(ctx: TestContext): void {
       const insufficientVoteHash = createVoteHash(
         ctx.validatorKeypair,
         ctx.validationSubmissionTopicLinkPda,
-        0,
+        1, // Assuming Yes for hashing consistency
         nonce,
       );
       const [insufficientVoteCommitPda] = web3.PublicKey.findProgramAddressSync(
@@ -314,7 +314,7 @@ export function runValidationTests(ctx: TestContext): void {
       const wrongPhaseVoteHash = createVoteHash(
         ctx.validatorKeypair,
         ctx.validationSubmissionTopicLinkPda,
-        0,
+        1, // Assuming Yes for hashing consistency
         nonce,
       );
       const [wrongPhaseVoteCommitPda] = web3.PublicKey.findProgramAddressSync(
@@ -371,7 +371,7 @@ export function runValidationTests(ctx: TestContext): void {
       ctx.validationVoteHash = createVoteHash(
         ctx.validatorKeypair,
         ctx.validationSubmissionTopicLinkPda,
-        0,
+        1, // Choice for Yes, to match reveal attempt ({ yes: {} })
         nonce,
       );
       [ctx.validationVoteCommitPda] = web3.PublicKey.findProgramAddressSync(
@@ -539,7 +539,7 @@ export function runValidationTests(ctx: TestContext): void {
       const voteHash = createVoteHash(
         voter,
         ctx.validationSubmissionTopicLinkPda,
-        0,
+        1, // Choice for Yes, matching reveal attempt ({ yes: {} })
         nonce,
       );
       const voteAmount = new BN(1); // Commit a small amount

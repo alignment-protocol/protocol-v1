@@ -69,9 +69,9 @@ export function runVotingTests(ctx: TestContext): void {
       const voteChoice = ctx.VOTE_CHOICE_YES; // Using { yes: {} }
       const voteNonce = ctx.VOTE_NONCE; // Using "test-nonce"
 
-      // Ensure voteChoice is represented correctly for hashing (e.g., 0 for Yes, 1 for No)
-      // This depends on how VOTE_CHOICE_YES is defined in test-setup. For now, assume 0.
-      const voteChoiceByte = Buffer.from([0]); // Assuming 0 represents Yes
+      // Ensure voteChoice is represented correctly for hashing.
+      // As per on-chain enum: VoteChoice::Yes = 1, VoteChoice::No = 0.
+      const voteChoiceByte = Buffer.from([1]); // Yes is 1
 
       const message = Buffer.concat([
         ctx.validatorKeypair.publicKey.toBuffer(),
