@@ -187,9 +187,10 @@ pub struct SubmissionTopicLink {
 
 /// Vote direction (Yes/No)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(u8)]
 pub enum VoteChoice {
-    Yes,
-    No,
+    No = 0,
+    Yes = 1,
 }
 
 /// Vote commit account - stores the hash of a user's vote during the commit phase
