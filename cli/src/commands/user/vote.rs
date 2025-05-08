@@ -5,6 +5,8 @@ use anchor_client::{
     Program,
 };
 use anyhow::Result;
+use hex;
+use rand::RngCore;
 use std::rc::Rc;
 use std::str::FromStr;
 
@@ -26,7 +28,7 @@ pub fn cmd_commit_vote(
     topic_index: u64,
     choice_str: String,
     amount: u64,
-    nonce: String,
+    nonce_opt: Option<String>,
     permanent: bool,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
@@ -45,12 +47,34 @@ pub fn cmd_commit_vote(
     let rep_mint = state_data.rep_mint;
     let validator_rep_ata = get_token_ata(&validator, &rep_mint);
 
+    // Determine nonce: use provided or generate a new one
+    let (actual_nonce, was_generated) = match nonce_opt {
+        Some(n) => {
+            println!("Using provided nonce: {}", n);
+            (n, false)
+        }
+        None => {
+            let mut nonce_bytes = [0u8; 16]; // 16 bytes for 128-bit entropy
+            rand::rng().fill_bytes(&mut nonce_bytes);
+            let generated_nonce = hex::encode(nonce_bytes);
+            println!(
+                "Generated nonce: {} (Please SAVE THIS for the reveal phase!)\n",
+                generated_nonce
+            );
+            (generated_nonce, true)
+        }
+    };
+
     // Parse vote choice
     let vote_choice = parse_vote_choice(&choice_str)?;
 
-    // Generate vote hash
-    let vote_hash =
-        generate_vote_hash(&validator, &submission_topic_link_pda, &vote_choice, &nonce);
+    // Generate vote hash using the actual_nonce
+    let vote_hash = generate_vote_hash(
+        &validator,
+        &submission_topic_link_pda,
+        &vote_choice,
+        &actual_nonce,
+    );
 
     // Check if user profile exists
     let profile_exists = program.rpc().get_account(&user_profile_pda).is_ok();
@@ -70,7 +94,7 @@ pub fn cmd_commit_vote(
         "Using {} reputation",
         if permanent { "permanent" } else { "temporary" }
     );
-    println!("Nonce: {}", nonce);
+    // println!("Nonce: {}", actual_nonce);
     println!("Generated hash: {:?}", vote_hash);
 
     let accounts = AccountsAll::CommitVote {
@@ -100,7 +124,15 @@ pub fn cmd_commit_vote(
 
     println!("Vote committed successfully (txSig: {})", tx_sig);
     println!("Vote Commit PDA: {}", vote_commit_pda);
-    println!("Save your vote choice and nonce for the reveal phase!");
+    if was_generated {
+        println!("Remember to save your generated nonce: {}", actual_nonce);
+    } else {
+        // If it was provided, actual_nonce holds the user's original string.
+        println!(
+            "Save your vote choice and provided nonce ({}) for the reveal phase!",
+            actual_nonce
+        );
+    }
     Ok(())
 }
 

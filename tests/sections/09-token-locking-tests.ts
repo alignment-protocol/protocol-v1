@@ -73,7 +73,7 @@ export function runTokenLockingTests(ctx: TestContext): void {
       const message = Buffer.concat([
         voter.publicKey.toBuffer(),
         submissionTopicLink.toBuffer(),
-        Buffer.from([choice]), // 0 for Yes, 1 for No
+        Buffer.from([choice]), // 1 for Yes, 0 for No (as per on-chain enum)
         Buffer.from(nonce),
       ]);
       return Array.from(crypto.createHash("sha256").update(message).digest());
@@ -390,7 +390,7 @@ export function runTokenLockingTests(ctx: TestContext): void {
       ctx.testVoteHash = createVoteHash(
         ctx.validatorKeypair,
         ctx.testSubmissionTopicLinkPda,
-        0,
+        1, // Choice for Yes (1 for Yes, 0 for No)
         voteNonce,
       );
 
@@ -453,7 +453,7 @@ export function runTokenLockingTests(ctx: TestContext): void {
       ctx.user3VoteHash = createVoteHash(
         ctx.user3Keypair,
         ctx.testSubmissionTopicLinkPda,
-        0,
+        1, // Choice for Yes (1 for Yes, 0 for No)
         voteNonce,
       );
 

@@ -239,9 +239,9 @@ pub enum VoteCommands {
         #[arg(index = 4)]
         amount: u64,
 
-        /// Secret nonce for commitment
-        #[arg(index = 5)]
-        nonce: String,
+        /// Secret nonce for commitment. If not provided, one will be generated.
+        #[arg(long)]
+        nonce: Option<String>,
 
         /// Use permanent reputation tokens (default: false)
         #[arg(long)]

@@ -187,9 +187,10 @@ pub struct SubmissionTopicLink {
 
 /// Vote direction (Yes/No)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(u8)]
 pub enum VoteChoice {
-    Yes,
-    No,
+    No = 0,
+    Yes = 1,
 }
 
 /// Vote commit account - stores the hash of a user's vote during the commit phase
@@ -201,7 +202,7 @@ pub struct VoteCommit {
     /// The validator who created this vote commit
     pub validator: Pubkey,
 
-    /// The hashed vote: SHA-256(validator pubkey + submission_topic_link pubkey + vote choice + nonce)
+    /// The hashed vote: SHA-256(validator_pk | submission_topic_link_pk | "yes"/"no" | nonce)
     pub vote_hash: [u8; 32],
 
     /// Whether this vote has been revealed yet
