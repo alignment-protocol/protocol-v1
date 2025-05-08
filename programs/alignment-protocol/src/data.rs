@@ -201,7 +201,7 @@ pub struct VoteCommit {
     /// The validator who created this vote commit
     pub validator: Pubkey,
 
-    /// The hashed vote: SHA-256(validator pubkey + submission_topic_link pubkey + vote choice + nonce)
+    /// The hashed vote: SHA-256(validator_pk | submission_topic_link_pk | "yes"/"no" | nonce)
     pub vote_hash: [u8; 32],
 
     /// Whether this vote has been revealed yet
