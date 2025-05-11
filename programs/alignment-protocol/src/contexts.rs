@@ -910,14 +910,16 @@ pub struct StakeTopicSpecificTokens<'info> {
     /// The temporary alignment token mint (source tokens to burn)
     #[account(
         mut,
-        constraint = temp_align_mint.key() == state.temp_align_mint @ ErrorCode::TokenMintMismatch
+        seeds = [b"temp_align_mint"],
+        bump,
     )]
     pub temp_align_mint: Account<'info, Mint>,
 
     /// The temporary reputation token mint (target tokens to mint)
     #[account(
         mut,
-        constraint = temp_rep_mint.key() == state.temp_rep_mint @ ErrorCode::TokenMintMismatch
+        seeds = [b"temp_rep_mint"],
+        bump,
     )]
     pub temp_rep_mint: Account<'info, Mint>,
 
