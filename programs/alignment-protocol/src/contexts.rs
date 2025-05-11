@@ -910,14 +910,16 @@ pub struct StakeTopicSpecificTokens<'info> {
     /// The temporary alignment token mint (source tokens to burn)
     #[account(
         mut,
-        constraint = temp_align_mint.key() == state.temp_align_mint @ ErrorCode::TokenMintMismatch
+        seeds = [b"temp_align_mint"],
+        bump,
     )]
     pub temp_align_mint: Account<'info, Mint>,
 
     /// The temporary reputation token mint (target tokens to mint)
     #[account(
         mut,
-        constraint = temp_rep_mint.key() == state.temp_rep_mint @ ErrorCode::TokenMintMismatch
+        seeds = [b"temp_rep_mint"],
+        bump,
     )]
     pub temp_rep_mint: Account<'info, Mint>,
 
@@ -943,9 +945,12 @@ pub struct StakeTopicSpecificTokens<'info> {
     )]
     pub user_temp_rep_account: Account<'info, TokenAccount>,
 
-    /// The user associated with these tokens, signing the transaction.
+    /// The user for whom tokens are being staked (no signature required).
+    pub user: SystemAccount<'info>,
+
+    /// The signer paying for transaction fees.
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub payer: Signer<'info>,
 
     /// Token program for CPI calls
     pub token_program: Program<'info, Token>,

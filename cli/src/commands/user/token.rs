@@ -59,6 +59,7 @@ pub fn cmd_stake_topic_specific_tokens(
 
     let accounts = AccountsAll::StakeTopicSpecificTokens {
         user,
+        payer: user,
         user_profile: user_profile_pda,
         topic: topic_pda,
         state: state_pda,

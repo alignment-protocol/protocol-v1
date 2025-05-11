@@ -325,18 +325,11 @@ export function runTokenLockingTests(ctx: TestContext): void {
       const user3StakeTx = await ctx.program.methods
         .stakeTopicSpecificTokens(user3StakeAmount)
         .accounts({
-          state: ctx.statePda,
           topic: ctx.topic1Pda,
-          userProfile: ctx.user3ProfilePda,
-          userTopicBalance: ctx.user3Topic1BalancePda, // Account to update
-          tempAlignMint: ctx.tempAlignMintPda,
-          tempRepMint: ctx.tempRepMintPda,
-          userTempAlignAccount: ctx.user3TempAlignAccount, // Source for burn
-          userTempRepAccount: ctx.user3TempRepAccount, // Target for mint
           user: ctx.user3Keypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.user3Keypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
       console.log(" -> User3 staking TX:", user3StakeTx);
 
