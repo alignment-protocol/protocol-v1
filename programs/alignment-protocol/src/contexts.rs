@@ -943,9 +943,12 @@ pub struct StakeTopicSpecificTokens<'info> {
     )]
     pub user_temp_rep_account: Account<'info, TokenAccount>,
 
-    /// The user associated with these tokens, signing the transaction.
+    /// The user for whom tokens are being staked (no signature required).
+    pub user: SystemAccount<'info>,
+
+    /// The signer paying for transaction fees.
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub payer: Signer<'info>,
 
     /// Token program for CPI calls
     pub token_program: Program<'info, Token>,
