@@ -80,18 +80,11 @@ export function runStakingTests(ctx: TestContext): void {
       const tx = await ctx.program.methods
         .stakeTopicSpecificTokens(stakeAmount)
         .accounts({
-          state: ctx.statePda,
           topic: ctx.topic1Pda,
-          userProfile: ctx.contributorProfilePda,
-          userTopicBalance: ctx.contributorTopic1BalancePda,
-          tempAlignMint: ctx.tempAlignMintPda,
-          tempRepMint: ctx.tempRepMintPda,
-          userTempAlignAccount: ctx.contributorTempAlignAccount,
-          userTempRepAccount: ctx.contributorTempRepAccount,
           user: ctx.contributorKeypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.contributorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Contributor stake tokens transaction signature:", tx);
@@ -247,18 +240,11 @@ export function runStakingTests(ctx: TestContext): void {
       const validatorStakeTx = await ctx.program.methods
         .stakeTopicSpecificTokens(validatorStakeAmount)
         .accounts({
-          state: ctx.statePda,
           topic: ctx.topic1Pda,
-          userProfile: ctx.validatorProfilePda,
-          userTopicBalance: ctx.validatorTopic1BalancePda,
-          tempAlignMint: ctx.tempAlignMintPda,
-          tempRepMint: ctx.tempRepMintPda,
-          userTempAlignAccount: ctx.validatorTempAlignAccount,
-          userTempRepAccount: ctx.validatorTempRepAccount,
           user: ctx.validatorKeypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          payer: ctx.authorityKeypair.publicKey,
         })
-        .signers([ctx.validatorKeypair])
+        .signers([ctx.authorityKeypair])
         .rpc();
 
       console.log("Validator stake transaction signature:", validatorStakeTx);
