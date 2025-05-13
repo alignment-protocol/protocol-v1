@@ -5,6 +5,9 @@ pub const MAX_TOPIC_NAME_LENGTH: usize = 64;
 pub const MAX_TOPIC_DESCRIPTION_LENGTH: usize = 256;
 pub const MAX_DATA_REFERENCE_LENGTH: usize = 128; // For IPFS/Arweave hashes or transaction references
 
+/// Scaling factor for the k value in diminishing returns calculation (e.g., 1_000_000 for 6 decimal places)
+pub const K_SCALING_FACTOR: u64 = 1_000_000;
+
 /// Global state account for this protocol
 #[account]
 pub struct State {
@@ -40,6 +43,10 @@ pub struct State {
 
     /// Default duration for reveal phase in seconds (24 hours)
     pub default_reveal_phase_duration: u64,
+
+    /// The 'k' value for diminishing returns when staking permanent ALIGN for permanent REP, scaled by K_SCALING_FACTOR.
+    /// Formula: rep_minted = align_staked / (1 + (diminishing_k_value / K_SCALING_FACTOR) * sqrt(current_permanent_rep_supply))
+    pub diminishing_k_value: u64,
 }
 
 /// Each submission entry

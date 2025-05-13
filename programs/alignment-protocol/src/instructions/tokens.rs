@@ -1,5 +1,6 @@
 use crate::contexts::{
-    CreateUserAta, CreateUserTempAlignAccount, CreateUserTempRepAccount, StakeTopicSpecificTokens,
+    CreateUserAta, CreateUserTempAlignAccount, CreateUserTempRepAccount, StakePermanentAlignForRep,
+    StakeTopicSpecificTokens,
 };
 use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
@@ -207,6 +208,123 @@ pub fn stake_topic_specific_tokens(
 
     // (Optional) Emit event
     // emit!(TokensStaked { ... });
+
+    Ok(())
+}
+
+/// Stakes permanent ALIGN tokens for permanent REP tokens with diminishing returns.
+///
+/// - Burns `amount` of ALIGN from `user_align_ata` (authority: `payer`).
+/// - Mints REP to `user_rep_ata` (authority: `payer`, mint authority: `state` PDA).
+/// - REP minted is calculated as: `amount / (1 + k * sqrt(current_total_rep_supply))`,
+///   where `k` is `diminishing_k_value / K_SCALING_FACTOR` from `State`.
+pub fn stake_permanent_align_for_rep(
+    ctx: Context<StakePermanentAlignForRep>,
+    amount: u64,
+) -> Result<()> {
+    msg!(
+        "Staking {} permanent ALIGN for permanent REP for user {} (via payer {})",
+        amount,
+        ctx.accounts.user.key(),
+        ctx.accounts.payer.key()
+    );
+
+    if amount == 0 {
+        return err!(ErrorCode::ZeroStakeAmount);
+    }
+    // diminishing_k_value is expected to be set during state initialization/update
+    if ctx.accounts.state.diminishing_k_value == 0 {
+        // If k=0, formula becomes rep_minted = align_staked. This might be valid if intended.
+        // However, if k is meant for diminishing returns, k=0 implies no diminishing effect.
+        // We'll consider k=0 an invalid configuration for this specific diminishing returns logic.
+        msg!("Error: diminishing_k_value in state is zero, which is invalid for this logic.");
+        return err!(ErrorCode::InvalidKValue);
+    }
+
+    // 1. Burn permanent ALIGN from user's ATA (controlled by payer)
+    let cpi_accounts_burn = Burn {
+        mint: ctx.accounts.align_mint.to_account_info(),
+        from: ctx.accounts.user_align_ata.to_account_info(),
+        authority: ctx.accounts.payer.to_account_info(), // Payer is the authority for user's ALIGN ATA
+    };
+    let cpi_program_burn = ctx.accounts.token_program.to_account_info();
+    token::burn(CpiContext::new(cpi_program_burn, cpi_accounts_burn), amount)?;
+    msg!(
+        "Burned {} ALIGN from ATA {} for user {}",
+        amount,
+        ctx.accounts.user_align_ata.key(),
+        ctx.accounts.user.key()
+    );
+
+    // 2. Calculate REP to mint using diminishing returns formula
+    let align_staked_float = amount as f64;
+    // The supply of rep_mint *before* this transaction's mint operation
+    let current_permanent_rep_supply_float = ctx.accounts.rep_mint.supply as f64;
+
+    let k_float =
+        ctx.accounts.state.diminishing_k_value as f64 / crate::data::K_SCALING_FACTOR as f64;
+
+    // Calculate sqrt. If current_permanent_rep_supply_float is negative (not possible for u64), sqrt would panic.
+    // It's safe here as supply is u64.
+    let sqrt_permanent_rep = current_permanent_rep_supply_float.sqrt();
+
+    let denominator = 1.0 + k_float * sqrt_permanent_rep;
+
+    if denominator <= 0.0 {
+        // Denominator should be > 0 if k_float >= 0 and supply >=0
+        msg!(
+            "Error: Denominator is zero or negative ({}). k_float: {}, sqrt_permanent_rep: {}",
+            denominator,
+            k_float,
+            sqrt_permanent_rep
+        );
+        return err!(ErrorCode::Overflow); // Or a more specific error for invalid calculation
+    }
+
+    let rep_to_mint_float = align_staked_float / denominator;
+    let rep_to_mint = rep_to_mint_float as u64; // Standard u64 conversion, potential precision loss is accepted
+
+    msg!(
+        "Calculation details: REP to mint: {}. Staked ALIGN: {}, Current REP supply: {}, k_scaled (state): {}, k_float: {:.6}, sqrt_rep: {:.6}, Denominator: {:.6}",
+        rep_to_mint,
+        amount,
+        ctx.accounts.rep_mint.supply,
+        ctx.accounts.state.diminishing_k_value,
+        k_float,
+        sqrt_permanent_rep,
+        denominator
+    );
+
+    // 3. Mint permanent REP to user's ATA (controlled by payer, mint authority is state PDA)
+    if rep_to_mint > 0 {
+        let state_bump = ctx.accounts.state.bump;
+        // Common seeds for state PDA: b"state"
+        let state_seeds = &[&b"state"[..], &[state_bump]];
+        let signer_seeds = &[&state_seeds[..]];
+
+        let cpi_accounts_mint = MintTo {
+            mint: ctx.accounts.rep_mint.to_account_info(),
+            to: ctx.accounts.user_rep_ata.to_account_info(),
+            authority: ctx.accounts.state.to_account_info(), // State PDA is the mint authority for permanent REP
+        };
+        let cpi_program_mint = ctx.accounts.token_program.to_account_info();
+        token::mint_to(
+            CpiContext::new_with_signer(cpi_program_mint, cpi_accounts_mint, signer_seeds),
+            rep_to_mint,
+        )?;
+        msg!(
+            "Minted {} REP to ATA {} for user {}",
+            rep_to_mint,
+            ctx.accounts.user_rep_ata.key(),
+            ctx.accounts.user.key()
+        );
+    } else {
+        msg!(
+            "No REP minted for user {} as calculated amount is 0 (amount staked: {}).",
+            ctx.accounts.user.key(),
+            amount
+        );
+    }
 
     Ok(())
 }

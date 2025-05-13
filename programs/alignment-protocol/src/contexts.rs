@@ -956,6 +956,57 @@ pub struct StakeTopicSpecificTokens<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct StakePermanentAlignForRep<'info> {
+    /// CHECK: The logical user account for whom the staking is performed.
+    /// This account's pubkey may be used for deriving user-specific PDAs elsewhere
+    /// or for logging, but it does not sign this transaction.
+    pub user: AccountInfo<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>, // Pays fees & is authority for user_align_ata, user_rep_ata
+
+    #[account(
+        mut,
+        associated_token::mint = align_mint,
+        associated_token::authority = payer, // Payer (backend wallet) controls this ATA
+        // Constraint: user_align_ata.owner == payer.key() is implied by associated_token::authority = payer
+        // Constraint: user_align_ata.mint == align_mint.key() is implied by associated_token::mint = align_mint
+    )]
+    pub user_align_ata: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        associated_token::mint = rep_mint,
+        associated_token::authority = payer, // Payer (backend wallet) controls this ATA
+        // Constraint: user_rep_ata.owner == payer.key() is implied by associated_token::authority = payer
+        // Constraint: user_rep_ata.mint == rep_mint.key() is implied by associated_token::mint = rep_mint
+    )]
+    pub user_rep_ata: Account<'info, TokenAccount>,
+
+    #[account(
+        mut, // ALIGN mint supply changes due to burn
+        address = state.align_mint @ ErrorCode::InvalidAlignMint
+    )]
+    pub align_mint: Account<'info, Mint>,
+
+    #[account(
+        mut, // REP mint supply changes due to mint
+        address = state.rep_mint @ ErrorCode::InvalidRepMint
+    )]
+    pub rep_mint: Account<'info, Mint>,
+
+    #[account(
+        seeds = [b"state"],
+        bump = state.bump
+        // state.diminishing_k_value will be read in the instruction logic
+    )]
+    pub state: Account<'info, State>,
+
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
 // --- NEW CONTEXTS FOR AI VALIDATION ---
 
 /// Account constraints for requesting AI validation for a submission
