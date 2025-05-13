@@ -397,15 +397,15 @@ export function runTokenLockingTests(ctx: TestContext): void {
         ctx.program.programId,
       );
 
-      const voteAmount = new BN(10);
-      const isPermanentRep = false;
+      const tempRepAmount = new BN(10);
+      const permRepAmount = new BN(0);
       console.log(
-        `Validator committing ${voteAmount.toNumber()} tempRep on test submission ${ctx.testSubmissionPda.toBase58()}`,
+        `Validator committing ${tempRepAmount.toNumber()} tempRep on test submission ${ctx.testSubmissionPda.toBase58()}`,
       );
 
       // Commit the vote
       const tx = await ctx.program.methods
-        .commitVote(ctx.testVoteHash, voteAmount, isPermanentRep)
+        .commitVote(ctx.testVoteHash, tempRepAmount, permRepAmount)
         .accounts({
           topic: ctx.topic1Pda,
           submission: ctx.testSubmissionPda,
@@ -423,10 +423,10 @@ export function runTokenLockingTests(ctx: TestContext): void {
       );
       console.log("Validator UserTopicBalance after commit:", balanceAfter);
       expect(balanceAfter.tempRepAmount.toNumber()).to.equal(
-        balanceBefore.tempRepAmount.toNumber() - voteAmount.toNumber(),
+        balanceBefore.tempRepAmount.toNumber() - tempRepAmount.toNumber(),
       ); // 25 - 10 = 15
       expect(balanceAfter.lockedTempRepAmount.toNumber()).to.equal(
-        balanceBefore.lockedTempRepAmount.toNumber() + voteAmount.toNumber(),
+        balanceBefore.lockedTempRepAmount.toNumber() + tempRepAmount.toNumber(),
       ); // 0 + 10 = 10
     });
 
@@ -460,15 +460,15 @@ export function runTokenLockingTests(ctx: TestContext): void {
         ctx.program.programId,
       );
 
-      const voteAmount = new BN(36); // sqrt(36) = 6 voting power
-      const isPermanentRep = false;
+      const tempRepAmount = new BN(36); // sqrt(36) = 6 voting power
+      const permRepAmount = new BN(0);
       console.log(
-        `User3 committing ${voteAmount.toNumber()} tempRep on test submission ${ctx.testSubmissionPda.toBase58()}`,
+        `User3 committing ${tempRepAmount.toNumber()} tempRep on test submission ${ctx.testSubmissionPda.toBase58()}`,
       );
 
       // Commit user3's vote
       const tx = await ctx.program.methods
-        .commitVote(ctx.user3VoteHash, voteAmount, isPermanentRep)
+        .commitVote(ctx.user3VoteHash, tempRepAmount, permRepAmount)
         .accounts({
           topic: ctx.topic1Pda,
           submission: ctx.testSubmissionPda,
@@ -487,11 +487,11 @@ export function runTokenLockingTests(ctx: TestContext): void {
         );
       console.log("User3 UserTopicBalance after commit:", user3BalanceAfter);
       expect(user3BalanceAfter.tempRepAmount.toNumber()).to.equal(
-        user3BalanceBefore.tempRepAmount.toNumber() - voteAmount.toNumber(),
+        user3BalanceBefore.tempRepAmount.toNumber() - tempRepAmount.toNumber(),
       ); // 50 - 36 = 14
       expect(user3BalanceAfter.lockedTempRepAmount.toNumber()).to.equal(
         user3BalanceBefore.lockedTempRepAmount.toNumber() +
-          voteAmount.toNumber(),
+          tempRepAmount.toNumber(),
       ); // 0 + 36 = 36
 
       // --- Reveal Phase ---

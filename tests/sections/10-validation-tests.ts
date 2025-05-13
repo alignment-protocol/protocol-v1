@@ -192,7 +192,7 @@ export function runValidationTests(ctx: TestContext): void {
       console.log("Attempting self-vote (should fail)...");
       try {
         await ctx.program.methods
-          .commitVote(selfVoteHash, new BN(1), false)
+          .commitVote(selfVoteHash, new BN(1), new BN(0))
           .accounts({
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda, // Submission created by contributor
@@ -233,7 +233,7 @@ export function runValidationTests(ctx: TestContext): void {
       console.log("Attempting vote with 0 tokens (should fail)...");
       try {
         await ctx.program.methods
-          .commitVote(zeroVoteHash, new BN(0), false)
+          .commitVote(zeroVoteHash, new BN(0), new BN(0))
           .accounts({
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
@@ -281,7 +281,7 @@ export function runValidationTests(ctx: TestContext): void {
 
       try {
         await ctx.program.methods
-          .commitVote(insufficientVoteHash, new BN(excessAmount), false)
+          .commitVote(insufficientVoteHash, new BN(excessAmount), new BN(0))
           .accounts({
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
@@ -331,7 +331,7 @@ export function runValidationTests(ctx: TestContext): void {
       );
       try {
         await ctx.program.methods
-          .commitVote(wrongPhaseVoteHash, new BN(1), false)
+          .commitVote(wrongPhaseVoteHash, new BN(1), new BN(0))
           .accounts({
             topic: ctx.topic1Pda,
             submission: ctx.validationSubmissionPda,
@@ -395,7 +395,7 @@ export function runValidationTests(ctx: TestContext): void {
 
       console.log("Committing a valid vote first...");
       await ctx.program.methods
-        .commitVote(ctx.validationVoteHash, new BN(5), false)
+        .commitVote(ctx.validationVoteHash, new BN(5), new BN(0))
         .accounts({
           topic: ctx.topic1Pda,
           submission: ctx.validationSubmissionPda,
@@ -567,7 +567,7 @@ export function runValidationTests(ctx: TestContext): void {
         `Committing vote as User3 (${voter.publicKey.toBase58()}) for 'reveal too late' test...`,
       );
       await ctx.program.methods
-        .commitVote(voteHash, voteAmount, false)
+        .commitVote(voteHash, voteAmount, new BN(0))
         .accounts({
           topic: ctx.topic1Pda,
           submission: ctx.validationSubmissionPda,

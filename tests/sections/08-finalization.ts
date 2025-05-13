@@ -246,7 +246,8 @@ export function runFinalizationTests(ctx: TestContext): void {
 
       // Validator committed 25 tempRep. Since vote was 'Yes' and submission 'Accepted',
       // the 25 tempRep should be burned and 25 permanent Rep should be minted.
-      const expectedConversionAmount = voteCommitBefore.voteAmount.toNumber(); // 25 from commit
+      const expectedConversionAmount =
+        voteCommitBefore.tempRepAmount.toNumber(); // 25 from commit
       // Check tempRep decreased (burned)
       expect(Number(globalTempRepAfter.amount)).to.equal(
         Number(globalTempRepBefore.amount) - expectedConversionAmount,

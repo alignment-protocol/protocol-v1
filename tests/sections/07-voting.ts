@@ -104,18 +104,18 @@ export function runVotingTests(ctx: TestContext): void {
         ctx.validatorTopic1BalancePda,
       );
       const availableTempRep = validatorBalance.tempRepAmount.toNumber();
-      const voteAmount = new BN(availableTempRep / 2); // Vote with half the available tempRep (25)
-      const isPermanentRep = false; // Using temporary reputation
+      const tempRepAmount = new BN(availableTempRep / 2); // Vote with half the available tempRep (25)
+      const permRepAmount = new BN(0);
       console.log(
         `Validator ${ctx.validatorKeypair.publicKey.toBase58()} committing vote:`,
       );
-      console.log(` -> Amount: ${voteAmount.toNumber()} (Temp Rep)`);
+      console.log(` -> Amount: ${tempRepAmount.toNumber()} (Temp Rep)`);
       console.log(` -> Hash: ${Buffer.from(voteHash).toString("hex")}`);
       console.log(` -> On Link: ${ctx.submissionTopicLinkPda.toBase58()}`);
 
       // Commit the vote - *** ADDED userTopicBalance and validatorRepAta ***
       const tx = await ctx.program.methods
-        .commitVote(voteHash, voteAmount, isPermanentRep)
+        .commitVote(voteHash, tempRepAmount, permRepAmount)
         .accounts({
           topic: ctx.topic1Pda,
           submission: ctx.submissionPda,
@@ -144,10 +144,10 @@ export function runVotingTests(ctx: TestContext): void {
       expect(voteCommitAcc.revealed).to.be.false;
       expect(voteCommitAcc.finalized).to.be.false;
       expect(voteCommitAcc.voteChoice).to.be.null;
-      expect(voteCommitAcc.voteAmount.toNumber()).to.equal(
-        voteAmount.toNumber(),
+      expect(voteCommitAcc.tempRepAmount.toNumber()).to.equal(
+        tempRepAmount.toNumber(),
       );
-      expect(voteCommitAcc.isPermanentRep).to.equal(isPermanentRep);
+      expect(voteCommitAcc.permRepAmount.toNumber()).to.equal(0);
       expect(voteCommitAcc.commitTimestamp.toNumber()).to.be.closeTo(now, 60); // Check commit time
 
       // Verify the submission-topic link vote count was updated
@@ -168,17 +168,15 @@ export function runVotingTests(ctx: TestContext): void {
       );
       console.log("Validator UserTopicBalance after commit:", balanceAfter);
       // Lock amount should increase if using temp rep
-      const expectedLockedAmount = isPermanentRep
-        ? validatorBalance.lockedTempRepAmount.toNumber()
-        : validatorBalance.lockedTempRepAmount.toNumber() +
-          voteAmount.toNumber();
+      const expectedLockedAmount =
+        validatorBalance.lockedTempRepAmount.toNumber() +
+        tempRepAmount.toNumber();
       expect(balanceAfter.lockedTempRepAmount.toNumber()).to.equal(
         expectedLockedAmount,
       );
       // Available tempRep should decrease if using temp rep
-      const expectedTempRepAmount = isPermanentRep
-        ? validatorBalance.tempRepAmount.toNumber()
-        : validatorBalance.tempRepAmount.toNumber() - voteAmount.toNumber();
+      const expectedTempRepAmount =
+        validatorBalance.tempRepAmount.toNumber() - tempRepAmount.toNumber();
       expect(balanceAfter.tempRepAmount.toNumber()).to.equal(
         expectedTempRepAmount,
       );
@@ -288,7 +286,7 @@ export function runVotingTests(ctx: TestContext): void {
 
       // Calculate expected voting power (sqrt of vote amount)
       // Using the amount from the fetched voteCommit account before reveal
-      const voteAmount = voteCommitBeforeReveal.voteAmount.toNumber();
+      const voteAmount = voteCommitBeforeReveal.tempRepAmount.toNumber();
       const expectedVotingPower = Math.floor(Math.sqrt(voteAmount)); // Use floor for integer sqrt
       console.log(
         ` -> Vote Amount: ${voteAmount}, Expected Voting Power (sqrt): ${expectedVotingPower}`,
