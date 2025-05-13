@@ -9,8 +9,8 @@ use sha2::{Digest, Sha256};
 pub fn commit_vote(
     ctx: Context<CommitVote>,
     vote_hash: [u8; 32],
-    vote_amount: u64,
-    is_permanent_rep: bool,
+    temp_rep_amount: u64,
+    perm_rep_amount: u64,
 ) -> Result<()> {
     // Get current time to validate voting window
     let current_time = Clock::get()?.unix_timestamp as u64;
@@ -25,9 +25,16 @@ pub fn commit_vote(
         return Err(ErrorCode::CommitPhaseEnded.into());
     }
 
-    // Validate the vote amount based on token type
-    if vote_amount == 0 {
+    // Validate vote amounts
+    if temp_rep_amount == 0 && perm_rep_amount == 0 {
         return Err(ErrorCode::ZeroVoteAmount.into());
+    }
+
+    // MVP Constraint: perm_rep_amount must be 0
+    if perm_rep_amount > 0 {
+        // This is a temporary restriction for the MVP
+        // msg!("Permanent REP commitment is not yet fully supported in MVP.");
+        return Err(ErrorCode::PermRepCommitmentNotSupported.into());
     }
 
     // IMPORTANT: Prevent self-voting by checking if the validator is the submission contributor
@@ -42,61 +49,69 @@ pub fn commit_vote(
         return Err(ErrorCode::DuplicateVoteCommitment.into());
     }
 
-    // Check if user has enough Rep based on the flag
-    if is_permanent_rep {
-        // Voting with permanent Rep - check balance in user-owned ATA
-        if ctx.accounts.validator_rep_ata.amount < vote_amount {
-            msg!(
-                "Insufficient permanent Rep. Required: {}, Available: {}",
-                vote_amount,
-                ctx.accounts.validator_rep_ata.amount
-            );
-            return Err(ErrorCode::InsufficientVotingPower.into());
-        }
-        // No token locking needed for permanent rep in MVP
-        msg!("Committing vote with {} permanent Rep", vote_amount);
-    } else {
-        // Voting with tempRep - use the UserTopicBalance account for topic-specific balance
+    // Handle temporary reputation (tempRep)
+    if temp_rep_amount > 0 {
         let user_topic_balance = &mut ctx.accounts.user_topic_balance;
 
         // Check available topic-specific tempRep
-        if user_topic_balance.temp_rep_amount < vote_amount {
+        if user_topic_balance.temp_rep_amount < temp_rep_amount {
             msg!(
                 "Insufficient tempRep for topic {}. Required: {}, Available: {}",
                 ctx.accounts.topic.key(),
-                vote_amount,
+                temp_rep_amount,
                 user_topic_balance.temp_rep_amount
             );
             return Err(ErrorCode::NoReputationForTopic.into());
         }
 
-        // Lock the tokens by moving them from available to locked in UserTopicBalance
+        // Lock the tempRep tokens
         user_topic_balance.temp_rep_amount = user_topic_balance
             .temp_rep_amount
-            .checked_sub(vote_amount)
+            .checked_sub(temp_rep_amount)
             .ok_or(ErrorCode::Overflow)?;
 
         user_topic_balance.locked_temp_rep_amount = user_topic_balance
             .locked_temp_rep_amount
-            .checked_add(vote_amount)
+            .checked_add(temp_rep_amount)
             .ok_or(ErrorCode::Overflow)?;
 
         msg!(
             "Locked {} tempRep tokens for voting in topic {}",
-            vote_amount,
+            temp_rep_amount,
             ctx.accounts.topic.key()
         );
         msg!(
-            "New available balance in UserTopicBalance: {}",
+            "New available tempRep balance in UserTopicBalance: {}",
             user_topic_balance.temp_rep_amount
         );
         msg!(
-            "New locked balance in UserTopicBalance: {}",
+            "New locked tempRep balance in UserTopicBalance: {}",
             user_topic_balance.locked_temp_rep_amount
         );
     }
 
-    // Initialize the vote commit - store is_permanent_rep flag
+    // Handle permanent reputation (Rep)
+    // For MVP, perm_rep_amount must be 0 (checked above).
+    // This section is structured for future non-zero perm_rep_amount.
+    if perm_rep_amount > 0 {
+        // Check balance in user-owned ATA for permanent Rep
+        if ctx.accounts.validator_rep_ata.amount < perm_rep_amount {
+            msg!(
+                "Insufficient permanent Rep. Required: {}, Available: {}",
+                perm_rep_amount,
+                ctx.accounts.validator_rep_ata.amount
+            );
+            return Err(ErrorCode::InsufficientVotingPower.into());
+        }
+        // Actual locking/transfer of permanent REP will be handled post-MVP,
+        // potentially involving a different ATA structure or escrow mechanism (ALIGN-18).
+        // For MVP, if perm_rep_amount > 0, it would have failed the earlier MVP constraint.
+        // If somehow perm_rep_amount is > 0 here and passed the MVP check (which it shouldn't),
+        // this message indicates that no locking action is taken for perm_rep in this MVP version.
+        msg!("Committing vote with {} permanent Rep (Note: No on-chain locking for perm_rep in MVP beyond balance check)", perm_rep_amount);
+    }
+
+    // Initialize the vote commit
     let vote_commit = &mut ctx.accounts.vote_commit;
     vote_commit.submission_topic_link = ctx.accounts.submission_topic_link.key();
     vote_commit.validator = ctx.accounts.validator.key();
@@ -105,8 +120,8 @@ pub fn commit_vote(
     vote_commit.finalized = false;
     vote_commit.vote_choice = None;
     vote_commit.commit_timestamp = current_time;
-    vote_commit.vote_amount = vote_amount;
-    vote_commit.is_permanent_rep = is_permanent_rep; // Store how the vote was made
+    vote_commit.temp_rep_amount = temp_rep_amount;
+    vote_commit.perm_rep_amount = perm_rep_amount;
     vote_commit.bump = ctx.bumps.vote_commit;
 
     // Increment the submission-topic link's committed votes counter
@@ -121,17 +136,21 @@ pub fn commit_vote(
         .ok_or(ErrorCode::Overflow)?;
 
     msg!(
-        "Vote committed for submission in topic '{}'",
+        "Vote committed for submission in topic \'{}\'",
         ctx.accounts.topic.name
     );
-    msg!("Vote amount: {}", vote_amount);
+    if temp_rep_amount > 0 {
+        msg!("Temporary REP committed: {}", temp_rep_amount);
+    }
+    if perm_rep_amount > 0 {
+        // This message will effectively not show for perm_rep_amount in MVP due to earlier constraint
+        msg!("Permanent REP committed: {}", perm_rep_amount);
+    }
+    // For overall context, let's log total effective amount for this commit
+    // Even if perm_rep_amount is 0, this helps in logs
     msg!(
-        "Using {} Rep",
-        if is_permanent_rep {
-            "permanent"
-        } else {
-            "temporary"
-        }
+        "Total effective vote amount considered for this commit: {}",
+        temp_rep_amount + perm_rep_amount
     );
     msg!(
         "Total committed votes for link now: {}",
@@ -179,7 +198,12 @@ pub fn reveal_vote(ctx: Context<RevealVote>, vote_choice: VoteChoice, nonce: Str
     vote_commit.vote_choice = Some(vote_choice);
 
     // Calculate voting power (quadratic)
-    let voting_power = calculate_quadratic_voting_power(vote_commit.vote_amount);
+    // Sum temp_rep_amount and perm_rep_amount for total voting power base
+    let total_vote_amount = vote_commit
+        .temp_rep_amount
+        .checked_add(vote_commit.perm_rep_amount)
+        .ok_or(ErrorCode::Overflow)?;
+    let voting_power = calculate_quadratic_voting_power(total_vote_amount);
 
     // Add the voting power to the appropriate counter
     let link = &mut ctx.accounts.submission_topic_link;
@@ -235,8 +259,8 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
     let voted_with_consensus = (consensus_is_yes && voted_yes) || (!consensus_is_yes && !voted_yes);
 
     // Only process token conversions/burns if temporary reputation was used
-    if !ctx.accounts.vote_commit.is_permanent_rep {
-        let vote_amount = ctx.accounts.vote_commit.vote_amount;
+    if ctx.accounts.vote_commit.temp_rep_amount > 0 {
+        let vote_amount = ctx.accounts.vote_commit.temp_rep_amount; // Use temp_rep_amount here
 
         if voted_with_consensus {
             // Validator voted correctly - convert tempRep to permanent Rep
@@ -319,14 +343,18 @@ pub fn finalize_vote(ctx: Context<FinalizeVote>) -> Result<()> {
                 vote_amount
             );
         }
-    } else {
-        // Using permanent Rep tokens - No conversion/burn/reward/penalty in MVP
-        msg!("Vote was made with permanent Rep tokens. No token conversion applied.");
+    } else if ctx.accounts.vote_commit.perm_rep_amount > 0 {
+        // This branch is for votes made only with permanent REP (temp_rep_amount is 0)
+        // No token conversion/burn/reward/penalty for permanent REP in MVP
+        msg!(
+            "Vote was made with permanent Rep tokens (amount: {}). No token conversion applied.",
+            ctx.accounts.vote_commit.perm_rep_amount
+        );
     }
 
     // Update the locked token balance in UserTopicBalance if tempRep was used
-    if !ctx.accounts.vote_commit.is_permanent_rep {
-        let vote_amount = ctx.accounts.vote_commit.vote_amount;
+    if ctx.accounts.vote_commit.temp_rep_amount > 0 {
+        let vote_amount = ctx.accounts.vote_commit.temp_rep_amount; // Use temp_rep_amount here
         let user_topic_balance = &mut ctx.accounts.user_topic_balance;
 
         // Unlock the tokens that were committed to this vote

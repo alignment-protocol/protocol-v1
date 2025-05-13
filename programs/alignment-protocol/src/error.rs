@@ -71,6 +71,9 @@ pub enum ErrorCode {
     #[msg("Vote amount must be greater than zero")]
     ZeroVoteAmount,
 
+    #[msg("Committing permanent REP is not supported in the current version.")]
+    PermRepCommitmentNotSupported,
+
     #[msg("Commit phase has not started yet")]
     CommitPhaseNotStarted,
 

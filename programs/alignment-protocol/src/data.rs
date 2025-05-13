@@ -217,11 +217,11 @@ pub struct VoteCommit {
     /// Commit timestamp
     pub commit_timestamp: u64,
 
-    /// The amount of tempRep or Rep tokens committed to this vote
-    pub vote_amount: u64,
+    /// The amount of temporary REP tokens committed to this vote
+    pub temp_rep_amount: u64,
 
-    /// Whether this is using permanent Rep (true) or temporary tempRep (false)
-    pub is_permanent_rep: bool,
+    /// The amount of permanent REP tokens committed to this vote
+    pub perm_rep_amount: u64,
 
     /// Bump seed for the vote commit PDA
     pub bump: u8,
