@@ -27,9 +27,9 @@ pub fn cmd_commit_vote(
     submission_pda_str: String,
     topic_index: u64,
     choice_str: String,
-    amount: u64,
+    temp_rep_amount: u64,
+    perm_rep_amount: u64,
     nonce_opt: Option<String>,
-    permanent: bool,
 ) -> Result<()> {
     let submission_pda = Pubkey::from_str(&submission_pda_str)
         .map_err(|e| anyhow::anyhow!("Invalid Submission PDA format: {}", e))?;
@@ -89,11 +89,13 @@ pub fn cmd_commit_vote(
         "Committing {} vote on submission {} in topic #{}",
         choice_str, submission_pda, topic_index
     );
-    println!("Vote amount: {}", amount);
-    println!(
-        "Using {} reputation",
-        if permanent { "permanent" } else { "temporary" }
-    );
+    if temp_rep_amount > 0 {
+        println!("Temporary REP amount: {}", temp_rep_amount);
+    }
+    if perm_rep_amount > 0 {
+        println!("Permanent REP amount: {}", perm_rep_amount);
+        println!("Note: Committing permanent REP (perm_rep_amount > 0) is currently restricted by MVP constraints on-chain and will likely fail if non-zero.");
+    }
     // println!("Nonce: {}", actual_nonce);
     println!("Generated hash: {:?}", vote_hash);
 
@@ -117,8 +119,8 @@ pub fn cmd_commit_vote(
         .accounts(accounts)
         .args(InstructionAll::CommitVote {
             vote_hash,
-            vote_amount: amount,
-            is_permanent_rep: permanent,
+            temp_rep_amount,
+            perm_rep_amount,
         })
         .send()?;
 

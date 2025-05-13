@@ -235,17 +235,17 @@ pub enum VoteCommands {
         #[arg(index = 3)]
         choice: String,
 
-        /// Amount of tokens to vote with
-        #[arg(index = 4)]
-        amount: u64,
+        /// Amount of temporary REP to vote with (topic-specific)
+        #[arg(long = "temp-rep", value_name = "AMOUNT", default_value_t = 0)]
+        temp_rep_amount: u64,
+
+        /// Amount of permanent REP to vote with (global; MVP: must be 0 on-chain)
+        #[arg(long = "perm-rep", value_name = "AMOUNT", default_value_t = 0)]
+        perm_rep_amount: u64,
 
         /// Secret nonce for commitment. If not provided, one will be generated.
         #[arg(long)]
         nonce: Option<String>,
-
-        /// Use permanent reputation tokens (default: false)
-        #[arg(long)]
-        permanent: bool,
     },
 
     /// Reveal a vote (second phase)

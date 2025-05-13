@@ -251,15 +251,21 @@ pub fn cmd_query_vote(
             println!("Vote Commit PDA: {}", vote_commit_pda);
             println!("Vote Hash: {:?}", vote.vote_hash);
             println!("Commit Timestamp: {}", vote.commit_timestamp);
-            println!("Vote Amount: {}", vote.vote_amount);
-            println!(
-                "Using {} reputation",
-                if vote.is_permanent_rep {
-                    "permanent"
-                } else {
-                    "temporary"
-                }
-            );
+            println!("Temporary REP Amount: {}", vote.temp_rep_amount);
+            println!("Permanent REP Amount: {}", vote.perm_rep_amount);
+
+            if vote.temp_rep_amount > 0 && vote.perm_rep_amount > 0 {
+                println!("Reputation Type: Mixed (Temporary and Permanent)");
+            } else if vote.temp_rep_amount > 0 {
+                println!("Reputation Type: Temporary");
+            } else if vote.perm_rep_amount > 0 {
+                println!("Reputation Type: Permanent");
+                println!("(Note: For MVP, on-chain enforcement requires perm_rep_amount to be 0 during commit, so this might indicate an older vote or a non-standard state if committed under MVP rules with perm_rep_amount > 0)");
+            } else {
+                // This case should ideally not happen if commit_vote enforces at least one amount > 0
+                println!("Reputation Type: Undetermined (both amounts are zero)");
+            }
+
             println!("Revealed: {}", vote.revealed);
             println!("Finalized: {}", vote.finalized);
 
