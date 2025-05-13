@@ -229,8 +229,8 @@ pub struct CommitVote<'info> {
         ],
         bump,
         // Discriminator + submission_topic_link pubkey + validator pubkey + vote_hash + revealed + finalized + 
-        // vote_choice (option) + commit_timestamp + vote_amount + is_permanent_rep + bump
-        space = 8 + 32 + 32 + 32 + 1 + 1 + (1 + 1) + 8 + 8 + 1 + 1
+        // vote_choice (option) + commit_timestamp + temp_rep_amount + perm_rep_amount + bump
+        space = 8 + 32 + 32 + 32 + 1 + 1 + (1 + 1) + 8 + 8 + 8 + 1
     )]
     pub vote_commit: Account<'info, VoteCommit>,
 

@@ -165,10 +165,10 @@ pub mod alignment_protocol {
     pub fn commit_vote(
         ctx: Context<CommitVote>,
         vote_hash: [u8; 32],
-        vote_amount: u64,
-        is_permanent_rep: bool,
+        temp_rep_amount: u64,
+        perm_rep_amount: u64,
     ) -> Result<()> {
-        instructions::votes::commit_vote(ctx, vote_hash, vote_amount, is_permanent_rep)
+        instructions::votes::commit_vote(ctx, vote_hash, temp_rep_amount, perm_rep_amount)
     }
 
     /// Instruction handler: Reveal a previously committed vote
