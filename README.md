@@ -1,6 +1,6 @@
 # Alignment Protocol
 
-A decentralized data alignment protocol on Solana where contributors submit data and validators vote on its quality using a dual-token system of alignment and reputation tokens.
+A program on Solana where contributors submit data and validators vote on its quality using a dual-layer, two-stage token system of alignment and reputation tokens.
 
 ## Overview
 
@@ -13,7 +13,7 @@ The Alignment Protocol implements a community-driven data quality validation sys
 
 ## Features
 
-- Four token system (tempAlign, Align, tempRep, Rep) to incentivize quality contributions and validation
+- Four token system (tempAlign, tempRep, Align, and Rep) to incentivize quality contributions and validation
 - Two-phase voting (commit-reveal) to prevent collusion
 - Topic-based organization of submissions
 - Cross-topic linking to categorize submissions across multiple topics
