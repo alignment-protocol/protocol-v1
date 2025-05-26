@@ -144,4 +144,14 @@ pub enum ErrorCode {
     // State Mismatch Errors (Start: 2024)
     #[msg("AI request index mismatch. State may have changed.")]
     StateMismatch,
+
+    // Permanent Staking Errors
+    #[msg("The provided ALIGN mint does not match the one in the protocol state.")]
+    InvalidAlignMint,
+
+    #[msg("The provided REP mint does not match the one in the protocol state.")]
+    InvalidRepMint,
+
+    #[msg("The k value for diminishing returns (diminishing_k_value) in protocol state must be greater than zero.")]
+    InvalidKValue,
 }

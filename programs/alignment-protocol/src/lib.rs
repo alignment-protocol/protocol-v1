@@ -156,6 +156,17 @@ pub mod alignment_protocol {
         instructions::tokens::stake_topic_specific_tokens(ctx, amount)
     }
 
+    /// Instruction handler: Stake permanent ALIGN tokens for permanent REP tokens
+    ///
+    /// Burns permanent ALIGN from the user's (payer-controlled) ATA and mints permanent REP
+    /// to the user's (payer-controlled) ATA, applying a diminishing returns formula.
+    pub fn stake_permanent_align_for_rep(
+        ctx: Context<StakePermanentAlignForRep>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::tokens::stake_permanent_align_for_rep(ctx, amount)
+    }
+
     // Removed legacy submit_data instruction - all submissions must be tied to a topic
 
     /// Instruction handler: Commit a vote on a submission within a topic
